@@ -1,0 +1,13 @@
+[package]
+name = "cs_derive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+syn = { version = "1.0.*", features = ["extra-traits", "printing"]}
+quote = { version = "1.0.*" }
+proc-macro2 = "1"
+proc-macro-error = "1"
+
+[lib]
+proc-macro = true

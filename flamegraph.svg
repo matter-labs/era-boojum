@@ -1,0 +1,415 @@
+<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg version="1.1" width="1200" height="342" onload="init(evt)" viewBox="0 0 1200 342" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:fg="http://github.com/jonhoo/inferno"><!--Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples.--><!--NOTES: --><defs><linearGradient id="background" y1="0" y2="1" x1="0" x2="0"><stop stop-color="#eeeeee" offset="5%"/><stop stop-color="#eeeeb0" offset="95%"/></linearGradient></defs><style type="text/css">
+text { font-family:"Verdana"; font-size:12px; fill:rgb(0,0,0); }
+#title { text-anchor:middle; font-size:17px; }
+#matched { text-anchor:end; }
+#search { text-anchor:end; opacity:0.1; cursor:pointer; }
+#search:hover, #search.show { opacity:1; }
+#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+#unzoom { cursor:pointer; }
+#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+.hide { display:none; }
+.parent { opacity:0.5; }
+</style><script type="text/ecmascript"><![CDATA[
+        var nametype = 'Function:';
+        var fontsize = 12;
+        var fontwidth = 0.59;
+        var xpad = 10;
+        var inverted = false;
+        var searchcolor = 'rgb(230,0,230)';
+        var fluiddrawing = true;
+        var truncate_text_right = false;
+    ]]><![CDATA["use strict";
+var details, searchbtn, unzoombtn, matchedtxt, svg, searching, frames;
+function init(evt) {
+    details = document.getElementById("details").firstChild;
+    searchbtn = document.getElementById("search");
+    unzoombtn = document.getElementById("unzoom");
+    matchedtxt = document.getElementById("matched");
+    svg = document.getElementsByTagName("svg")[0];
+    frames = document.getElementById("frames");
+    total_samples = parseInt(frames.attributes.total_samples.value);
+    searching = 0;
+
+    // Use GET parameters to restore a flamegraph's state.
+    var restore_state = function() {
+        var params = get_params();
+        if (params.x && params.y)
+            zoom(find_group(document.querySelector('[*|x="' + params.x + '"][y="' + params.y + '"]')));
+        if (params.s)
+            search(params.s);
+    };
+
+    if (fluiddrawing) {
+        // Make width dynamic so the SVG fits its parent's width.
+        svg.removeAttribute("width");
+        // Edge requires us to have a viewBox that gets updated with size changes.
+        var isEdge = /Edge\/\d./i.test(navigator.userAgent);
+        var update_for_width_change = function() {
+            if (isEdge) {
+                svg.attributes.viewBox.value = "0 0 " + svg.width.baseVal.value + " " + svg.height.baseVal.value;
+            }
+
+            // Keep consistent padding on left and right of frames container.
+            frames.attributes.width.value = svg.width.baseVal.value - xpad * 2;
+
+            // Text truncation needs to be adjusted for the current width.
+            var el = frames.children;
+            for(var i = 0; i < el.length; i++) {
+                update_text(el[i]);
+            }
+
+            // Keep search elements at a fixed distance from right edge.
+            var svgWidth = svg.width.baseVal.value;
+            searchbtn.attributes.x.value = svgWidth - xpad;
+            matchedtxt.attributes.x.value = svgWidth - xpad;
+        };
+        window.addEventListener('resize', function() {
+            update_for_width_change();
+        });
+        // This needs to be done asynchronously for Safari to work.
+        setTimeout(function() {
+            unzoom();
+            update_for_width_change();
+            restore_state();
+            if (!isEdge) {
+                svg.removeAttribute("viewBox");
+            }
+        }, 0);
+    } else {
+        restore_state();
+    }
+}
+// event listeners
+window.addEventListener("click", function(e) {
+    var target = find_group(e.target);
+    if (target) {
+        if (target.nodeName == "a") {
+            if (e.ctrlKey === false) return;
+            e.preventDefault();
+        }
+        if (target.classList.contains("parent")) unzoom();
+        zoom(target);
+
+        // set parameters for zoom state
+        var el = target.querySelector("rect");
+        if (el && el.attributes && el.attributes.y && el.attributes["fg:x"]) {
+            var params = get_params()
+            params.x = el.attributes["fg:x"].value;
+            params.y = el.attributes.y.value;
+            history.replaceState(null, null, parse_params(params));
+        }
+    }
+    else if (e.target.id == "unzoom") {
+        unzoom();
+
+        // remove zoom state
+        var params = get_params();
+        if (params.x) delete params.x;
+        if (params.y) delete params.y;
+        history.replaceState(null, null, parse_params(params));
+    }
+    else if (e.target.id == "search") search_prompt();
+}, false)
+// mouse-over for info
+// show
+window.addEventListener("mouseover", function(e) {
+    var target = find_group(e.target);
+    if (target) details.nodeValue = nametype + " " + g_to_text(target);
+}, false)
+// clear
+window.addEventListener("mouseout", function(e) {
+    var target = find_group(e.target);
+    if (target) details.nodeValue = ' ';
+}, false)
+// ctrl-F for search
+window.addEventListener("keydown",function (e) {
+    if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+        e.preventDefault();
+        search_prompt();
+    }
+}, false)
+// functions
+function get_params() {
+    var params = {};
+    var paramsarr = window.location.search.substr(1).split('&');
+    for (var i = 0; i < paramsarr.length; ++i) {
+        var tmp = paramsarr[i].split("=");
+        if (!tmp[0] || !tmp[1]) continue;
+        params[tmp[0]]  = decodeURIComponent(tmp[1]);
+    }
+    return params;
+}
+function parse_params(params) {
+    var uri = "?";
+    for (var key in params) {
+        uri += key + '=' + encodeURIComponent(params[key]) + '&';
+    }
+    if (uri.slice(-1) == "&")
+        uri = uri.substring(0, uri.length - 1);
+    if (uri == '?')
+        uri = window.location.href.split('?')[0];
+    return uri;
+}
+function find_child(node, selector) {
+    var children = node.querySelectorAll(selector);
+    if (children.length) return children[0];
+    return;
+}
+function find_group(node) {
+    var parent = node.parentElement;
+    if (!parent) return;
+    if (parent.id == "frames") return node;
+    return find_group(parent);
+}
+function orig_save(e, attr, val) {
+    if (e.attributes["fg:orig_" + attr] != undefined) return;
+    if (e.attributes[attr] == undefined) return;
+    if (val == undefined) val = e.attributes[attr].value;
+    e.setAttribute("fg:orig_" + attr, val);
+}
+function orig_load(e, attr) {
+    if (e.attributes["fg:orig_"+attr] == undefined) return;
+    e.attributes[attr].value = e.attributes["fg:orig_" + attr].value;
+    e.removeAttribute("fg:orig_" + attr);
+}
+function g_to_text(e) {
+    var text = find_child(e, "title").firstChild.nodeValue;
+    return (text)
+}
+function g_to_func(e) {
+    var func = g_to_text(e);
+    // if there's any manipulation we want to do to the function
+    // name before it's searched, do it here before returning.
+    return (func);
+}
+function update_text(e) {
+    var r = find_child(e, "rect");
+    var t = find_child(e, "text");
+    var w = parseFloat(r.attributes.width.value) * frames.attributes.width.value / 100 - 3;
+    var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+    t.attributes.x.value = format_percent((parseFloat(r.attributes.x.value) + (100 * 3 / frames.attributes.width.value)));
+    // Smaller than this size won't fit anything
+    if (w < 2 * fontsize * fontwidth) {
+        t.textContent = "";
+        return;
+    }
+    t.textContent = txt;
+    // Fit in full text width
+    if (/^ *\$/.test(txt) || t.getComputedTextLength() < w)
+        return;
+    if (truncate_text_right) {
+        // Truncate the right side of the text.
+        for (var x = txt.length - 2; x > 0; x--) {
+            if (t.getSubStringLength(0, x + 2) <= w) {
+                t.textContent = txt.substring(0, x) + "..";
+                return;
+            }
+        }
+    } else {
+        // Truncate the left side of the text.
+        for (var x = 2; x < txt.length; x++) {
+            if (t.getSubStringLength(x - 2, txt.length) <= w) {
+                t.textContent = ".." + txt.substring(x, txt.length);
+                return;
+            }
+        }
+    }
+    t.textContent = "";
+}
+// zoom
+function zoom_reset(e) {
+    if (e.tagName == "rect") {
+        e.attributes.x.value = format_percent(100 * parseInt(e.attributes["fg:x"].value) / total_samples);
+        e.attributes.width.value = format_percent(100 * parseInt(e.attributes["fg:w"].value) / total_samples);
+    }
+    if (e.childNodes == undefined) return;
+    for(var i = 0, c = e.childNodes; i < c.length; i++) {
+        zoom_reset(c[i]);
+    }
+}
+function zoom_child(e, x, zoomed_width_samples) {
+    if (e.tagName == "text") {
+        var parent_x = parseFloat(find_child(e.parentNode, "rect[x]").attributes.x.value);
+        e.attributes.x.value = format_percent(parent_x + (100 * 3 / frames.attributes.width.value));
+    } else if (e.tagName == "rect") {
+        e.attributes.x.value = format_percent(100 * (parseInt(e.attributes["fg:x"].value) - x) / zoomed_width_samples);
+        e.attributes.width.value = format_percent(100 * parseInt(e.attributes["fg:w"].value) / zoomed_width_samples);
+    }
+    if (e.childNodes == undefined) return;
+    for(var i = 0, c = e.childNodes; i < c.length; i++) {
+        zoom_child(c[i], x, zoomed_width_samples);
+    }
+}
+function zoom_parent(e) {
+    if (e.attributes) {
+        if (e.attributes.x != undefined) {
+            e.attributes.x.value = "0.0%";
+        }
+        if (e.attributes.width != undefined) {
+            e.attributes.width.value = "100.0%";
+        }
+    }
+    if (e.childNodes == undefined) return;
+    for(var i = 0, c = e.childNodes; i < c.length; i++) {
+        zoom_parent(c[i]);
+    }
+}
+function zoom(node) {
+    var attr = find_child(node, "rect").attributes;
+    var width = parseInt(attr["fg:w"].value);
+    var xmin = parseInt(attr["fg:x"].value);
+    var xmax = xmin + width;
+    var ymin = parseFloat(attr.y.value);
+    unzoombtn.classList.remove("hide");
+    var el = frames.children;
+    for (var i = 0; i < el.length; i++) {
+        var e = el[i];
+        var a = find_child(e, "rect").attributes;
+        var ex = parseInt(a["fg:x"].value);
+        var ew = parseInt(a["fg:w"].value);
+        // Is it an ancestor
+        if (!inverted) {
+            var upstack = parseFloat(a.y.value) > ymin;
+        } else {
+            var upstack = parseFloat(a.y.value) < ymin;
+        }
+        if (upstack) {
+            // Direct ancestor
+            if (ex <= xmin && (ex+ew) >= xmax) {
+                e.classList.add("parent");
+                zoom_parent(e);
+                update_text(e);
+            }
+            // not in current path
+            else
+                e.classList.add("hide");
+        }
+        // Children maybe
+        else {
+            // no common path
+            if (ex < xmin || ex >= xmax) {
+                e.classList.add("hide");
+            }
+            else {
+                zoom_child(e, xmin, width);
+                update_text(e);
+            }
+        }
+    }
+}
+function unzoom() {
+    unzoombtn.classList.add("hide");
+    var el = frames.children;
+    for(var i = 0; i < el.length; i++) {
+        el[i].classList.remove("parent");
+        el[i].classList.remove("hide");
+        zoom_reset(el[i]);
+        update_text(el[i]);
+    }
+}
+// search
+function reset_search() {
+    var el = document.querySelectorAll("#frames rect");
+    for (var i = 0; i < el.length; i++) {
+        orig_load(el[i], "fill")
+    }
+    var params = get_params();
+    delete params.s;
+    history.replaceState(null, null, parse_params(params));
+}
+function search_prompt() {
+    if (!searching) {
+        var term = prompt("Enter a search term (regexp " +
+            "allowed, eg: ^ext4_)", "");
+        if (term != null) {
+            search(term)
+        }
+    } else {
+        reset_search();
+        searching = 0;
+        searchbtn.classList.remove("show");
+        searchbtn.firstChild.nodeValue = "Search"
+        matchedtxt.classList.add("hide");
+        matchedtxt.firstChild.nodeValue = ""
+    }
+}
+function search(term) {
+    var re = new RegExp(term);
+    var el = frames.children;
+    var matches = new Object();
+    var maxwidth = 0;
+    for (var i = 0; i < el.length; i++) {
+        var e = el[i];
+        // Skip over frames which are either not visible, or below the zoomed-to frame
+        if (e.classList.contains("hide") || e.classList.contains("parent")) {
+            continue;
+        }
+        var func = g_to_func(e);
+        var rect = find_child(e, "rect");
+        if (func == null || rect == null)
+            continue;
+        // Save max width. Only works as we have a root frame
+        var w = parseInt(rect.attributes["fg:w"].value);
+        if (w > maxwidth)
+            maxwidth = w;
+        if (func.match(re)) {
+            // highlight
+            var x = parseInt(rect.attributes["fg:x"].value);
+            orig_save(rect, "fill");
+            rect.attributes.fill.value = searchcolor;
+            // remember matches
+            if (matches[x] == undefined) {
+                matches[x] = w;
+            } else {
+                if (w > matches[x]) {
+                    // overwrite with parent
+                    matches[x] = w;
+                }
+            }
+            searching = 1;
+        }
+    }
+    if (!searching)
+        return;
+    var params = get_params();
+    params.s = term;
+    history.replaceState(null, null, parse_params(params));
+
+    searchbtn.classList.add("show");
+    searchbtn.firstChild.nodeValue = "Reset Search";
+    // calculate percent matched, excluding vertical overlap
+    var count = 0;
+    var lastx = -1;
+    var lastw = 0;
+    var keys = Array();
+    for (k in matches) {
+        if (matches.hasOwnProperty(k))
+            keys.push(k);
+    }
+    // sort the matched frames by their x location
+    // ascending, then width descending
+    keys.sort(function(a, b){
+        return a - b;
+    });
+    // Step through frames saving only the biggest bottom-up frames
+    // thanks to the sort order. This relies on the tree property
+    // where children are always smaller than their parents.
+    for (var k in keys) {
+        var x = parseInt(keys[k]);
+        var w = matches[keys[k]];
+        if (x >= lastx + lastw) {
+            count += w;
+            lastx = x;
+            lastw = w;
+        }
+    }
+    // display matched percent
+    matchedtxt.classList.remove("hide");
+    var pct = 100 * count / maxwidth;
+    if (pct != 100) pct = pct.toFixed(1);
+    matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+}
+function format_percent(n) {
+    return n.toFixed(4) + "%";
+}
+]]></script><rect x="0" y="0" width="100%" height="342" fill="url(#background)"/><text id="title" x="50.0000%" y="24.00">Flame Graph</text><text id="details" x="10" y="325.00"> </text><text id="unzoom" class="hide" x="10" y="24.00">Reset Zoom</text><text id="search" x="1190" y="24.00">Search</text><text id="matched" x="1190" y="325.00"> </text><svg id="frames" x="10" width="1180" total_samples="57318"><g><title>libsystem_kernel.dylib`__exit (18 samples, 0.03%)</title><rect x="0.0035%" y="277" width="0.0314%" height="15" fill="rgb(227,0,7)" fg:x="2" fg:w="18"/><text x="0.2535%" y="287.50"></text></g><g><title>libsystem_kernel.dylib`_kernelrpc_mach_vm_deallocate_trap (20 samples, 0.03%)</title><rect x="0.0349%" y="277" width="0.0349%" height="15" fill="rgb(217,0,24)" fg:x="20" fg:w="20"/><text x="0.2849%" y="287.50"></text></g><g><title>libsystem_kernel.dylib`vm_copy (35 samples, 0.06%)</title><rect x="15.3390%" y="101" width="0.0611%" height="15" fill="rgb(221,193,54)" fg:x="8792" fg:w="35"/><text x="15.5890%" y="111.50"></text></g><g><title>libsystem_kernel.dylib`mach_msg2_trap (35 samples, 0.06%)</title><rect x="15.3390%" y="85" width="0.0611%" height="15" fill="rgb(248,212,6)" fg:x="8792" fg:w="35"/><text x="15.5890%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`alloc::raw_vec::RawVec&lt;T,A&gt;::reserve_for_push (69 samples, 0.12%)</title><rect x="15.3390%" y="181" width="0.1204%" height="15" fill="rgb(208,68,35)" fg:x="8792" fg:w="69"/><text x="15.5890%" y="191.50"></text></g><g><title>boojum-f86d262b5770c546`alloc::raw_vec::finish_grow (69 samples, 0.12%)</title><rect x="15.3390%" y="165" width="0.1204%" height="15" fill="rgb(232,128,0)" fg:x="8792" fg:w="69"/><text x="15.5890%" y="175.50"></text></g><g><title>libsystem_malloc.dylib`realloc (69 samples, 0.12%)</title><rect x="15.3390%" y="149" width="0.1204%" height="15" fill="rgb(207,160,47)" fg:x="8792" fg:w="69"/><text x="15.5890%" y="159.50"></text></g><g><title>libsystem_malloc.dylib`malloc_zone_realloc (69 samples, 0.12%)</title><rect x="15.3390%" y="133" width="0.1204%" height="15" fill="rgb(228,23,34)" fg:x="8792" fg:w="69"/><text x="15.5890%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`szone_realloc (69 samples, 0.12%)</title><rect x="15.3390%" y="117" width="0.1204%" height="15" fill="rgb(218,30,26)" fg:x="8792" fg:w="69"/><text x="15.5890%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`_szone_free (34 samples, 0.06%)</title><rect x="15.4000%" y="101" width="0.0593%" height="15" fill="rgb(220,122,19)" fg:x="8827" fg:w="34"/><text x="15.6500%" y="111.50"></text></g><g><title>libsystem_malloc.dylib`free_large (34 samples, 0.06%)</title><rect x="15.4000%" y="85" width="0.0593%" height="15" fill="rgb(250,228,42)" fg:x="8827" fg:w="34"/><text x="15.6500%" y="95.50"></text></g><g><title>libsystem_malloc.dylib`mvm_deallocate_pages (34 samples, 0.06%)</title><rect x="15.4000%" y="69" width="0.0593%" height="15" fill="rgb(240,193,28)" fg:x="8827" fg:w="34"/><text x="15.6500%" y="79.50"></text></g><g><title>libsystem_kernel.dylib`_kernelrpc_mach_vm_deallocate_trap (34 samples, 0.06%)</title><rect x="15.4000%" y="53" width="0.0593%" height="15" fill="rgb(216,20,37)" fg:x="8827" fg:w="34"/><text x="15.6500%" y="63.50"></text></g><g><title>libsystem_malloc.dylib`_szone_free (9 samples, 0.02%)</title><rect x="21.2551%" y="165" width="0.0157%" height="15" fill="rgb(206,188,39)" fg:x="12183" fg:w="9"/><text x="21.5051%" y="175.50"></text></g><g><title>libsystem_malloc.dylib`small_free_list_add_ptr (29 samples, 0.05%)</title><rect x="21.4121%" y="149" width="0.0506%" height="15" fill="rgb(217,207,13)" fg:x="12273" fg:w="29"/><text x="21.6621%" y="159.50"></text></g><g><title>libsystem_malloc.dylib`small_free_list_find_by_ptr (10 samples, 0.02%)</title><rect x="21.4627%" y="149" width="0.0174%" height="15" fill="rgb(231,73,38)" fg:x="12302" fg:w="10"/><text x="21.7127%" y="159.50"></text></g><g><title>libsystem_malloc.dylib`small_free_list_remove_ptr_no_clear (33 samples, 0.06%)</title><rect x="21.4871%" y="149" width="0.0576%" height="15" fill="rgb(225,20,46)" fg:x="12316" fg:w="33"/><text x="21.7371%" y="159.50"></text></g><g><title>libsystem_malloc.dylib`small_free_scan_madvise_free (331 samples, 0.58%)</title><rect x="21.5447%" y="149" width="0.5775%" height="15" fill="rgb(210,31,41)" fg:x="12349" fg:w="331"/><text x="21.7947%" y="159.50"></text></g><g><title>libsystem_kernel.dylib`madvise (328 samples, 0.57%)</title><rect x="21.5499%" y="133" width="0.5722%" height="15" fill="rgb(221,200,47)" fg:x="12352" fg:w="328"/><text x="21.7999%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`small_madvise_free_range_no_lock (144 samples, 0.25%)</title><rect x="22.1222%" y="149" width="0.2512%" height="15" fill="rgb(226,26,5)" fg:x="12680" fg:w="144"/><text x="22.3722%" y="159.50"></text></g><g><title>libsystem_kernel.dylib`madvise (141 samples, 0.25%)</title><rect x="22.1274%" y="133" width="0.2460%" height="15" fill="rgb(249,33,26)" fg:x="12683" fg:w="141"/><text x="22.3774%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`free_small (633 samples, 1.10%)</title><rect x="21.2708%" y="165" width="1.1044%" height="15" fill="rgb(235,183,28)" fg:x="12192" fg:w="633"/><text x="21.5208%" y="175.50"></text></g><g><title>libsystem_malloc.dylib`mvm_deallocate_pages (188 samples, 0.33%)</title><rect x="22.3752%" y="165" width="0.3280%" height="15" fill="rgb(221,5,38)" fg:x="12825" fg:w="188"/><text x="22.6252%" y="175.50"></text></g><g><title>libsystem_kernel.dylib`_kernelrpc_mach_vm_deallocate_trap (188 samples, 0.33%)</title><rect x="22.3752%" y="149" width="0.3280%" height="15" fill="rgb(247,18,42)" fg:x="12825" fg:w="188"/><text x="22.6252%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_queue::seg_queue::SegQueue&lt;T&gt;::pop (4,156 samples, 7.25%)</title><rect x="15.4594%" y="181" width="7.2508%" height="15" fill="rgb(241,131,45)" fg:x="8861" fg:w="4156"/><text x="15.7094%" y="191.50">boojum-f86..</text></g><g><title>libsystem_kernel.dylib`__psynch_cvwait (21 samples, 0.04%)</title><rect x="22.7119%" y="117" width="0.0366%" height="15" fill="rgb(249,31,29)" fg:x="13018" fg:w="21"/><text x="22.9619%" y="127.50"></text></g><g><title>boojum-f86d262b5770c546`std::sync::condvar::Condvar::wait (24 samples, 0.04%)</title><rect x="22.7119%" y="133" width="0.0419%" height="15" fill="rgb(225,111,53)" fg:x="13018" fg:w="24"/><text x="22.9619%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::latch::LockLatch::wait_and_reset (25 samples, 0.04%)</title><rect x="22.7119%" y="149" width="0.0436%" height="15" fill="rgb(238,160,17)" fg:x="13018" fg:w="25"/><text x="22.9619%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::registry::Registry::in_worker (34 samples, 0.06%)</title><rect x="22.7101%" y="181" width="0.0593%" height="15" fill="rgb(214,148,48)" fg:x="13017" fg:w="34"/><text x="22.9601%" y="191.50"></text></g><g><title>boojum-f86d262b5770c546`std::thread::local::LocalKey&lt;T&gt;::with (33 samples, 0.06%)</title><rect x="22.7119%" y="165" width="0.0576%" height="15" fill="rgb(232,36,49)" fg:x="13018" fg:w="33"/><text x="22.9619%" y="175.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_any_threads (7 samples, 0.01%)</title><rect x="22.7572%" y="149" width="0.0122%" height="15" fill="rgb(209,103,24)" fg:x="13044" fg:w="7"/><text x="23.0072%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_specific_thread (6 samples, 0.01%)</title><rect x="22.7590%" y="133" width="0.0105%" height="15" fill="rgb(229,88,8)" fg:x="13045" fg:w="6"/><text x="23.0090%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`_nanov2_free (6 samples, 0.01%)</title><rect x="22.7695%" y="181" width="0.0105%" height="15" fill="rgb(213,181,19)" fg:x="13051" fg:w="6"/><text x="23.0195%" y="191.50"></text></g><g><title>libsystem_malloc.dylib`free (17 samples, 0.03%)</title><rect x="22.7887%" y="181" width="0.0297%" height="15" fill="rgb(254,191,54)" fg:x="13062" fg:w="17"/><text x="23.0387%" y="191.50"></text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::Resolver&lt;F&gt;::run (13,041 samples, 22.75%)</title><rect x="0.0698%" y="197" width="22.7520%" height="15" fill="rgb(241,83,37)" fg:x="40" fg:w="13041"/><text x="0.3198%" y="207.50">boojum-f86d262b5770c546`boojum::dag:..</text></g><g><title>boojum-f86d262b5770c546`core::ptr::drop_in_place&lt;boojum::dag::resolver::Resolver&lt;boojum::field::goldilocks::GoldilocksField&gt;&gt; (2,390 samples, 4.17%)</title><rect x="22.8218%" y="197" width="4.1697%" height="15" fill="rgb(233,36,39)" fg:x="13081" fg:w="2390"/><text x="23.0718%" y="207.50">booju..</text></g><g><title>libsystem_malloc.dylib`_szone_free (420 samples, 0.73%)</title><rect x="26.2588%" y="181" width="0.7328%" height="15" fill="rgb(226,3,54)" fg:x="15051" fg:w="420"/><text x="26.5088%" y="191.50"></text></g><g><title>libsystem_malloc.dylib`free_large (420 samples, 0.73%)</title><rect x="26.2588%" y="165" width="0.7328%" height="15" fill="rgb(245,192,40)" fg:x="15051" fg:w="420"/><text x="26.5088%" y="175.50"></text></g><g><title>libsystem_malloc.dylib`mvm_deallocate_pages (420 samples, 0.73%)</title><rect x="26.2588%" y="149" width="0.7328%" height="15" fill="rgb(238,167,29)" fg:x="15051" fg:w="420"/><text x="26.5088%" y="159.50"></text></g><g><title>libsystem_kernel.dylib`_kernelrpc_mach_vm_deallocate_trap (420 samples, 0.73%)</title><rect x="26.2588%" y="133" width="0.7328%" height="15" fill="rgb(232,182,51)" fg:x="15051" fg:w="420"/><text x="26.5088%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_queue::seg_queue::SegQueue&lt;T&gt;::pop (287 samples, 0.50%)</title><rect x="26.9915%" y="197" width="0.5007%" height="15" fill="rgb(231,60,39)" fg:x="15471" fg:w="287"/><text x="27.2415%" y="207.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_epoch::internal::Global::try_advance (22 samples, 0.04%)</title><rect x="27.7923%" y="101" width="0.0384%" height="15" fill="rgb(208,69,12)" fg:x="15930" fg:w="22"/><text x="28.0423%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_epoch::default::with_handle (66 samples, 0.12%)</title><rect x="27.7522%" y="133" width="0.1151%" height="15" fill="rgb(235,93,37)" fg:x="15907" fg:w="66"/><text x="28.0022%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_epoch::internal::Global::collect (43 samples, 0.08%)</title><rect x="27.7923%" y="117" width="0.0750%" height="15" fill="rgb(213,116,39)" fg:x="15930" fg:w="43"/><text x="28.0423%" y="127.50"></text></g><g><title>libsystem_platform.dylib`_platform_memmove (21 samples, 0.04%)</title><rect x="27.8307%" y="101" width="0.0366%" height="15" fill="rgb(222,207,29)" fg:x="15952" fg:w="21"/><text x="28.0807%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_deque::deque::Stealer&lt;T&gt;::steal (124 samples, 0.22%)</title><rect x="27.6772%" y="149" width="0.2163%" height="15" fill="rgb(206,96,30)" fg:x="15864" fg:w="124"/><text x="27.9272%" y="159.50"></text></g><g><title>libdyld.dylib`tlv_get_addr (14 samples, 0.02%)</title><rect x="27.8691%" y="133" width="0.0244%" height="15" fill="rgb(218,138,4)" fg:x="15974" fg:w="14"/><text x="28.1191%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_epoch::default::with_handle (12 samples, 0.02%)</title><rect x="27.8935%" y="149" width="0.0209%" height="15" fill="rgb(250,191,14)" fg:x="15988" fg:w="12"/><text x="28.1435%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;core::iter::adapters::chain::Chain&lt;A,B&gt; as core::iter::traits::iterator::Iterator&gt;::try_fold (240 samples, 0.42%)</title><rect x="27.5481%" y="165" width="0.4187%" height="15" fill="rgb(239,60,40)" fg:x="15790" fg:w="240"/><text x="27.7981%" y="175.50"></text></g><g><title>libdyld.dylib`tlv_get_addr (30 samples, 0.05%)</title><rect x="27.9144%" y="149" width="0.0523%" height="15" fill="rgb(206,27,48)" fg:x="16000" fg:w="30"/><text x="28.1644%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;alloc::vec::Vec&lt;T,A&gt; as alloc::vec::spec_extend::SpecExtend&lt;T,I&gt;&gt;::spec_extend (1,004 samples, 1.75%)</title><rect x="27.9703%" y="149" width="1.7516%" height="15" fill="rgb(225,35,8)" fg:x="16032" fg:w="1004"/><text x="28.2203%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;alloc::vec::Vec&lt;T,A&gt; as alloc::vec::spec_extend::SpecExtend&lt;T,I&gt;&gt;::spec_extend (4,690 samples, 8.18%)</title><rect x="62.7046%" y="133" width="8.1824%" height="15" fill="rgb(250,213,24)" fg:x="35941" fg:w="4690"/><text x="62.9546%" y="143.50">boojum-f86d..</text></g><g><title>boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once{{vtable.shim}} (1,077 samples, 1.88%)</title><rect x="70.8870%" y="133" width="1.8790%" height="15" fill="rgb(247,123,22)" fg:x="40631" fg:w="1077"/><text x="71.1370%" y="143.50">b..</text></g><g><title>libsystem_kernel.dylib`__ulock_wake (8 samples, 0.01%)</title><rect x="72.7660%" y="133" width="0.0140%" height="15" fill="rgb(231,138,38)" fg:x="41708" fg:w="8"/><text x="73.0160%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`_nanov2_free (594 samples, 1.04%)</title><rect x="72.7799%" y="133" width="1.0363%" height="15" fill="rgb(231,145,46)" fg:x="41716" fg:w="594"/><text x="73.0299%" y="143.50"></text></g><g><title>libsystem_kernel.dylib`__ulock_wait (24 samples, 0.04%)</title><rect x="73.8163%" y="117" width="0.0419%" height="15" fill="rgb(251,118,11)" fg:x="42310" fg:w="24"/><text x="74.0663%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`nanov2_madvise_block_locked (254 samples, 0.44%)</title><rect x="73.8581%" y="117" width="0.4431%" height="15" fill="rgb(217,147,25)" fg:x="42334" fg:w="254"/><text x="74.1081%" y="127.50"></text></g><g><title>libsystem_kernel.dylib`madvise (253 samples, 0.44%)</title><rect x="73.8599%" y="101" width="0.4414%" height="15" fill="rgb(247,81,37)" fg:x="42335" fg:w="253"/><text x="74.1099%" y="111.50"></text></g><g><title>libsystem_malloc.dylib`nanov2_madvise_block (281 samples, 0.49%)</title><rect x="73.8163%" y="133" width="0.4902%" height="15" fill="rgb(209,12,38)" fg:x="42310" fg:w="281"/><text x="74.0663%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;core::panic::unwind_safe::AssertUnwindSafe&lt;F&gt; as core::ops::function::FnOnce&lt;()&gt;&gt;::call_once (25,556 samples, 44.59%)</title><rect x="29.7219%" y="149" width="44.5863%" height="15" fill="rgb(227,1,9)" fg:x="17036" fg:w="25556"/><text x="29.9719%" y="159.50">boojum-f86d262b5770c546`&lt;core::panic::unwind_safe::AssertUnwindSafe&lt;F&gt; as..</text></g><g><title>boojum-f86d262b5770c546`DYLD-STUB$$free (37 samples, 0.06%)</title><rect x="74.3100%" y="149" width="0.0646%" height="15" fill="rgb(248,47,43)" fg:x="42593" fg:w="37"/><text x="74.5600%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once{{vtable.shim}} (192 samples, 0.33%)</title><rect x="74.3780%" y="149" width="0.3350%" height="15" fill="rgb(221,10,30)" fg:x="42632" fg:w="192"/><text x="74.6280%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_specific_thread (14 samples, 0.02%)</title><rect x="74.7130%" y="149" width="0.0244%" height="15" fill="rgb(210,229,1)" fg:x="42824" fg:w="14"/><text x="74.9630%" y="159.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvsignal (14 samples, 0.02%)</title><rect x="74.7130%" y="133" width="0.0244%" height="15" fill="rgb(222,148,37)" fg:x="42824" fg:w="14"/><text x="74.9630%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`_nanov2_free (108 samples, 0.19%)</title><rect x="74.7374%" y="149" width="0.1884%" height="15" fill="rgb(234,67,33)" fg:x="42838" fg:w="108"/><text x="74.9874%" y="159.50"></text></g><g><title>libsystem_malloc.dylib`free (419 samples, 0.73%)</title><rect x="74.9259%" y="149" width="0.7310%" height="15" fill="rgb(247,98,35)" fg:x="42946" fg:w="419"/><text x="75.1759%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;rayon_core::job::HeapJob&lt;BODY&gt; as rayon_core::job::Job&gt;::execute (27,337 samples, 47.69%)</title><rect x="27.9685%" y="165" width="47.6936%" height="15" fill="rgb(247,138,52)" fg:x="16031" fg:w="27337"/><text x="28.2185%" y="175.50">boojum-f86d262b5770c546`&lt;rayon_core::job::HeapJob&lt;BODY&gt; as rayon_core::job::Jo..</text></g><g><title>boojum-f86d262b5770c546`&lt;&amp;L as rayon_core::latch::Latch&gt;::set (16 samples, 0.03%)</title><rect x="75.6621%" y="149" width="0.0279%" height="15" fill="rgb(213,79,30)" fg:x="43368" fg:w="16"/><text x="75.9121%" y="159.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvbroad (16 samples, 0.03%)</title><rect x="75.6621%" y="133" width="0.0279%" height="15" fill="rgb(246,177,23)" fg:x="43368" fg:w="16"/><text x="75.9121%" y="143.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvsignal (26 samples, 0.05%)</title><rect x="75.7022%" y="69" width="0.0454%" height="15" fill="rgb(230,62,27)" fg:x="43391" fg:w="26"/><text x="75.9522%" y="79.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_firstfit_lock_slow (39 samples, 0.07%)</title><rect x="75.7476%" y="69" width="0.0680%" height="15" fill="rgb(216,154,8)" fg:x="43417" fg:w="39"/><text x="75.9976%" y="79.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_mutexwait (38 samples, 0.07%)</title><rect x="75.7493%" y="53" width="0.0663%" height="15" fill="rgb(244,35,45)" fg:x="43418" fg:w="38"/><text x="75.9993%" y="63.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_firstfit_unlock_slow (36 samples, 0.06%)</title><rect x="75.8156%" y="69" width="0.0628%" height="15" fill="rgb(251,115,12)" fg:x="43456" fg:w="36"/><text x="76.0656%" y="79.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_mutexdrop (36 samples, 0.06%)</title><rect x="75.8156%" y="53" width="0.0628%" height="15" fill="rgb(240,54,50)" fg:x="43456" fg:w="36"/><text x="76.0656%" y="63.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_any_threads (104 samples, 0.18%)</title><rect x="75.6987%" y="101" width="0.1814%" height="15" fill="rgb(233,84,52)" fg:x="43389" fg:w="104"/><text x="75.9487%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_specific_thread (102 samples, 0.18%)</title><rect x="75.7022%" y="85" width="0.1780%" height="15" fill="rgb(207,117,47)" fg:x="43391" fg:w="102"/><text x="75.9522%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;core::panic::unwind_safe::AssertUnwindSafe&lt;F&gt; as core::ops::function::FnOnce&lt;()&gt;&gt;::call_once (107 samples, 0.19%)</title><rect x="75.6952%" y="117" width="0.1867%" height="15" fill="rgb(249,43,39)" fg:x="43387" fg:w="107"/><text x="75.9452%" y="127.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_deque::deque::Stealer&lt;T&gt;::steal (9 samples, 0.02%)</title><rect x="75.9081%" y="85" width="0.0157%" height="15" fill="rgb(209,38,44)" fg:x="43509" fg:w="9"/><text x="76.1581%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;core::iter::adapters::chain::Chain&lt;A,B&gt; as core::iter::traits::iterator::Iterator&gt;::try_fold (24 samples, 0.04%)</title><rect x="75.8872%" y="101" width="0.0419%" height="15" fill="rgb(236,212,23)" fg:x="43497" fg:w="24"/><text x="76.1372%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;alloc::vec::Vec&lt;T,A&gt; as alloc::vec::spec_extend::SpecExtend&lt;T,I&gt;&gt;::spec_extend (24 samples, 0.04%)</title><rect x="75.9290%" y="85" width="0.0419%" height="15" fill="rgb(242,79,21)" fg:x="43521" fg:w="24"/><text x="76.1790%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;alloc::vec::Vec&lt;T,A&gt; as alloc::vec::spec_extend::SpecExtend&lt;T,I&gt;&gt;::spec_extend (208 samples, 0.36%)</title><rect x="78.7117%" y="69" width="0.3629%" height="15" fill="rgb(211,96,35)" fg:x="45116" fg:w="208"/><text x="78.9617%" y="79.50"></text></g><g><title>boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once{{vtable.shim}} (105 samples, 0.18%)</title><rect x="79.0746%" y="69" width="0.1832%" height="15" fill="rgb(253,215,40)" fg:x="45324" fg:w="105"/><text x="79.3246%" y="79.50"></text></g><g><title>libsystem_malloc.dylib`_nanov2_free (344 samples, 0.60%)</title><rect x="79.2613%" y="69" width="0.6002%" height="15" fill="rgb(211,81,21)" fg:x="45431" fg:w="344"/><text x="79.5113%" y="79.50"></text></g><g><title>libsystem_kernel.dylib`__ulock_wait (10 samples, 0.02%)</title><rect x="79.8615%" y="53" width="0.0174%" height="15" fill="rgb(208,190,38)" fg:x="45775" fg:w="10"/><text x="80.1115%" y="63.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;core::panic::unwind_safe::AssertUnwindSafe&lt;F&gt; as core::ops::function::FnOnce&lt;()&gt;&gt;::call_once (2,294 samples, 4.00%)</title><rect x="75.9709%" y="85" width="4.0022%" height="15" fill="rgb(235,213,38)" fg:x="43545" fg:w="2294"/><text x="76.2209%" y="95.50">booj..</text></g><g><title>libsystem_malloc.dylib`nanov2_madvise_block (64 samples, 0.11%)</title><rect x="79.8615%" y="69" width="0.1117%" height="15" fill="rgb(237,122,38)" fg:x="45775" fg:w="64"/><text x="80.1115%" y="79.50"></text></g><g><title>libsystem_malloc.dylib`nanov2_madvise_block_locked (54 samples, 0.09%)</title><rect x="79.8789%" y="53" width="0.0942%" height="15" fill="rgb(244,218,35)" fg:x="45785" fg:w="54"/><text x="80.1289%" y="63.50"></text></g><g><title>libsystem_kernel.dylib`madvise (54 samples, 0.09%)</title><rect x="79.8789%" y="37" width="0.0942%" height="15" fill="rgb(240,68,47)" fg:x="45785" fg:w="54"/><text x="80.1289%" y="47.50"></text></g><g><title>boojum-f86d262b5770c546`DYLD-STUB$$free (10 samples, 0.02%)</title><rect x="79.9731%" y="85" width="0.0174%" height="15" fill="rgb(210,16,53)" fg:x="45839" fg:w="10"/><text x="80.2231%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once{{vtable.shim}} (18 samples, 0.03%)</title><rect x="79.9906%" y="85" width="0.0314%" height="15" fill="rgb(235,124,12)" fg:x="45849" fg:w="18"/><text x="80.2406%" y="95.50"></text></g><g><title>libsystem_malloc.dylib`_nanov2_free (17 samples, 0.03%)</title><rect x="80.0220%" y="85" width="0.0297%" height="15" fill="rgb(224,169,11)" fg:x="45867" fg:w="17"/><text x="80.2720%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;rayon_core::job::HeapJob&lt;BODY&gt; as rayon_core::job::Job&gt;::execute (2,435 samples, 4.25%)</title><rect x="75.9290%" y="101" width="4.2482%" height="15" fill="rgb(250,166,2)" fg:x="43521" fg:w="2435"/><text x="76.1790%" y="111.50">booju..</text></g><g><title>libsystem_malloc.dylib`free (72 samples, 0.13%)</title><rect x="80.0516%" y="85" width="0.1256%" height="15" fill="rgb(242,216,29)" fg:x="45884" fg:w="72"/><text x="80.3016%" y="95.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvwait (16 samples, 0.03%)</title><rect x="80.1877%" y="69" width="0.0279%" height="15" fill="rgb(230,116,27)" fg:x="45962" fg:w="16"/><text x="80.4377%" y="79.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::sleep (19 samples, 0.03%)</title><rect x="80.1842%" y="101" width="0.0331%" height="15" fill="rgb(228,99,48)" fg:x="45960" fg:w="19"/><text x="80.4342%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`std::sync::condvar::Condvar::wait (17 samples, 0.03%)</title><rect x="80.1877%" y="85" width="0.0297%" height="15" fill="rgb(253,11,6)" fg:x="45962" fg:w="17"/><text x="80.4377%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_any_threads (19 samples, 0.03%)</title><rect x="80.2174%" y="101" width="0.0331%" height="15" fill="rgb(247,143,39)" fg:x="45979" fg:w="19"/><text x="80.4674%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_specific_thread (19 samples, 0.03%)</title><rect x="80.2174%" y="85" width="0.0331%" height="15" fill="rgb(236,97,10)" fg:x="45979" fg:w="19"/><text x="80.4674%" y="95.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvsignal (18 samples, 0.03%)</title><rect x="80.2191%" y="69" width="0.0314%" height="15" fill="rgb(233,208,19)" fg:x="45980" fg:w="18"/><text x="80.4691%" y="79.50"></text></g><g><title>libsystem_kernel.dylib`swtch_pri (86 samples, 0.15%)</title><rect x="80.2505%" y="101" width="0.1500%" height="15" fill="rgb(216,164,2)" fg:x="45998" fg:w="86"/><text x="80.5005%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::registry::WorkerThread::wait_until_cold (2,589 samples, 4.52%)</title><rect x="75.8854%" y="117" width="4.5169%" height="15" fill="rgb(220,129,5)" fg:x="43496" fg:w="2589"/><text x="76.1354%" y="127.50">booju..</text></g><g><title>boojum-f86d262b5770c546`&lt;rayon_core::job::StackJob&lt;L,F,R&gt; as rayon_core::job::Job&gt;::execute (2,718 samples, 4.74%)</title><rect x="75.6621%" y="165" width="4.7420%" height="15" fill="rgb(242,17,10)" fg:x="43368" fg:w="2718"/><text x="75.9121%" y="175.50">boojum..</text></g><g><title>boojum-f86d262b5770c546`rayon_core::registry::in_worker (2,701 samples, 4.71%)</title><rect x="75.6918%" y="149" width="4.7123%" height="15" fill="rgb(242,107,0)" fg:x="43385" fg:w="2701"/><text x="75.9418%" y="159.50">booju..</text></g><g><title>boojum-f86d262b5770c546`rayon_core::scope::ScopeBase::complete (2,699 samples, 4.71%)</title><rect x="75.6952%" y="133" width="4.7088%" height="15" fill="rgb(251,28,31)" fg:x="43387" fg:w="2699"/><text x="75.9452%" y="143.50">booju..</text></g><g><title>boojum-f86d262b5770c546`crossbeam_deque::deque::Stealer&lt;T&gt;::steal (27 samples, 0.05%)</title><rect x="80.4110%" y="165" width="0.0471%" height="15" fill="rgb(233,223,10)" fg:x="46090" fg:w="27"/><text x="80.6610%" y="175.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvwait (216 samples, 0.38%)</title><rect x="80.4791%" y="133" width="0.3768%" height="15" fill="rgb(215,21,27)" fg:x="46129" fg:w="216"/><text x="80.7291%" y="143.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_droplock (6 samples, 0.01%)</title><rect x="80.8629%" y="117" width="0.0105%" height="15" fill="rgb(232,23,21)" fg:x="46349" fg:w="6"/><text x="81.1129%" y="127.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_firstfit_lock_slow (11 samples, 0.02%)</title><rect x="80.8734%" y="117" width="0.0192%" height="15" fill="rgb(244,5,23)" fg:x="46355" fg:w="11"/><text x="81.1234%" y="127.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_mutexwait (11 samples, 0.02%)</title><rect x="80.8734%" y="101" width="0.0192%" height="15" fill="rgb(226,81,46)" fg:x="46355" fg:w="11"/><text x="81.1234%" y="111.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_cond_wait (23 samples, 0.04%)</title><rect x="80.8559%" y="133" width="0.0401%" height="15" fill="rgb(247,70,30)" fg:x="46345" fg:w="23"/><text x="81.1059%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`std::sync::condvar::Condvar::wait (248 samples, 0.43%)</title><rect x="80.4738%" y="149" width="0.4327%" height="15" fill="rgb(212,68,19)" fg:x="46126" fg:w="248"/><text x="80.7238%" y="159.50"></text></g><g><title>libsystem_pthread.dylib`pthread_testcancel (6 samples, 0.01%)</title><rect x="80.8961%" y="133" width="0.0105%" height="15" fill="rgb(240,187,13)" fg:x="46368" fg:w="6"/><text x="81.1461%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::sleep (255 samples, 0.44%)</title><rect x="80.4651%" y="165" width="0.4449%" height="15" fill="rgb(223,113,26)" fg:x="46121" fg:w="255"/><text x="80.7151%" y="175.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_cvsignal (80 samples, 0.14%)</title><rect x="80.9205%" y="133" width="0.1396%" height="15" fill="rgb(206,192,2)" fg:x="46382" fg:w="80"/><text x="81.1705%" y="143.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_mutexwait (177 samples, 0.31%)</title><rect x="81.0635%" y="117" width="0.3088%" height="15" fill="rgb(241,108,4)" fg:x="46464" fg:w="177"/><text x="81.3135%" y="127.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_firstfit_lock_slow (180 samples, 0.31%)</title><rect x="81.0601%" y="133" width="0.3140%" height="15" fill="rgb(247,173,49)" fg:x="46462" fg:w="180"/><text x="81.3101%" y="143.50"></text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_firstfit_unlock_slow (73 samples, 0.13%)</title><rect x="81.3741%" y="133" width="0.1274%" height="15" fill="rgb(224,114,35)" fg:x="46642" fg:w="73"/><text x="81.6241%" y="143.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_mutexdrop (73 samples, 0.13%)</title><rect x="81.3741%" y="117" width="0.1274%" height="15" fill="rgb(245,159,27)" fg:x="46642" fg:w="73"/><text x="81.6241%" y="127.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_specific_thread (350 samples, 0.61%)</title><rect x="80.9118%" y="149" width="0.6106%" height="15" fill="rgb(245,172,44)" fg:x="46377" fg:w="350"/><text x="81.1618%" y="159.50"></text></g><g><title>libsystem_pthread.dylib`pthread_mutex_lock (11 samples, 0.02%)</title><rect x="81.5032%" y="133" width="0.0192%" height="15" fill="rgb(236,23,11)" fg:x="46716" fg:w="11"/><text x="81.7532%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::sleep::Sleep::wake_any_threads (354 samples, 0.62%)</title><rect x="80.9100%" y="165" width="0.6176%" height="15" fill="rgb(205,117,38)" fg:x="46376" fg:w="354"/><text x="81.1600%" y="175.50"></text></g><g><title>libdyld.dylib`tlv_get_addr (8 samples, 0.01%)</title><rect x="81.5311%" y="165" width="0.0140%" height="15" fill="rgb(237,72,25)" fg:x="46732" fg:w="8"/><text x="81.7811%" y="175.50"></text></g><g><title>libsystem_kernel.dylib`swtch_pri (1,242 samples, 2.17%)</title><rect x="81.5451%" y="165" width="2.1669%" height="15" fill="rgb(244,70,9)" fg:x="46740" fg:w="1242"/><text x="81.7951%" y="175.50">l..</text></g><g><title>libsystem_pthread.dylib`_pthread_mutex_firstfit_unlock_slow (26 samples, 0.05%)</title><rect x="83.7172%" y="165" width="0.0454%" height="15" fill="rgb(217,125,39)" fg:x="47985" fg:w="26"/><text x="83.9672%" y="175.50"></text></g><g><title>libsystem_kernel.dylib`__psynch_mutexdrop (26 samples, 0.05%)</title><rect x="83.7172%" y="149" width="0.0454%" height="15" fill="rgb(235,36,10)" fg:x="47985" fg:w="26"/><text x="83.9672%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::registry::WorkerThread::wait_until_cold (32,251 samples, 56.27%)</title><rect x="27.5079%" y="181" width="56.2668%" height="15" fill="rgb(251,123,47)" fg:x="15767" fg:w="32251"/><text x="27.7579%" y="191.50">boojum-f86d262b5770c546`rayon_core::registry::WorkerThread::wait_until_cold</text></g><g><title>libsystem_pthread.dylib`cthread_yield (7 samples, 0.01%)</title><rect x="83.7625%" y="165" width="0.0122%" height="15" fill="rgb(221,13,13)" fg:x="48011" fg:w="7"/><text x="84.0125%" y="175.50"></text></g><g><title>boojum-f86d262b5770c546`rayon_core::registry::ThreadBuilder::run (32,261 samples, 56.28%)</title><rect x="27.4922%" y="197" width="56.2842%" height="15" fill="rgb(238,131,9)" fg:x="15758" fg:w="32261"/><text x="27.7422%" y="207.50">boojum-f86d262b5770c546`rayon_core::registry::ThreadBuilder::run</text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::VariablesStorage&lt;F,CFG&gt;::add_obligation (25 samples, 0.04%)</title><rect x="83.7765%" y="149" width="0.0436%" height="15" fill="rgb(211,50,8)" fg:x="48019" fg:w="25"/><text x="84.0265%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::VariablesStorage&lt;F,CFG&gt;::set_initial_value (36 samples, 0.06%)</title><rect x="83.8201%" y="149" width="0.0628%" height="15" fill="rgb(245,182,24)" fg:x="48044" fg:w="36"/><text x="84.0701%" y="159.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;smallvec::SmallVec&lt;A&gt; as core::iter::traits::collect::Extend&lt;&lt;A as smallvec::Array&gt;::Item&gt;&gt;::extend (221 samples, 0.39%)</title><rect x="84.1812%" y="133" width="0.3856%" height="15" fill="rgb(242,14,37)" fg:x="48251" fg:w="221"/><text x="84.4312%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`DYLD-STUB$$malloc (42 samples, 0.07%)</title><rect x="84.5668%" y="133" width="0.0733%" height="15" fill="rgb(246,228,12)" fg:x="48472" fg:w="42"/><text x="84.8168%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`__rdl_alloc (35 samples, 0.06%)</title><rect x="84.6401%" y="133" width="0.0611%" height="15" fill="rgb(213,55,15)" fg:x="48514" fg:w="35"/><text x="84.8901%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`__rust_alloc (82 samples, 0.14%)</title><rect x="84.7011%" y="133" width="0.1431%" height="15" fill="rgb(209,9,3)" fg:x="48549" fg:w="82"/><text x="84.9511%" y="143.50"></text></g><g><title>libsystem_kernel.dylib`clock_get_time (134 samples, 0.23%)</title><rect x="84.8459%" y="85" width="0.2338%" height="15" fill="rgb(230,59,30)" fg:x="48632" fg:w="134"/><text x="85.0959%" y="95.50"></text></g><g><title>libsystem_kernel.dylib`mach_msg2_trap (134 samples, 0.23%)</title><rect x="84.8459%" y="69" width="0.2338%" height="15" fill="rgb(209,121,21)" fg:x="48632" fg:w="134"/><text x="85.0959%" y="79.50"></text></g><g><title>libsystem_c.dylib`nanosleep (135 samples, 0.24%)</title><rect x="84.8459%" y="101" width="0.2355%" height="15" fill="rgb(220,109,13)" fg:x="48632" fg:w="135"/><text x="85.0959%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`std::thread::sleep (237 samples, 0.41%)</title><rect x="84.8442%" y="117" width="0.4135%" height="15" fill="rgb(232,18,1)" fg:x="48631" fg:w="237"/><text x="85.0942%" y="127.50"></text></g><g><title>libsystem_kernel.dylib`__semwait_signal (100 samples, 0.17%)</title><rect x="85.0832%" y="101" width="0.1745%" height="15" fill="rgb(215,41,42)" fg:x="48768" fg:w="100"/><text x="85.3332%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`alloc::sync::Arc&lt;T&gt;::drop_slow (251 samples, 0.44%)</title><rect x="84.8442%" y="133" width="0.4379%" height="15" fill="rgb(224,123,36)" fg:x="48631" fg:w="251"/><text x="85.0942%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`_szone_free (14 samples, 0.02%)</title><rect x="85.2577%" y="117" width="0.0244%" height="15" fill="rgb(240,125,3)" fg:x="48868" fg:w="14"/><text x="85.5077%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`free_large (14 samples, 0.02%)</title><rect x="85.2577%" y="101" width="0.0244%" height="15" fill="rgb(205,98,50)" fg:x="48868" fg:w="14"/><text x="85.5077%" y="111.50"></text></g><g><title>libsystem_malloc.dylib`mvm_deallocate_pages (14 samples, 0.02%)</title><rect x="85.2577%" y="85" width="0.0244%" height="15" fill="rgb(205,185,37)" fg:x="48868" fg:w="14"/><text x="85.5077%" y="95.50"></text></g><g><title>libsystem_kernel.dylib`_kernelrpc_mach_vm_deallocate_trap (14 samples, 0.02%)</title><rect x="85.2577%" y="69" width="0.0244%" height="15" fill="rgb(238,207,15)" fg:x="48868" fg:w="14"/><text x="85.5077%" y="79.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;smallvec::SmallVec&lt;A&gt; as core::iter::traits::collect::Extend&lt;&lt;A as smallvec::Array&gt;::Item&gt;&gt;::extend (625 samples, 1.09%)</title><rect x="85.7985%" y="117" width="1.0904%" height="15" fill="rgb(213,199,42)" fg:x="49178" fg:w="625"/><text x="86.0485%" y="127.50"></text></g><g><title>boojum-f86d262b5770c546`smallvec::SmallVec&lt;A&gt;::try_reserve (144 samples, 0.25%)</title><rect x="86.6377%" y="101" width="0.2512%" height="15" fill="rgb(235,201,11)" fg:x="49659" fg:w="144"/><text x="86.8877%" y="111.50"></text></g><g><title>libsystem_malloc.dylib`small_malloc_from_free_list (6 samples, 0.01%)</title><rect x="87.6566%" y="85" width="0.0105%" height="15" fill="rgb(207,46,11)" fg:x="50243" fg:w="6"/><text x="87.9066%" y="95.50"></text></g><g><title>libsystem_malloc.dylib`small_free_list_add_ptr (21 samples, 0.04%)</title><rect x="87.7264%" y="53" width="0.0366%" height="15" fill="rgb(241,35,35)" fg:x="50283" fg:w="21"/><text x="87.9764%" y="63.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_queue::seg_queue::SegQueue&lt;T&gt;::push (501 samples, 0.87%)</title><rect x="86.9011%" y="117" width="0.8741%" height="15" fill="rgb(243,32,47)" fg:x="49810" fg:w="501"/><text x="87.1511%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`szone_malloc_should_clear (71 samples, 0.12%)</title><rect x="87.6513%" y="101" width="0.1239%" height="15" fill="rgb(247,202,23)" fg:x="50240" fg:w="71"/><text x="87.9013%" y="111.50"></text></g><g><title>libsystem_malloc.dylib`small_malloc_should_clear (62 samples, 0.11%)</title><rect x="87.6671%" y="85" width="0.1082%" height="15" fill="rgb(219,102,11)" fg:x="50249" fg:w="62"/><text x="87.9171%" y="95.50"></text></g><g><title>libsystem_malloc.dylib`small_malloc_from_free_list (39 samples, 0.07%)</title><rect x="87.7072%" y="69" width="0.0680%" height="15" fill="rgb(243,110,44)" fg:x="50272" fg:w="39"/><text x="87.9572%" y="79.50"></text></g><g><title>boojum-f86d262b5770c546`smallvec::SmallVec&lt;A&gt;::try_reserve (163 samples, 0.28%)</title><rect x="87.7752%" y="117" width="0.2844%" height="15" fill="rgb(222,74,54)" fg:x="50311" fg:w="163"/><text x="88.0252%" y="127.50"></text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::VariablesStorage&lt;F,CFG&gt;::add_obligation (2,764 samples, 4.82%)</title><rect x="85.2821%" y="133" width="4.8222%" height="15" fill="rgb(216,99,12)" fg:x="48882" fg:w="2764"/><text x="85.5321%" y="143.50">boojum..</text></g><g><title>libsystem_platform.dylib`_platform_memset (1,163 samples, 2.03%)</title><rect x="88.0753%" y="117" width="2.0290%" height="15" fill="rgb(226,22,26)" fg:x="50483" fg:w="1163"/><text x="88.3253%" y="127.50">l..</text></g><g><title>boojum-f86d262b5770c546`&lt;smallvec::SmallVec&lt;A&gt; as core::iter::traits::collect::Extend&lt;&lt;A as smallvec::Array&gt;::Item&gt;&gt;::extend (116 samples, 0.20%)</title><rect x="90.1043%" y="101" width="0.2024%" height="15" fill="rgb(217,163,10)" fg:x="51646" fg:w="116"/><text x="90.3543%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;smallvec::SmallVec&lt;A&gt; as core::iter::traits::collect::Extend&lt;&lt;A as smallvec::Array&gt;::Item&gt;&gt;::extend (404 samples, 0.70%)</title><rect x="91.9676%" y="85" width="0.7048%" height="15" fill="rgb(213,25,53)" fg:x="52714" fg:w="404"/><text x="92.2176%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`smallvec::SmallVec&lt;A&gt;::try_reserve (139 samples, 0.24%)</title><rect x="92.4300%" y="69" width="0.2425%" height="15" fill="rgb(252,105,26)" fg:x="52979" fg:w="139"/><text x="92.6800%" y="79.50"></text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::VariablesStorage&lt;F,CFG&gt;::new (1,592 samples, 2.78%)</title><rect x="90.1043%" y="133" width="2.7775%" height="15" fill="rgb(220,39,43)" fg:x="51646" fg:w="1592"/><text x="90.3543%" y="143.50">bo..</text></g><g><title>boojum-f86d262b5770c546`&lt;T as alloc::vec::spec_from_elem::SpecFromElem&gt;::from_elem (1,592 samples, 2.78%)</title><rect x="90.1043%" y="117" width="2.7775%" height="15" fill="rgb(229,68,48)" fg:x="51646" fg:w="1592"/><text x="90.3543%" y="127.50">bo..</text></g><g><title>boojum-f86d262b5770c546`alloc::vec::Vec&lt;T,A&gt;::extend_with (1,476 samples, 2.58%)</title><rect x="90.3067%" y="101" width="2.5751%" height="15" fill="rgb(252,8,32)" fg:x="51762" fg:w="1476"/><text x="90.5567%" y="111.50">bo..</text></g><g><title>boojum-f86d262b5770c546`smallvec::SmallVec&lt;A&gt;::try_reserve (120 samples, 0.21%)</title><rect x="92.6725%" y="85" width="0.2094%" height="15" fill="rgb(223,20,43)" fg:x="53118" fg:w="120"/><text x="92.9225%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`&lt;smallvec::SmallVec&lt;A&gt; as core::iter::traits::collect::Extend&lt;&lt;A as smallvec::Array&gt;::Item&gt;&gt;::extend (468 samples, 0.82%)</title><rect x="93.3703%" y="117" width="0.8165%" height="15" fill="rgb(229,81,49)" fg:x="53518" fg:w="468"/><text x="93.6203%" y="127.50"></text></g><g><title>boojum-f86d262b5770c546`smallvec::SmallVec&lt;A&gt;::try_reserve (148 samples, 0.26%)</title><rect x="93.9286%" y="101" width="0.2582%" height="15" fill="rgb(236,28,36)" fg:x="53838" fg:w="148"/><text x="94.1786%" y="111.50"></text></g><g><title>libsystem_malloc.dylib`small_free_list_add_ptr (33 samples, 0.06%)</title><rect x="95.0365%" y="53" width="0.0576%" height="15" fill="rgb(249,185,26)" fg:x="54473" fg:w="33"/><text x="95.2865%" y="63.50"></text></g><g><title>libsystem_malloc.dylib`small_malloc_from_free_list (49 samples, 0.09%)</title><rect x="95.0208%" y="69" width="0.0855%" height="15" fill="rgb(249,174,33)" fg:x="54464" fg:w="49"/><text x="95.2708%" y="79.50"></text></g><g><title>libsystem_malloc.dylib`small_malloc_should_clear (82 samples, 0.14%)</title><rect x="94.9649%" y="85" width="0.1431%" height="15" fill="rgb(233,201,37)" fg:x="54432" fg:w="82"/><text x="95.2149%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`crossbeam_queue::seg_queue::SegQueue&lt;T&gt;::push (524 samples, 0.91%)</title><rect x="94.1955%" y="117" width="0.9142%" height="15" fill="rgb(221,78,26)" fg:x="53991" fg:w="524"/><text x="94.4455%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`szone_malloc_should_clear (86 samples, 0.15%)</title><rect x="94.9597%" y="101" width="0.1500%" height="15" fill="rgb(250,127,30)" fg:x="54429" fg:w="86"/><text x="95.2097%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`smallvec::SmallVec&lt;A&gt;::try_reserve (130 samples, 0.23%)</title><rect x="95.1097%" y="117" width="0.2268%" height="15" fill="rgb(230,49,44)" fg:x="54515" fg:w="130"/><text x="95.3597%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`_malloc_zone_malloc (10 samples, 0.02%)</title><rect x="95.3365%" y="117" width="0.0174%" height="15" fill="rgb(229,67,23)" fg:x="54645" fg:w="10"/><text x="95.5865%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`nanov2_allocate_outlined (357 samples, 0.62%)</title><rect x="95.3540%" y="117" width="0.6228%" height="15" fill="rgb(249,83,47)" fg:x="54655" fg:w="357"/><text x="95.6040%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`nanov2_find_block_and_allocate (215 samples, 0.38%)</title><rect x="95.6017%" y="101" width="0.3751%" height="15" fill="rgb(215,43,3)" fg:x="54797" fg:w="215"/><text x="95.8517%" y="111.50"></text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::VariablesStorage&lt;F,CFG&gt;::set_initial_value (3,137 samples, 5.47%)</title><rect x="92.8818%" y="133" width="5.4730%" height="15" fill="rgb(238,154,13)" fg:x="53238" fg:w="3137"/><text x="93.1318%" y="143.50">boojum-..</text></g><g><title>libsystem_platform.dylib`_platform_memset (1,361 samples, 2.37%)</title><rect x="95.9803%" y="117" width="2.3745%" height="15" fill="rgb(219,56,2)" fg:x="55014" fg:w="1361"/><text x="96.2303%" y="127.50">li..</text></g><g><title>boojum-f86d262b5770c546`crossbeam_queue::seg_queue::SegQueue&lt;T&gt;::push (133 samples, 0.23%)</title><rect x="98.3548%" y="133" width="0.2320%" height="15" fill="rgb(233,0,4)" fg:x="56375" fg:w="133"/><text x="98.6048%" y="143.50"></text></g><g><title>libsystem_c.dylib`nanosleep (13 samples, 0.02%)</title><rect x="98.5903%" y="117" width="0.0227%" height="15" fill="rgb(235,30,7)" fg:x="56510" fg:w="13"/><text x="98.8403%" y="127.50"></text></g><g><title>libsystem_kernel.dylib`clock_get_time (10 samples, 0.02%)</title><rect x="98.5956%" y="101" width="0.0174%" height="15" fill="rgb(250,79,13)" fg:x="56513" fg:w="10"/><text x="98.8456%" y="111.50"></text></g><g><title>libsystem_kernel.dylib`mach_msg2_trap (10 samples, 0.02%)</title><rect x="98.5956%" y="85" width="0.0174%" height="15" fill="rgb(211,146,34)" fg:x="56513" fg:w="10"/><text x="98.8456%" y="95.50"></text></g><g><title>boojum-f86d262b5770c546`std::thread::sleep (60 samples, 0.10%)</title><rect x="98.5868%" y="133" width="0.1047%" height="15" fill="rgb(228,22,38)" fg:x="56508" fg:w="60"/><text x="98.8368%" y="143.50"></text></g><g><title>libsystem_kernel.dylib`__semwait_signal (45 samples, 0.08%)</title><rect x="98.6130%" y="117" width="0.0785%" height="15" fill="rgb(235,168,5)" fg:x="56523" fg:w="45"/><text x="98.8630%" y="127.50"></text></g><g><title>libsystem_malloc.dylib`_malloc_zone_malloc (239 samples, 0.42%)</title><rect x="98.6950%" y="133" width="0.4170%" height="15" fill="rgb(221,155,16)" fg:x="56570" fg:w="239"/><text x="98.9450%" y="143.50"></text></g><g><title>libsystem_malloc.dylib`nanov2_malloc (373 samples, 0.65%)</title><rect x="99.1155%" y="133" width="0.6508%" height="15" fill="rgb(215,215,53)" fg:x="56811" fg:w="373"/><text x="99.3655%" y="143.50"></text></g><g><title>boojum-f86d262b5770c546`std::sys::unix::thread::Thread::new::thread_start (57,272 samples, 99.92%)</title><rect x="0.0698%" y="245" width="99.9197%" height="15" fill="rgb(223,4,10)" fg:x="40" fg:w="57272"/><text x="0.3198%" y="255.50">boojum-f86d262b5770c546`std::sys::unix::thread::Thread::new::thread_start</text></g><g><title>boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once{{vtable.shim}} (57,272 samples, 99.92%)</title><rect x="0.0698%" y="229" width="99.9197%" height="15" fill="rgb(234,103,6)" fg:x="40" fg:w="57272"/><text x="0.3198%" y="239.50">boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once{{vtable.shim}}</text></g><g><title>boojum-f86d262b5770c546`std::sys_common::backtrace::__rust_begin_short_backtrace (57,272 samples, 99.92%)</title><rect x="0.0698%" y="213" width="99.9197%" height="15" fill="rgb(227,97,0)" fg:x="40" fg:w="57272"/><text x="0.3198%" y="223.50">boojum-f86d262b5770c546`std::sys_common::backtrace::__rust_begin_short_backtrace</text></g><g><title>boojum-f86d262b5770c546`test::run_test::run_test_inner::_{{closure}} (9,293 samples, 16.21%)</title><rect x="83.7765%" y="197" width="16.2131%" height="15" fill="rgb(234,150,53)" fg:x="48019" fg:w="9293"/><text x="84.0265%" y="207.50">boojum-f86d262b5770c546`t..</text></g><g><title>boojum-f86d262b5770c546`test::__rust_begin_short_backtrace (9,293 samples, 16.21%)</title><rect x="83.7765%" y="181" width="16.2131%" height="15" fill="rgb(228,201,54)" fg:x="48019" fg:w="9293"/><text x="84.0265%" y="191.50">boojum-f86d262b5770c546`t..</text></g><g><title>boojum-f86d262b5770c546`core::ops::function::FnOnce::call_once (9,293 samples, 16.21%)</title><rect x="83.7765%" y="165" width="16.2131%" height="15" fill="rgb(222,22,37)" fg:x="48019" fg:w="9293"/><text x="84.0265%" y="175.50">boojum-f86d262b5770c546`c..</text></g><g><title>boojum-f86d262b5770c546`boojum::dag::resolver::test::try_bench_dependecies_separate_worker (9,232 samples, 16.11%)</title><rect x="83.8829%" y="149" width="16.1066%" height="15" fill="rgb(237,53,32)" fg:x="48080" fg:w="9232"/><text x="84.1329%" y="159.50">boojum-f86d262b5770c546`b..</text></g><g><title>libsystem_platform.dylib`_platform_memset (128 samples, 0.22%)</title><rect x="99.7662%" y="133" width="0.2233%" height="15" fill="rgb(233,25,53)" fg:x="57184" fg:w="128"/><text x="100.0162%" y="143.50"></text></g><g><title>all (57,318 samples, 100%)</title><rect x="0.0000%" y="293" width="100.0000%" height="15" fill="rgb(210,40,34)" fg:x="0" fg:w="57318"/><text x="0.2500%" y="303.50"></text></g><g><title>libsystem_pthread.dylib`thread_start (57,278 samples, 99.93%)</title><rect x="0.0698%" y="277" width="99.9302%" height="15" fill="rgb(241,220,44)" fg:x="40" fg:w="57278"/><text x="0.3198%" y="287.50">libsystem_pthread.dylib`thread_start</text></g><g><title>libsystem_pthread.dylib`_pthread_start (57,278 samples, 99.93%)</title><rect x="0.0698%" y="261" width="99.9302%" height="15" fill="rgb(235,28,35)" fg:x="40" fg:w="57278"/><text x="0.3198%" y="271.50">libsystem_pthread.dylib`_pthread_start</text></g></svg></svg>
