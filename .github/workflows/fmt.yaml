@@ -1,0 +1,35 @@
+name: CI Check
+
+on: 
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  fmt:
+    name: Rustfmt
+    timeout-minutes: 30
+    runs-on: [ self-hosted, ci-runner ]
+
+    steps:
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        with:
+          submodules: "recursive"
+        
+      - name: Setup rustup
+        run: |
+          wget -q -O - https://sh.rustup.rs | bash -s -- -y
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          echo "CARGO_BUILD_JOBS=$(($(nproc) /2))" >> "${GITHUB_ENV}"
+          echo "export PATH=\"$HOME/.cargo/bin:\$PATH\"" >> "${HOME}/.bash_profile"
+        
+      - name: setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2023-05-31
+          rustup default nightly-2023-05-31
+          rustup component add rustfmt --toolchain nightly-2023-05-31
+
+      - name: fmt
+        run: cargo +nightly-2023-05-31 fmt --all -- --check
