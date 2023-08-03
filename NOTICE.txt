@@ -1,0 +1,4 @@
+The Plonky2 Authors
+Copyright 2022 The Plonky2 Authors
+
+This product includes software developed and copyrighted by the Plonky2 Authors (https://github.com/mir-protocol/plonky2).
