@@ -25,7 +25,7 @@ Higher level logical functions (like boolean decompositions, range checks, zero 
 
 ### Notes on subparts of construction
 
-- Only the `2^64 - 2^32 + 1` field is implemented. The non-vectorized math implementation largely follows the approach of Plonky2, but is reformulated for const traits
+- Only the 2^64 - 2^32 + 1 field is implemented. The non-vectorized math implementation is based on the implementation developed for Plonky2, but is reformulated for const traits
 - Auto-vectorization is performed mainly for additions, where benefits are clear
 - Poseidon MDS and round constants are equal to Plonky2 to have some compatibility for users
 - Poseidon2 round constants reuses the Poseidon constants
@@ -103,3 +103,6 @@ zkSync Era has been through lots of testing and audits. Although it is live, it 
 through more audits and bug bounties programs. We would love to hear our community's thoughts and suggestions about it!
 It is important to state that forking it now can potentially lead to missing important security updates, critical
 features, and performance improvements.
+
+### Third party notices
+This software includes components from third parties. For a full list of these components and their licenses, see the [THIRD PARTY NOTICES file](ThirdPartyNotices.txt).

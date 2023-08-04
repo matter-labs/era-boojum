@@ -1,4 +1,4 @@
-// NOTE: we take a Plonky2 implementation of non-vectorized field as the baseline,
+// NOTE: we use the Plonky2 (https://github.com/mir-protocol/plonky2) implementation of non-vectorized field as the baseline,
 // with extra modifications for compile-time evaluations. Even though we can not use "const trait"
 // for now, one can use "_impl" const fn methods in non-generic contexts
 

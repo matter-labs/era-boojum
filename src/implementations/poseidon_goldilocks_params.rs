@@ -8,8 +8,8 @@ pub const TOTAL_NUM_ROUNDS: usize = NUM_FULL_ROUNDS_TOTAL + NUM_PARTIAL_ROUNDS;
 
 use crate::field::goldilocks::GoldilocksField;
 
-// Particular constants are not important here, we can take the ones from plonky2 and re-arrange them below using
-// compiler machinery
+// The Poseidon MDS and round constants are equal to those chosen in
+// Plonky2 (https://github.com/mir-protocol/plonky2)
 #[rustfmt::skip]
 pub const ALL_ROUND_CONSTANTS: [u64; STATE_WIDTH * TOTAL_NUM_ROUNDS] = [
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,
