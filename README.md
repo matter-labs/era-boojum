@@ -105,4 +105,8 @@ It is important to state that forking it now can potentially lead to missing imp
 features, and performance improvements.
 
 ### Third party notices
-This software includes components from third parties. For a full list of these components and their licenses, see the [THIRD PARTY NOTICES file](ThirdPartyNotices.txt).
+
+This software includes [mir-protocol/plonky2](https://github.com/mir-protocol/plonky2) from third party. This component was licensed under either [MIT License](src/field/goldilocks/LICENSE-MIT) and [Apache License 2.0](src/field/goldilocks/LICENSE-APACHE).
+
+The [Apache License Notice](src/field/goldilocks/NOTICE) was included.
+
