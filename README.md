@@ -106,7 +106,7 @@ features, and performance improvements.
 
 ### Third party notices
 
-This software includes [mir-protocol/plonky2](https://github.com/mir-protocol/plonky2) from third party. This component was licensed under either [MIT License](src/field/goldilocks/LICENSE-MIT) and [Apache License 2.0](src/field/goldilocks/LICENSE-APACHE).
+This software includes [mir-protocol/plonky2](https://github.com/mir-protocol/plonky2) from third party. This component was licensed under either [MIT License](src/field/goldilocks/LICENSE-MIT) or [Apache License 2.0](src/field/goldilocks/LICENSE-APACHE).
 
 The [Apache License Notice](src/field/goldilocks/NOTICE) was included.
 
