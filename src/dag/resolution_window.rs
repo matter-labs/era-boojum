@@ -108,7 +108,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
 
                 let mut worker = Worker::<V, CHANNEL_SIZE> {
                     receiver,
-                    common: common.clone(),
+                    common: Arc::clone(&common),
                     debug_track: debug_track.to_vec(),
                 };
 
@@ -163,6 +163,8 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
                 .min(data.len() * LOCK_STEP_ELEM_SIZE)
                 // Number of tasks in the buffer
                 .min(self.exec_order_buffer.len());
+
+            assert!(count > 0, "At least one task must be sent.");
 
             for (buffer_ix, data_ix) in (0..count).zip((0..data.len()).cycle()) {
                 let task = &mut self.exec_order_buffer[buffer_ix];
@@ -492,7 +494,7 @@ impl<V: SmallField, const SIZE: usize> Worker<V, SIZE> {
                             // here, as this is an unsynchronizd access.
                             let resolver = this.common.resolvers.u_deref().get(*resolver_ix);
 
-                            if cfg!(cr_paranoia_mode) {
+                            if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
                                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                                     this.invoke(resolver, *order_ix);
 

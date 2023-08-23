@@ -4,10 +4,10 @@ use super::tables::xor8::Xor8Table;
 use super::tables::RangeCheckTable;
 use super::*;
 
+use crate::config::*;
 use crate::cs::gates::ConstantAllocatableCS;
-use crate::cs::gates::*;
-
 use crate::cs::gates::UIntXAddGate;
+use crate::cs::gates::*;
 use crate::cs::traits::cs::ConstraintSystem;
 use crate::cs::traits::cs::DstBuffer;
 use crate::gadgets::boolean::Boolean;
@@ -341,7 +341,15 @@ impl<F: SmallField> UInt8<F> {
     }
 
     pub fn allocate_checked<CS: ConstraintSystem<F>>(cs: &mut CS, witness: u8) -> Self {
-        Self::allocate_pair(cs, [witness, 0u8])[0]
+        let a = cs.alloc_single_variable_from_witness(F::from_u64_with_reduction(witness as u64));
+        range_check_u8(cs, a);
+
+        let a = Self {
+            variable: a,
+            _marker: std::marker::PhantomData,
+        };
+
+        a
     }
 
     pub fn allocate_pair<CS: ConstraintSystem<F>>(cs: &mut CS, pair: [u8; 2]) -> [Self; 2] {
@@ -406,10 +414,61 @@ impl<F: SmallField> UInt8<F> {
         Self::from_variable_unchecked(var)
     }
 
+    #[track_caller]
+    pub fn add_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
+        if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
+            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                (Some(a), Some(b)) => {
+                    let (_, of) = a.overflowing_add(b);
+                    assert!(
+                        of == false,
+                        "trying to add {} and {} that leads to overflow",
+                        a,
+                        b
+                    );
+                }
+                _ => {}
+            }
+        }
+
+        if cs.gate_is_allowed::<UIntXAddGate<8>>() {
+            let no_carry = cs.allocate_constant(F::ZERO);
+            let result_var = UIntXAddGate::<8>::perform_addition_no_carry(
+                cs,
+                self.variable,
+                other.variable,
+                no_carry,
+                no_carry,
+            );
+
+            let result = Self::from_variable_checked(cs, result_var);
+
+            result
+        } else {
+            unimplemented!()
+        }
+    }
+
+    #[track_caller]
     pub fn sub_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
+        if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
+            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                (Some(a), Some(b)) => {
+                    let (_, uf) = a.overflowing_sub(b);
+                    assert!(
+                        uf == false,
+                        "trying to sub {} and {} that leads to underflow",
+                        a,
+                        b
+                    );
+                }
+                _ => {}
+            }
+        }
+
         if cs.gate_is_allowed::<UIntXAddGate<8>>() {
             let no_borrow = cs.allocate_constant(F::ZERO);
-            let result_var = UIntXAddGate::<32>::perform_subtraction_no_borrow(
+            let result_var = UIntXAddGate::<8>::perform_subtraction_no_borrow(
                 cs,
                 self.variable,
                 other.variable,

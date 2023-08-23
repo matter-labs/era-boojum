@@ -44,8 +44,8 @@ pub const fn num_bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
 }
 
-// Allocate a vector of type T, but with extra restriction that it has an alignment
-// of type U. Capacity should be divisible by size_of::<U>/size_of::<T>
+/// Allocate a vector of type T, but with extra restriction that it has an alignment
+/// of type U. Capacity should be divisible by size_of::<U>/size_of::<T>
 #[inline]
 pub fn allocate_in_with_alignment_of<T: Sized, U: Sized, A: GoodAllocator>(
     capacity: usize,
@@ -303,7 +303,7 @@ where
     Ok(arc)
 }
 
-pub(crate) fn serialize_vec_with_allocator<T: serde::Serialize, S, A: GoodAllocator>(
+pub fn serialize_vec_with_allocator<T: serde::Serialize, S, A: GoodAllocator>(
     t: &Vec<T, A>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -350,7 +350,7 @@ where
     }
 }
 
-pub(crate) fn deserialize_vec_with_allocator<'de, D, T: serde::Deserialize<'de>, A: GoodAllocator>(
+pub fn deserialize_vec_with_allocator<'de, D, T: serde::Deserialize<'de>, A: GoodAllocator>(
     deserializer: D,
 ) -> Result<Vec<T, A>, D::Error>
 where
@@ -428,7 +428,7 @@ struct VecProxySer<'a, T: serde::Serialize, A: GoodAllocator> {
     inner: &'a Vec<T, A>,
 }
 
-pub(crate) fn serialize_vec_vec_with_allocators<
+pub fn serialize_vec_vec_with_allocators<
     T: serde::Serialize,
     S,
     A: GoodAllocator,
@@ -488,7 +488,7 @@ where
     }
 }
 
-pub(crate) fn deserialize_vec_vec_with_allocators<
+pub fn deserialize_vec_vec_with_allocators<
     'de,
     D,
     T: serde::Deserialize<'de>,

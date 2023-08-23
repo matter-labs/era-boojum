@@ -320,7 +320,9 @@ fn distribute_powers_mixedgl(input: &mut [MixedGL], element: GoldilocksField) {
     let work_size = input.len();
     let mut current = GoldilocksField::ONE;
     let mut scale_by = MixedGL::from_constant(current);
-    for i in 0..16 {
+
+    use crate::field::traits::field_like::PrimeFieldLikeVectorized;
+    for i in 0..MixedGL::SIZE_FACTOR {
         scale_by.0[i] = current;
         current.mul_assign(&element);
     }
@@ -337,18 +339,20 @@ fn distribute_powers_mixedgl(input: &mut [MixedGL], element: GoldilocksField) {
 }
 
 fn distribute_powers_normalized_mixedgl(input: &mut [MixedGL], element: GoldilocksField) {
+    use crate::field::traits::field_like::PrimeFieldLikeVectorized;
     let work_size = input.len();
     let mut current = GoldilocksField::ONE;
     let mut scale_by = MixedGL::from_constant(current);
-    for i in 0..16 {
+    for i in 0..MixedGL::SIZE_FACTOR {
         scale_by.0[i] = current;
         current.mul_assign(&element);
     }
 
     let large_step = current;
-    let n_inv = GoldilocksField::from_u64_with_reduction((input.len() * 16) as u64)
-        .inverse()
-        .unwrap();
+    let n_inv =
+        GoldilocksField::from_u64_with_reduction((input.len() * MixedGL::SIZE_FACTOR) as u64)
+            .inverse()
+            .unwrap();
     scale_by.mul_constant_assign(&n_inv);
 
     let mut idx = 0;
@@ -393,7 +397,7 @@ const fn max_stride_for_problem_size(size: usize) -> usize {
 
 pub fn fft_natural_to_bitreversed<F: BaseField>(input: &mut [F], coset: F, twiddles: &[F]) {
     debug_assert!(input.len().is_power_of_two());
-    if input.len() != 1 {
+    if input.len() > 16 {
         debug_assert!(input.len() == twiddles.len() * 2);
     }
 
@@ -412,7 +416,7 @@ pub fn fft_natural_to_bitreversed_cache_friendly<F: BaseField>(
     twiddles: &[F],
 ) {
     debug_assert!(input.len().is_power_of_two());
-    if input.len() != 1 {
+    if input.len() > 16 {
         debug_assert!(input.len() == twiddles.len() * 2);
     }
 
@@ -431,7 +435,7 @@ pub fn ifft_natural_to_natural_cache_friendly<F: BaseField>(
     twiddles: &[F],
 ) {
     debug_assert!(input.len().is_power_of_two());
-    if input.len() != 1 {
+    if input.len() > 16 {
         debug_assert!(input.len() == twiddles.len() * 2);
     }
 
@@ -459,7 +463,7 @@ pub fn ifft_natural_to_natural_cache_friendly<F: BaseField>(
 
 pub fn ifft_natural_to_natural<F: BaseField>(input: &mut [F], coset: F, twiddles: &[F]) {
     debug_assert!(input.len().is_power_of_two());
-    if input.len() != 1 {
+    if input.len() > 16 {
         debug_assert!(input.len() == twiddles.len() * 2);
     }
 
@@ -492,8 +496,10 @@ pub fn fft_natural_to_bitreversed_mixedgl(
     twiddles: &[GoldilocksField],
 ) {
     debug_assert!(input.len().is_power_of_two());
-    if input.len() != 1 {
+    if input.len() > 2 {
         debug_assert!(input.len() * 16 == twiddles.len() * 2);
+    } else {
+        debug_assert!(twiddles.len() == 16)
     }
 
     if coset != GoldilocksField::ONE {
@@ -505,14 +511,42 @@ pub fn fft_natural_to_bitreversed_mixedgl(
     mixedgl_cache_friendly_ntt_natural_to_bitreversed(input, log_n, twiddles);
 }
 
-pub fn ifft_natural_to_natural_mixedgl(
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+pub fn fft_natural_to_bitreversed_mixedgl_interleaving(
     input: &mut [MixedGL],
     coset: GoldilocksField,
     twiddles: &[GoldilocksField],
 ) {
     debug_assert!(input.len().is_power_of_two());
     if input.len() != 1 {
+        debug_assert!(input.len() * 8 == twiddles.len() * 2);
+    }
+
+    if coset != GoldilocksField::ONE {
+        distribute_powers_mixedgl(input, coset);
+    }
+
+    let log_n = (input.len() * 8).trailing_zeros();
+
+    mixedgl_cache_friendly_ntt_natural_to_bitreversed_interlieving(input, log_n, twiddles);
+}
+
+pub fn ifft_natural_to_natural_mixedgl(
+    input: &mut [MixedGL],
+    coset: GoldilocksField,
+    twiddles: &[GoldilocksField],
+) {
+    debug_assert!(input.len().is_power_of_two());
+    if input.len() > 2 {
         debug_assert!(input.len() * 16 == twiddles.len() * 2);
+    } else {
+        debug_assert!(twiddles.len() == 16)
     }
 
     let log_n = (input.len() * 16).trailing_zeros();
@@ -530,6 +564,50 @@ pub fn ifft_natural_to_natural_mixedgl(
     } else {
         if input.len() > 1 {
             let n_inv = GoldilocksField::from_u64_with_reduction((input.len() * 16) as u64)
+                .inverse()
+                .unwrap();
+            let mut i = 0;
+            let work_size = input.len();
+            while i < work_size {
+                input[i].mul_constant_assign(&n_inv);
+                i += 1;
+            }
+        }
+    }
+}
+
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+pub fn ifft_natural_to_natural_mixedgl_interleaving(
+    input: &mut [MixedGL],
+    coset: GoldilocksField,
+    twiddles: &[GoldilocksField],
+) {
+    debug_assert!(input.len().is_power_of_two());
+    if input.len() != 1 {
+        debug_assert!(input.len() * 8 == twiddles.len() * 2);
+    }
+
+    let log_n = (input.len() * 8).trailing_zeros();
+
+    mixedgl_cache_friendly_ntt_natural_to_bitreversed_interlieving(input, log_n, twiddles);
+
+    let input =
+        crate::utils::cast_check_alignment_ref_mut_unpack::<MixedGL, GoldilocksField>(input);
+    bitreverse_enumeration_inplace(input);
+    let input = crate::utils::cast_check_alignment_ref_mut_pack::<GoldilocksField, MixedGL>(input);
+
+    if coset != GoldilocksField::ONE {
+        let coset = coset.inverse().expect("coset must be non-trivial");
+        distribute_powers_normalized_mixedgl(input, coset);
+    } else {
+        if input.len() > 1 {
+            let n_inv = GoldilocksField::from_u64_with_reduction((input.len() * 8) as u64)
                 .inverse()
                 .unwrap();
             let mut i = 0;
@@ -590,7 +668,9 @@ pub(crate) fn serial_ct_ntt_natural_to_bitreversed<F: BaseField>(
         return;
     }
 
-    debug_assert!(n == omegas_bit_reversed.len() * 2);
+    if a.len() > 16 {
+        debug_assert!(n == omegas_bit_reversed.len() * 2);
+    }
     debug_assert!(n == (1 << log_n) as usize);
 
     let mut pairs_per_group = n / 2;
@@ -672,7 +752,9 @@ pub(crate) fn cache_friendly_ntt_natural_to_bitreversed<F: PrimeField>(
     const CACHE_BUNCH_LOG: u32 = CACHE_SIZE_LOG - WORD_SIZE_LOG; // 2^17 B
     let cache_friendly_round = log_n.saturating_sub(CACHE_BUNCH_LOG); // 7 round
 
-    debug_assert!(n == omegas_bit_reversed.len() * 2);
+    if a.len() > 16 {
+        debug_assert!(n == omegas_bit_reversed.len() * 2);
+    }
     debug_assert!(n == (1 << log_n) as usize);
 
     let mut pairs_per_group = n / 2;
@@ -923,7 +1005,7 @@ pub(crate) fn mixedgl_cache_friendly_ntt_natural_to_bitreversed(
                 i += 1;
             }
             unsafe {
-                let ptr1 = a[idx_1].0.as_ptr() as *const u64;
+                let ptr1 = a[idx_1].0.as_ptr() as *mut u64;
                 let ptr2 = ptr1.offset(8);
                 MixedGL::butterfly_8x8_impl(ptr1, ptr2);
             }
@@ -996,6 +1078,217 @@ pub(crate) fn mixedgl_cache_friendly_ntt_natural_to_bitreversed(
             }
             k += parts;
             k_idx += 1;
+        }
+
+        cache_bunch += 1;
+    }
+}
+
+#[inline(always)]
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+#[unroll::unroll_for_loops]
+pub(crate) fn mixedgl_cache_friendly_ntt_natural_to_bitreversed_interlieving(
+    a: &mut [MixedGL],
+    log_n: u32,
+    omegas_bit_reversed: &[GoldilocksField],
+) {
+    use std::arch::x86_64::_mm512_loadu_epi64;
+
+    use crate::field::traits::field_like::PrimeFieldLike;
+    use crate::field::traits::field_like::PrimeFieldLikeVectorized;
+    let n = a.len() * MixedGL::SIZE_FACTOR;
+    debug_assert!(a.len() > 0);
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    const CACHE_SIZE_LOG: u32 = 22; // 4 MB
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    const CACHE_SIZE_LOG: u32 = 20; // 1 MB
+
+    const WORD_SIZE_LOG: u32 = 3; // 8 B
+    const CACHE_BUNCH_LOG: u32 = CACHE_SIZE_LOG - WORD_SIZE_LOG; // 2^17 B
+    let cache_friendly_round = log_n.saturating_sub(CACHE_BUNCH_LOG); // 7 round
+
+    debug_assert!(n == omegas_bit_reversed.len() * 2);
+    debug_assert!(n == (1 << log_n) as usize);
+
+    let mut pairs_per_group = a.len() / 2;
+    let mut num_groups = 1;
+    let mut distance = a.len() / 2;
+    let mut round = 0;
+
+    if round < cache_friendly_round {
+        // special case for omega = 1
+        debug_assert!(num_groups == 1);
+        let idx_1 = 0;
+        let idx_2 = pairs_per_group;
+
+        let mut j = idx_1;
+        while j < idx_2 {
+            unsafe {
+                MixedGL::butterfly_8x8_impl(
+                    a[j].0.as_ptr() as *mut u64,
+                    a[j + distance].0.as_ptr() as *mut u64,
+                );
+            }
+
+            j += 1;
+        }
+
+        pairs_per_group /= 2;
+        num_groups *= 2;
+        distance /= 2;
+        round += 1;
+    }
+
+    while round < cache_friendly_round {
+        debug_assert!(num_groups > 1);
+        let mut k = 0;
+        while k < num_groups {
+            let idx_1 = k * pairs_per_group * 2;
+            let idx_2 = idx_1 + pairs_per_group;
+            let s = omegas_bit_reversed[k];
+
+            let mut j = idx_1;
+            while j < idx_2 {
+                a[j + distance].mul_constant_assign(&s);
+                unsafe {
+                    MixedGL::butterfly_8x8_impl(
+                        a[j].0.as_ptr() as *mut u64,
+                        a[j + distance].0.as_ptr() as *mut u64,
+                    );
+                }
+
+                j += 1;
+            }
+            k += 1;
+        }
+
+        pairs_per_group /= 2;
+        num_groups *= 2;
+        distance /= 2;
+        round += 1;
+    }
+    let mut cache_bunch = 0;
+    while cache_bunch < num_groups {
+        // num_groups=128 // round loop
+        let mut pairs_per_group_in_cache = pairs_per_group;
+        let mut distance_in_cache = distance;
+        let mut num_groups_in_cache = 1;
+        let num_rounds_in_cache = log_n - round; // 17
+        let mut round_in_cache = 0;
+
+        if (round == 0) & (a.len() > 1) {
+            // special case for omega = 1
+            debug_assert!(num_groups == 1);
+            let idx_1 = 0;
+            let idx_2 = pairs_per_group;
+
+            let mut j = idx_1;
+            while j < idx_2 {
+                let mut u_p = a[j];
+                let mut u_n = u_p;
+                let mut v = a[j + distance_in_cache];
+                u_p.add_assign(&v, &mut ());
+                u_n.sub_assign(&v, &mut ());
+                a[j] = u_p;
+                a[j + distance_in_cache] = u_n;
+
+                j += 1;
+            }
+
+            pairs_per_group_in_cache /= 2;
+            num_groups_in_cache *= 2;
+            distance_in_cache /= 2;
+            round_in_cache += 1;
+        }
+
+        while round_in_cache < (num_rounds_in_cache - 4) {
+            //attempt to subtract with overflow
+            let mut k = 0;
+            while k < num_groups_in_cache {
+                // group loop
+                let idx_1 = cache_bunch * pairs_per_group * 2 + k * pairs_per_group_in_cache * 2;
+                let idx_2 = idx_1 + pairs_per_group_in_cache;
+                let s = omegas_bit_reversed[cache_bunch * num_groups_in_cache + k];
+
+                let mut j = idx_1;
+                while j < idx_2 {
+                    let mut u_p = a[j];
+                    let mut u_n = u_p;
+                    let mut v = a[j + distance_in_cache];
+                    v.mul_constant_assign(&s);
+                    u_p.add_assign(&v, &mut ());
+                    u_n.sub_assign(&v, &mut ());
+                    a[j] = u_p;
+                    a[j + distance_in_cache] = u_n;
+
+                    let mut u_p = a[j + 1];
+                    let mut u_n = u_p;
+                    let mut v = a[j + 1 + distance_in_cache];
+                    v.mul_constant_assign(&s);
+                    u_p.add_assign(&v, &mut ());
+                    u_n.sub_assign(&v, &mut ());
+                    a[j + 1] = u_p;
+                    a[j + 1 + distance_in_cache] = u_n;
+
+                    j += 2;
+                }
+                k += 1;
+            }
+
+            pairs_per_group_in_cache /= 2;
+            num_groups_in_cache *= 2;
+            distance_in_cache /= 2;
+            round_in_cache += 1;
+        }
+
+        for static_round in 0..4 {
+            let (step_size, butterfly_width, omega_permutation) = match static_round {
+                // TODO: 0 and 3 cases can be nop.
+                // TODO: works with size 8 MixedGL only.
+                0 => (1, 8, [0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64]),
+                1 => (2, 4, [0u64, 0u64, 0u64, 0u64, 1u64, 1u64, 1u64, 1u64]),
+                2 => (4, 2, [0u64, 0u64, 2u64, 2u64, 1u64, 1u64, 3u64, 3u64]),
+                3 => (8, 1, [0u64, 4u64, 1u64, 5u64, 2u64, 6u64, 3u64, 7u64]),
+                _ => unreachable!(),
+            };
+
+            let mut k = 0;
+            let mut k_idx = 0;
+
+            while k < num_groups_in_cache {
+                // group loop
+                let idx_1 = cache_bunch * pairs_per_group * 2 + k_idx;
+                let s = &omegas_bit_reversed[cache_bunch * num_groups_in_cache + k
+                    ..cache_bunch * num_groups_in_cache + k + MixedGL::SIZE_FACTOR];
+                let s_v = unsafe {
+                    _mm512_loadu_epi64(
+                        &omegas_bit_reversed[cache_bunch * num_groups_in_cache + k] as *const _
+                            as *const i64,
+                    )
+                };
+                // let mut s_as_mgl: MixedGL = unsafe { &*(s as *const _ as *const MixedGL) }.clone();
+                let mut s_mgl = MixedGL::from_v(s_v);
+                s_mgl.permute(&omega_permutation);
+                let mut i = 0;
+
+                let (mut u_p, mut v) = a[idx_1].interleave(a[idx_1 + 1], butterfly_width);
+                let mut u_n = u_p;
+                v.mul_assign(&s_mgl, &mut ());
+                u_p.add_assign(&v, &mut ());
+                u_n.sub_assign(&v, &mut ());
+                (a[idx_1], a[idx_1 + 1]) = u_p.interleave(u_n, butterfly_width);
+
+                k += step_size;
+                k_idx += 2;
+            }
+            num_groups_in_cache *= 2;
         }
 
         cache_bunch += 1;
@@ -1134,7 +1427,9 @@ mod test {
         let mut ctx = ();
         let mut rng = rand::thread_rng();
         // for poly_size_log_2 in 5..20 {
-        for poly_size_log_2 in 4..21 {
+        for poly_size_log_2 in 5..21 {
+            println!("Running log {}", poly_size_log_2);
+
             let poly_size: usize = 1 << poly_size_log_2;
 
             let mut original = allocate_in_with_alignment_of::<GoldilocksField, MixedGL, Global>(
@@ -1163,6 +1458,7 @@ mod test {
                     MixedGL,
                     Global,
                 >(&original));
+
             MixedGL::fft_natural_to_bitreversed(
                 &mut forward,
                 coset,
@@ -1194,7 +1490,7 @@ mod test {
         let mut ctx = ();
         let mut rng = rand::thread_rng();
         // for poly_size_log_2 in 6..20 {
-        for poly_size_log_2 in 4..21 {
+        for poly_size_log_2 in 5..21 {
             let poly_size: usize = 1 << poly_size_log_2;
             use rand::Rng;
             let mut original = allocate_in_with_alignment_of::<GoldilocksField, MixedGL, Global>(
@@ -1254,7 +1550,7 @@ mod test {
         let mut ctx = ();
         let mut rng = rand::thread_rng();
 
-        for poly_size_log_2 in 4..20 {
+        for poly_size_log_2 in 5..20 {
             let poly_size: usize = 1 << poly_size_log_2;
 
             let mut original = allocate_in_with_alignment_of::<GoldilocksField, MixedGL, Global>(

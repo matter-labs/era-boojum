@@ -284,4 +284,9 @@ impl<
         self.lookup_parameters
             .num_multipicities_polys(self.lookups_tables_total_len(), self.max_trace_len)
     }
+
+    #[inline]
+    pub fn next_available_place_idx(&self) -> u64 {
+        self.next_available_place_idx
+    }
 }

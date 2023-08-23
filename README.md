@@ -1,14 +1,5 @@
 # Boojum
 
-[![Logo](eraLogo.png)](https://zksync.io/)
-
-zkSync Era is a layer 2 rollup that uses zero-knowledge proofs to scale Ethereum without compromising on security or
-decentralization. Since it's EVM compatible (Solidity/Vyper), 99% of Ethereum projects can redeploy without refactoring
-or re-auditing a single line of code. zkSync Era also uses an LLVM-based compiler that will eventually let developers
-write smart contracts in C++, Rust and other popular languages.
-
-## About
-
 The purpose of this library is to work with a very specific arithmetization with additional assumptions about the field size. Roughly, we expect to have a field `F` with |F| ~ 64 bits (the size of a machine word) (the assumption about field size is not important for the strategy of arithmetization and gate placement, but it is asserted in gadget implementations for particular functions which rely on a specific field size).
 
 The system has a hierarchy of logical function (gadgets) - gates (entities that can inscribe itself into trace) - and evaluators (relations between polynomials). Evaluators are written in the form of a trait that allows us to later on automatically compose functions to check satisfiability and compute proofs, as well as synthesize plain and recursive verifiers. Gates have additional tooling attached to them that allows the gates themselves to track the logic of where they should be placed in the trace. Note that we rely on Plonk's copy constraints and work on the copiable logical entities of "variables" to compose a final provable statement. The system is not intended for AIR arithmetization and doesn't allow to express constraints that span multiple rows of the trace.
@@ -80,29 +71,10 @@ There are benchmarks for 8kB of SHA256 using what we think is somewhat optimal c
 
 Note: benchmarks just try to compile to native arch and only AArch64 (read Apple M1) arch is normally tested end-to-end for now. x86-64 arithmetic implementations were tested for validity, but not end-to-end in full proofs. Note that max performance x86-64 requires extra compiler feature flags in addition to `cpu = native` (AVX512 set is not used by Rust compiler even on native CPUs)
 
-## License
+### Compiler feature flags
 
-The Boojum prover is distributed under the terms of either
-
-- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
-
-## Official Links
-
-- [Website](https://zksync.io/)
-- [GitHub](https://github.com/matter-labs)
-- [Twitter](https://twitter.com/zksync)
-- [Twitter for Devs](https://twitter.com/zkSyncDevs)
-- [Discord](https://join.zksync.dev/)
-
-## Disclaimer
-
-zkSync Era has been through lots of testing and audits. Although it is live, it is still in alpha state and will go
-through more audits and bug bounties programs. We would love to hear our community's thoughts and suggestions about it!
-It is important to state that forking it now can potentially lead to missing important security updates, critical
-features, and performance improvements.
+The cargo config file (`.cargo/config.toml`) contains feature configurations that the library is aware of.
 
 ### Third party notices
+
 This software includes components from third parties. For a full list of these components and their licenses, see the [THIRD PARTY NOTICES file](ThirdPartyNotices.txt).

@@ -447,7 +447,7 @@ impl<
         // we copy locations to use them later on
 
         let mut public_inputs_locations = Vec::with_capacity(self.public_inputs.len());
-        public_inputs_locations.copy_from_slice(&self.public_inputs);
+        public_inputs_locations.extend_from_slice(&self.public_inputs);
 
         // now dump only values
         let max_idx = self.next_available_place_idx as usize;

@@ -2,8 +2,8 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_error::abort_call_site;
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Expr,
-    GenericParam, Generics, Ident, Type, WhereClause,
+    parse_macro_input, punctuated::Punctuated, token::Comma, DeriveInput, GenericParam, Generics,
+    Type, WhereClause,
 };
 
 use crate::utils::*;
@@ -24,13 +24,15 @@ pub(crate) fn derive_witness_hook(input: proc_macro::TokenStream) -> proc_macro:
     let mut field_selections = TokenStream::new();
     let mut field_callings = TokenStream::new();
 
-    let bound = if let Some(bound) = fetch_attr_from_list(BOUND_ATTR_NAME, &attrs) {
+    let extra_bound = if let Some(bound) = fetch_attr_from_list(BOUND_ATTR_NAME, &attrs) {
         let bound = syn::parse_str::<WhereClause>(&bound).expect("must parse bound as WhereClause");
 
-        quote! { #bound }
+        Some(bound)
     } else {
-        quote! {}
+        None
     };
+
+    let bound = merge_where_clauses(generics.where_clause.clone(), extra_bound);
 
     match data {
         syn::Data::Struct(ref struct_data) => match struct_data.fields {

@@ -2,13 +2,13 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_error::abort_call_site;
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Expr,
-    GenericParam, Generics, Ident, Type, WhereClause,
+    parse_macro_input, punctuated::Punctuated, token::Comma, DeriveInput, GenericParam, Type,
+    WhereClause,
 };
 
 use crate::utils::*;
 
-// const BOUND_ATTR_NAME: &'static str = "CSSelectableBound";
+const BOUND_ATTR_NAME: &'static str = "CSVarLengthEncodableBound";
 
 pub(crate) fn derive_var_length_encodable(
     input: proc_macro::TokenStream,
@@ -18,19 +18,22 @@ pub(crate) fn derive_var_length_encodable(
         ident,
         generics,
         data,
+        attrs,
         ..
     } = derived_input.clone();
 
     let mut length_impls = TokenStream::new();
     let mut field_impls = TokenStream::new();
 
-    // let bound = if let Some(bound) = fetch_attr_from_list(BOUND_ATTR_NAME, &attrs) {
-    //     let bound = syn::parse_str::<WhereClause>(&bound).expect("must parse bound as WhereClause");
+    let extra_bound = if let Some(bound) = fetch_attr_from_list(BOUND_ATTR_NAME, &attrs) {
+        let bound = syn::parse_str::<WhereClause>(&bound).expect("must parse bound as WhereClause");
 
-    //     quote! { #bound }
-    // } else {
-    //     quote! { }
-    // };
+        Some(bound)
+    } else {
+        None
+    };
+
+    let bound = merge_where_clauses(generics.where_clause.clone(), extra_bound);
 
     match data {
         syn::Data::Struct(ref struct_data) => match struct_data.fields {
@@ -92,7 +95,7 @@ pub(crate) fn derive_var_length_encodable(
     // };
 
     let expanded = quote! {
-        impl #generics CircuitVarLengthEncodable<F> for #ident<#type_params_of_allocated_struct> {
+        impl #generics CircuitVarLengthEncodable<F> for #ident<#type_params_of_allocated_struct> #bound {
             #[inline(always)]
             fn encoding_length(&self) -> usize {
                 let mut total_len = 0;

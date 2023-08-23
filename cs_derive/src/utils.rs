@@ -1,6 +1,7 @@
-use quote::__private::ext::RepToTokensExt;
+use proc_macro2::TokenStream;
+use quote::quote;
 use syn::punctuated::Punctuated;
-use syn::{GenericParam, Generics, Ident, TypeParamBound};
+use syn::{GenericParam, Generics, Ident, WhereClause};
 
 /// Fetch an attribute string from the derived struct.
 pub(crate) fn fetch_attr(name: &str, attrs: &[syn::Attribute]) -> Option<String> {
@@ -21,6 +22,23 @@ pub(crate) fn fetch_attr(name: &str, attrs: &[syn::Attribute]) -> Option<String>
     }
 
     None
+}
+
+pub(crate) fn merge_where_clauses(a: Option<WhereClause>, b: Option<WhereClause>) -> TokenStream {
+    match (a, b) {
+        (None, None) => {
+            quote! {}
+        }
+        (Some(a), None) | (None, Some(a)) => {
+            quote! { #a }
+        }
+        (Some(a), Some(b)) => {
+            let mut result = a;
+            result.predicates.extend(b.predicates);
+
+            quote! { #result }
+        }
+    }
 }
 
 pub(crate) fn fetch_attr_from_list(name: &str, attrs: &[syn::Attribute]) -> Option<String> {

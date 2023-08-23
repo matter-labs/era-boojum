@@ -1,8 +1,7 @@
 use super::*;
+use crate::config::*;
 use crate::cs::gates::ConstantAllocatableCS;
 use crate::cs::gates::UIntXAddGate;
-use crate::gadgets::u8::*;
-
 use crate::cs::traits::cs::ConstraintSystem;
 use crate::cs::traits::cs::DstBuffer;
 use crate::gadgets::boolean::Boolean;
@@ -12,6 +11,7 @@ use crate::gadgets::num::Num;
 use crate::gadgets::traits::allocatable::CSAllocatable;
 use crate::gadgets::traits::allocatable::CSAllocatableExt;
 use crate::gadgets::traits::castable::WitnessCastable;
+use crate::gadgets::u8::*;
 use crate::{cs::Variable, field::SmallField};
 
 #[derive(Derivative)]
@@ -395,10 +395,26 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[track_caller]
     pub fn add_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
+        if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
+            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                (Some(a), Some(b)) => {
+                    let (_, of) = a.overflowing_add(b);
+                    assert!(
+                        of == false,
+                        "trying to add {} and {} that leads to overflow",
+                        a,
+                        b
+                    );
+                }
+                _ => {}
+            }
+        }
+
         if cs.gate_is_allowed::<UIntXAddGate<16>>() {
             let no_carry = cs.allocate_constant(F::ZERO);
-            let result_var = UIntXAddGate::<32>::perform_addition_no_carry(
+            let result_var = UIntXAddGate::<16>::perform_addition_no_carry(
                 cs,
                 self.variable,
                 other.variable,
@@ -414,10 +430,26 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[track_caller]
     pub fn sub_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
+        if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
+            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                (Some(a), Some(b)) => {
+                    let (_, uf) = a.overflowing_sub(b);
+                    assert!(
+                        uf == false,
+                        "trying to sub {} and {} that leads to underflow",
+                        a,
+                        b
+                    );
+                }
+                _ => {}
+            }
+        }
+
         if cs.gate_is_allowed::<UIntXAddGate<16>>() {
             let no_borrow = cs.allocate_constant(F::ZERO);
-            let result_var = UIntXAddGate::<32>::perform_subtraction_no_borrow(
+            let result_var = UIntXAddGate::<16>::perform_subtraction_no_borrow(
                 cs,
                 self.variable,
                 other.variable,

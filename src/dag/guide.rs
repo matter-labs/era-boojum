@@ -667,6 +667,8 @@ impl<T: Debug, Cfg: CSResolverConfig> BufferGuide<T, Cfg> {
 
             for x in 0..N {
                 let p = N - x;
+                debug_assert_ne!(0, p);
+
                 A[x].metadata = GuideMetadata::new((p) as u16);
                 self.stats.parallelism[p] += 1;
             }
@@ -710,7 +712,7 @@ impl<T: Debug, Cfg: CSResolverConfig> BufferGuide<T, Cfg> {
                 self.stats.parallelism[self.parallelism as usize] += n as u32;
 
                 for n in n..A.len() {
-                    let p = t + B_len as u16;
+                    let p = std::cmp::max(t + B_len as u16, 1);
                     A[n].metadata = GuideMetadata::new(p);
                     self.stats.parallelism[p as usize] += 1;
 
@@ -729,6 +731,7 @@ impl<T: Debug, Cfg: CSResolverConfig> BufferGuide<T, Cfg> {
                 let len = self.spans[i].buffer.len();
 
                 for e in &mut self.spans[i].buffer {
+                    debug_assert_ne!(0, len);
                     e.metadata = GuideMetadata::new(len as u16);
 
                     self.stats.parallelism[len] += 1;
@@ -764,6 +767,7 @@ impl<T: Debug, Cfg: CSResolverConfig> BufferGuide<T, Cfg> {
 
                     let p = std::cmp::min(c1, c2);
 
+                    debug_assert_ne!(0, p);
                     A[x as usize].metadata = GuideMetadata::new(p);
 
                     self.stats.parallelism[p as usize] += 1;

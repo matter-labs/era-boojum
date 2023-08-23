@@ -22,8 +22,25 @@ pub mod arm_asm_impl;
     target_feature = "avx2"
 )))]
 pub mod generic_impl;
-#[cfg(all(target_feature = "avx512f", target_feature = "avx512vl"))]
+#[cfg(all(
+    target_feature = "avx512f",
+    target_feature = "avx512vl",
+    not(any(
+        target_feature = "avx512bw",
+        target_feature = "avx512cd",
+        target_feature = "avx512dq"
+    ))
+))]
 pub mod x86_64_asm_impl;
+
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+pub mod avx512_impl;
 
 #[cfg(all(
     any(target_feature = "neon", target_feature = "avx2"),
@@ -36,8 +53,26 @@ pub use arm_asm_impl::*;
     target_feature = "avx2"
 )))]
 pub use generic_impl::*;
-#[cfg(all(target_feature = "avx512f", target_feature = "avx512vl"))]
+
+#[cfg(all(
+    target_feature = "avx512f",
+    target_feature = "avx512vl",
+    not(any(
+        target_feature = "avx512bw",
+        target_feature = "avx512cd",
+        target_feature = "avx512dq"
+    ))
+))]
 pub use x86_64_asm_impl::*;
+
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+pub use avx512_impl::*;
 
 pub use self::extension::GoldilocksExt2;
 use self::inversion::try_inverse_u64;

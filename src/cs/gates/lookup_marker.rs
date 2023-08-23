@@ -307,7 +307,7 @@ impl<F: SmallField> Gate<F> for LookupFormalGate {
                             for (tooling_id, subdata) in per_table_tooling.iter().enumerate() {
                                 let table_id = tooling_id as u32 + INITIAL_LOOKUP_TABLE_ID_VALUE;
                                 let (_, num_instances_already_placed) =
-                                    subdata.expect("must exist");
+                                    subdata.expect("table must be used at least once");
                                 let num_instances_to_add =
                                     capacity_per_row - num_instances_already_placed;
                                 hint.pad_partial_rows.push((table_id, num_instances_to_add));

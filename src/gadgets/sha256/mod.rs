@@ -307,7 +307,7 @@ mod test {
         let cap_size = 16;
         let mut prover_config = ProofConfig::default();
         prover_config.fri_lde_factor = fri_lde_degree;
-        prover_config.pow_bits = 0; // now important in practice for anything. 2^20 Blake2s POW uses 30ms
+        prover_config.pow_bits = 0; // not important in practice for anything. 2^20 Blake2s POW uses 30ms
 
         use rand::{Rng, SeedableRng};
         let mut rng = rand::rngs::StdRng::seed_from_u64(42 as u64);
@@ -365,6 +365,52 @@ mod test {
             );
 
             builder
+        }
+
+        {
+            // satisfiability check
+            use crate::config::DevCSConfig;
+
+            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(
+                geometry,
+                max_variables,
+                max_trace_len,
+            );
+            let builder = new_builder::<_, F>(builder_impl);
+
+            let builder = configure(builder);
+            let mut owned_cs = builder.build(());
+
+            // add tables
+            let table = create_tri_xor_table();
+            owned_cs.add_lookup_table::<TriXor4Table, 4>(table);
+
+            let table = create_ch4_table();
+            owned_cs.add_lookup_table::<Ch4Table, 4>(table);
+
+            let table = create_maj4_table();
+            owned_cs.add_lookup_table::<Maj4Table, 4>(table);
+
+            let table = create_4bit_chunk_split_table::<F, 1>();
+            owned_cs.add_lookup_table::<Split4BitChunkTable<1>, 4>(table);
+
+            let table = create_4bit_chunk_split_table::<F, 2>();
+            owned_cs.add_lookup_table::<Split4BitChunkTable<2>, 4>(table);
+
+            let mut circuit_input = vec![];
+
+            let cs = &mut owned_cs;
+
+            for el in input.iter() {
+                let el = UInt8::allocate_checked(cs, *el);
+                circuit_input.push(el);
+            }
+
+            let _output = sha256(cs, &circuit_input);
+            drop(cs);
+            let (_, _padding_hint) = owned_cs.pad_and_shrink();
+            let mut owned_cs = owned_cs.into_assembly();
+            assert!(owned_cs.check_if_satisfied(&worker));
         }
 
         use crate::cs::cs_builder_reference::*;

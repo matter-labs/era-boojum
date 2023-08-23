@@ -130,7 +130,7 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
 
         let exec_order = Vec::with_capacity(opts.max_variables);
 
-        let debug_track = vec![Place::from_variable(Variable::from_variable_index(321126))];
+        let debug_track = vec![];
 
         if cfg!(cr_paranoia_mode) || PARANOIA {
             log!("Contains tracked keys {:?} ", debug_track);
@@ -157,7 +157,7 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
             registrar: Registrar::new(),
 
             resolution_window_handle: ResolutionWindow::<V>::run(
-                common.clone(),
+                Arc::clone(&common),
                 &debug_track,
                 threads,
             )

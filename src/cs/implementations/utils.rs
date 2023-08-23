@@ -46,7 +46,11 @@ pub fn materialize_powers_serial<F: PrimeField, A: GoodAllocator>(
     storage
 }
 
-pub(crate) fn materialize_powers_parallel<F: PrimeField, A: GoodAllocator>(
+pub(crate) fn materialize_powers_parallel<
+    F: PrimeField,
+    P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
+    A: GoodAllocator,
+>(
     base: F,
     size: usize,
     worker: &Worker,
@@ -54,7 +58,13 @@ pub(crate) fn materialize_powers_parallel<F: PrimeField, A: GoodAllocator>(
     if size == 0 {
         return Vec::new_in(A::default());
     }
-    let mut storage = Vec::with_capacity_in(size, A::default());
+    assert!(
+        size.is_power_of_two(),
+        "due to requirement on size and alignment we only allow powers of two sizes, but got {}",
+        size
+    );
+    let size = std::cmp::max(size, P::SIZE_FACTOR);
+    let mut storage = utils::allocate_in_with_alignment_of::<F, P, A>(size, A::default());
     worker.scope(size, |scope, chunk_size| {
         for (chunk_idx, chunk) in storage.spare_capacity_mut()[..size]
             .chunks_mut(chunk_size)
@@ -100,9 +110,16 @@ pub fn precompute_twiddles_for_fft<
     }
 
     let num_powers = fft_size / 2;
-    let mut powers = materialize_powers_parallel(omega, num_powers, worker);
+    // MixedGL can have up to 16 elements, depending on implementation, so we can't
+    // have less than that.
+    let mut powers = materialize_powers_parallel::<F, P, A>(
+        omega,
+        std::cmp::max(num_powers, P::SIZE_FACTOR),
+        worker,
+    );
 
-    bitreverse_enumeration_inplace(&mut powers);
+    // Items beyond `num_powers` are dead weight.
+    bitreverse_enumeration_inplace(&mut powers[0..num_powers]);
 
     P::vec_from_base_vec(powers)
 }
@@ -132,7 +149,7 @@ pub fn precompute_twiddles_for_fft_natural<
     }
 
     let num_powers = fft_size / 2;
-    let powers = materialize_powers_parallel(omega, num_powers, worker);
+    let powers = materialize_powers_parallel::<F, P, A>(omega, num_powers, worker);
 
     P::vec_from_base_vec(powers)
 }
@@ -1719,10 +1736,13 @@ mod test {
 
     #[test]
     fn test_materialize_powers() {
-        let serial: Vec<_> = materialize_powers_serial(F::multiplicative_generator(), 300);
+        let serial: Vec<_> = materialize_powers_serial(F::multiplicative_generator(), 512);
         let worker = Worker::new();
-        let parallel: Vec<_> =
-            materialize_powers_parallel(F::multiplicative_generator(), 300, &worker);
+        let parallel: Vec<_> = materialize_powers_parallel::<F, F, Global>(
+            F::multiplicative_generator(),
+            512,
+            &worker,
+        );
         assert_eq!(serial, parallel);
     }
 
