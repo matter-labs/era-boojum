@@ -61,8 +61,8 @@ impl MixedGL {
     pub const T: u64 = (Self::ORDER - 1) >> Self::TWO_ADICITY;
     pub const BARRETT: u128 = 18446744078004518912; // 0x10000000100000000
                                                     // pub const EPSILON: u64 = (1 << 32) - 1;
-    const FIELD_ORDER: __m512i = unsafe { transmute(Self([GoldilocksField::ORDER; 8])) };
-    const EPSILON: __m512i = unsafe { transmute(Self([GoldilocksField::ORDER.wrapping_neg(); 8])) };
+    const FIELD_ORDER: __m512i = unsafe { transmute(Self([GoldilocksField(GoldilocksField::ORDER); 8])) };
+    const EPSILON: __m512i = unsafe { transmute(Self([GoldilocksField(GoldilocksField::ORDER.wrapping_neg()); 8])) };
     const EPSILON_SCALAR: u64 = (1 << 32) - 1;
     const LO_32_BITS_MASK: __mmask16 = unsafe { transmute(0b0101010101010101u16) };
 
