@@ -5,6 +5,7 @@ on:
 jobs:
   build:
     name: cargo build and test
+    # Private running is needed to run very heavy test.
     runs-on: matterlabs-ci-runner
     steps:
       - uses: actions/checkout@v3
