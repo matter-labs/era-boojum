@@ -5,7 +5,7 @@ on:
 jobs:
   build:
     name: cargo build and test
-    runs-on: ubuntu-latest
+    runs-on: matterlabs-ci-runner
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
