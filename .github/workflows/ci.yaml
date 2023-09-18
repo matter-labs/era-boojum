@@ -5,8 +5,8 @@ on:
 jobs:
   build:
     name: cargo build and test
-    # Private running is needed to run very heavy test.
-    runs-on: matterlabs-ci-runner
+    # Needs big runner for the test.
+    runs-on: ubuntu-22.04-github-hosted-16core
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
