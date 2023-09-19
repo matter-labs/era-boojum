@@ -1,5 +1,5 @@
-name: CI
-on: [push, pull_request]
+name: Cargo license check
+on: pull_request
 jobs:
   cargo-deny:
     runs-on: ubuntu-latest
