@@ -88,7 +88,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BoundedBooleanConstraitEvalua
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = ();
@@ -102,7 +101,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BoundedBooleanConstraitEvalua
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]
@@ -130,7 +128,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BoundedBooleanConstraitEvalua
     }
 }
 
-const UNIQUE_IDENTIFIER: &'static str = "Boolean constraint gate";
+const UNIQUE_IDENTIFIER: &str = "Boolean constraint gate";
 const PRINCIPAL_WIDTH: usize = 1;
 
 // Just keep a position that we can use next

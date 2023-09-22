@@ -7,7 +7,7 @@ use crate::field::Field;
 use std::usize;
 use unroll::unroll_for_loops;
 
-#[derive(Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct State(pub [GoldilocksField; 12]);
 
 impl std::fmt::Debug for State {
@@ -241,15 +241,6 @@ impl Default for State {
     }
 }
 
-impl PartialEq for State {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Eq for State {}
-
 #[inline(always)]
 pub fn poseidon2_permutation(state: &mut [GoldilocksField; State::STATE_WIDTH]) {
     let mut state_vec = State::from_field_array(*state);
@@ -282,10 +273,10 @@ mod test {
         }
         dbg!(state);
 
-        let mut state_ref = state.clone();
+        let mut state_ref = state;
         poseidon_goldilocks_naive::apply_round_constants(&mut state_ref, 0);
 
-        let mut state_vec = State(state.clone());
+        let mut state_vec = State(state);
         state_vec.apply_round_constants(0);
 
         // dbg!(&state_vec);
@@ -304,12 +295,12 @@ mod test {
         }
         dbg!(state);
 
-        let mut state_ref = state.clone();
+        let mut state_ref = state;
         for i in 0..12 {
             poseidon_goldilocks_naive::apply_non_linearity(&mut state_ref[i]);
         }
 
-        let mut state_vec = State(state.clone());
+        let mut state_vec = State(state);
         state_vec.apply_non_linearity();
 
         // dbg!(&state_vec);
@@ -328,10 +319,10 @@ mod test {
         }
         dbg!(state);
 
-        let mut state_ref = state.clone();
+        let mut state_ref = state;
         suggested_mds::suggested_mds_mul(&mut state_ref);
 
-        let mut state_vec = State(state.clone());
+        let mut state_vec = State(state);
         state_vec.suggested_mds_mul();
 
         // dbg!(&state_vec);
@@ -350,14 +341,14 @@ mod test {
         }
         dbg!(state);
 
-        let mut state_ref = State::from_field_array(state.clone());
+        let mut state_ref = State::from_field_array(state);
         state_ref.poseidon2_permutation();
         // let mut state_ref_convert = State::default();
         // for i in 0..12 {
         //     state_ref_convert.0[i] = GoldilocksField::from_u128_with_reduction(state_ref.0[i]);
         // }
 
-        let mut state_vec = State(state.clone());
+        let mut state_vec = State(state);
         state_vec.poseidon2_permutation();
 
         // dbg!(&state_vec);

@@ -43,7 +43,7 @@ pub struct CsVerifierBuilder<F: SmallField, EXT: FieldExtension<2, BaseField = F
 impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> CsVerifierBuilder<F, EXT> {
     pub fn new_from_parameters(parameters: CSGeometry) -> Self {
         Self {
-            parameters: parameters,
+            parameters,
             lookup_parameters: LookupParameters::NoLookup,
 
             gate_type_ids_for_specialized_columns: Vec::with_capacity(16),

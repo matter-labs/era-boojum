@@ -4,7 +4,7 @@ use super::*;
 
 // u8x4 * u8x4 + u8x4 + u8x4 = u8x4 + 2^32 * u8x4, for purposes for long math
 
-const UNIQUE_IDENTIFIER: &'static str = "u8x4 * u8x4 + u8x4 + u8x4 = u8x4 + 2^32 * u8x4";
+const UNIQUE_IDENTIFIER: &str = "u8x4 * u8x4 + u8x4 + u8x4 = u8x4 + 2^32 * u8x4";
 const PRINCIPAL_WIDTH: usize = 26;
 
 #[derive(Derivative)]
@@ -20,9 +20,7 @@ impl<F: SmallField> GateConstraintEvaluator<F> for U8x4ConstraintEvaluator {
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -137,7 +135,6 @@ impl<F: SmallField> GateConstraintEvaluator<F> for U8x4ConstraintEvaluator {
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]
@@ -217,21 +214,21 @@ impl<F: SmallField> GateConstraintEvaluator<F> for U8x4ConstraintEvaluator {
 
         // + c
         let mut contribution = c0;
-        P::mul_and_accumulate_into(&mut contribution, &c1, &shift_8, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &c2, &shift_16, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &c3, &shift_24, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &c1, shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &c2, shift_16, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &c3, shift_24, ctx);
 
         // + carry_in
         contribution.add_assign(&carry0, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &carry1, &shift_8, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &carry2, &shift_16, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &carry3, &shift_24, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &carry1, shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &carry2, shift_16, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &carry3, shift_24, ctx);
 
         // - low
-        P::mul_and_accumulate_into(&mut contribution, &low0, &minus_one, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &low1, &minus_shift_8, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &low2, &minus_shift_16, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &low3, &minus_shift_24, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &low0, minus_one, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &low1, minus_shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &low2, minus_shift_16, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &low3, minus_shift_24, ctx);
 
         // multiplication, basically everything that contributes into 0..32 bits
 
@@ -242,14 +239,14 @@ impl<F: SmallField> GateConstraintEvaluator<F> for U8x4ConstraintEvaluator {
         let mut tmp = a1;
         tmp.mul_assign(&b0, ctx);
         P::mul_and_accumulate_into(&mut tmp, &a0, &b1, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &tmp, &shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &tmp, shift_8, ctx);
 
         // 16..
         let mut tmp = a2;
         tmp.mul_assign(&b0, ctx);
         P::mul_and_accumulate_into(&mut tmp, &a1, &b1, ctx);
         P::mul_and_accumulate_into(&mut tmp, &a0, &b2, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &tmp, &shift_16, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &tmp, shift_16, ctx);
 
         // 24..
         let mut tmp = a3;
@@ -257,24 +254,24 @@ impl<F: SmallField> GateConstraintEvaluator<F> for U8x4ConstraintEvaluator {
         P::mul_and_accumulate_into(&mut tmp, &a2, &b1, ctx);
         P::mul_and_accumulate_into(&mut tmp, &a1, &b2, ctx);
         P::mul_and_accumulate_into(&mut tmp, &a0, &b3, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &tmp, &shift_24, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &tmp, shift_24, ctx);
 
         // and we need to subtract carries, that are range checked
-        P::mul_and_accumulate_into(&mut contribution, &product_carry0, &minus_shift_32, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &product_carry1, &minus_shift_40, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &product_carry0, minus_shift_32, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &product_carry1, minus_shift_40, ctx);
 
         destination.push_evaluation_result(contribution, ctx);
 
         // continue in the same manner, enforce everything for range 32..64
 
         let mut contribution = product_carry0;
-        P::mul_and_accumulate_into(&mut contribution, &product_carry1, &shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &product_carry1, shift_8, ctx);
 
         // - high
-        P::mul_and_accumulate_into(&mut contribution, &high0, &minus_one, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &high1, &minus_shift_8, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &high2, &minus_shift_16, ctx);
-        P::mul_and_accumulate_into(&mut contribution, &high3, &minus_shift_24, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &high0, minus_one, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &high1, minus_shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &high2, minus_shift_16, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &high3, minus_shift_24, ctx);
 
         // multiplication
         // 32..
@@ -290,13 +287,13 @@ impl<F: SmallField> GateConstraintEvaluator<F> for U8x4ConstraintEvaluator {
         tmp.mul_assign(&b2, ctx);
         P::mul_and_accumulate_into(&mut tmp, &a2, &b3, ctx);
 
-        P::mul_and_accumulate_into(&mut contribution, &tmp, &shift_8, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &tmp, shift_8, ctx);
 
         // 48..
         let mut tmp = a3;
         tmp.mul_assign(&b3, ctx);
 
-        P::mul_and_accumulate_into(&mut contribution, &tmp, &shift_16, ctx);
+        P::mul_and_accumulate_into(&mut contribution, &tmp, shift_16, ctx);
 
         destination.push_evaluation_result(contribution, ctx);
     }

@@ -427,7 +427,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
         <TR::CircuitReflection as CircuitTranscript<F>>::witness_merkle_tree_cap(
             &mut transcript,
             cs,
-            &setup_tree_cap,
+            setup_tree_cap,
         );
 
         if proof.public_inputs.len() != fixed_parameters.public_inputs_locations.len() {
@@ -597,7 +597,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
         let mut public_input_opening_tuples: Vec<(F, Vec<(usize, NumAsFieldWrapper<F, CS>)>)> =
             vec![];
         {
-            let omega = domain_generator_for_size::<F>(fixed_parameters.domain_size as u64);
+            let omega = domain_generator_for_size::<F>(fixed_parameters.domain_size);
 
             for (column, row, value) in public_inputs_with_values.into_iter() {
                 let open_at = omega.pow_u64(row as u64);
@@ -811,14 +811,14 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                         assert_eq!(
                             lookup_witness_encoding_polys_values.len(),
                             variables_columns_for_lookup
-                                .chunks_exact(column_elements_per_subargument as usize)
+                                .chunks_exact(column_elements_per_subargument)
                                 .len()
                         );
 
                         for (a_poly, witness_columns) in
                             lookup_witness_encoding_polys_values.iter().zip(
                                 variables_columns_for_lookup
-                                    .chunks_exact(column_elements_per_subargument as usize),
+                                    .chunks_exact(column_elements_per_subargument),
                             )
                         {
                             let alpha = *challenges_it
@@ -827,7 +827,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                             let mut contribution = lookup_beta;
 
                             let table_id = if let Some(table_id_poly) =
-                                fixed_parameters.table_ids_column_idxes.get(0).copied()
+                                fixed_parameters.table_ids_column_idxes.first().copied()
                             {
                                 vec![constant_poly_values[table_id_poly]]
                             } else {
@@ -955,14 +955,14 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                         assert_eq!(
                             lookup_witness_encoding_polys_values.len(),
                             variables_columns_for_lookup
-                                .chunks_exact(column_elements_per_subargument as usize)
+                                .chunks_exact(column_elements_per_subargument)
                                 .len()
                         );
 
                         for (a_poly, witness_columns) in
                             lookup_witness_encoding_polys_values.iter().zip(
                                 variables_columns_for_lookup
-                                    .chunks_exact(column_elements_per_subargument as usize),
+                                    .chunks_exact(column_elements_per_subargument),
                             )
                         {
                             let alpha = *challenges_it
@@ -971,7 +971,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                             let mut contribution = lookup_beta;
 
                             let table_id = if let Some(table_id_poly) =
-                                fixed_parameters.table_ids_column_idxes.get(0).copied()
+                                fixed_parameters.table_ids_column_idxes.first().copied()
                             {
                                 vec![constant_poly_values[table_id_poly]]
                             } else {
@@ -1185,8 +1185,8 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                     .iter()
                     .enumerate()
                 {
-                    if &evaluator.evaluator_type_id
-                        == &std::any::TypeId::of::<LookupGateMarkerFormalEvaluator>()
+                    if evaluator.evaluator_type_id
+                        == std::any::TypeId::of::<LookupGateMarkerFormalEvaluator>()
                     {
                         continue;
                     }
@@ -1243,7 +1243,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
 
             // then copy_permutation algorithm
 
-            let z_in_domain_size = z.pow_u64(fixed_parameters.domain_size as u64, cs);
+            let z_in_domain_size = z.pow_u64(fixed_parameters.domain_size, cs);
 
             let mut vanishing_at_z = z_in_domain_size;
             vanishing_at_z.sub_assign(&one_ext, cs);
@@ -1298,7 +1298,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                     // denominator is w + beta * sigma(x) + gamma
                     let mut subres = *sigma;
                     subres.mul_assign(&beta, cs);
-                    subres.add_assign(&variable, cs);
+                    subres.add_assign(variable, cs);
                     subres.add_assign(&gamma, cs);
                     lhs.mul_assign(&subres, cs);
                 }
@@ -1308,9 +1308,9 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                 for (non_res, variable) in non_residues.iter().zip(variables.iter()) {
                     // numerator is w + beta * non_res * x + gamma
                     let mut subres = x_poly_value;
-                    subres.mul_assign_by_base(&non_res, cs);
+                    subres.mul_assign_by_base(non_res, cs);
                     subres.mul_assign(&beta, cs);
-                    subres.add_assign(&variable, cs);
+                    subres.add_assign(variable, cs);
                     subres.add_assign(&gamma, cs);
                     rhs.mul_assign(&subres, cs);
                 }
@@ -1321,7 +1321,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                 // mul by power of challenge and accumulate
                 NumExtAsFieldWrapper::<F, EXT, CS>::mul_and_accumulate_into(
                     &mut t_accumulator,
-                    &alpha,
+                    alpha,
                     &contribution,
                     cs,
                 );
@@ -1453,7 +1453,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
         {
             // commit new oracle
             assert_eq!(fixed_parameters.cap_size, cap.len());
-            transcript.witness_merkle_tree_cap(cs, &cap);
+            transcript.witness_merkle_tree_cap(cs, cap);
 
             // get challenge
             let reduction_degree_log_2 = *interpolation_degree_log2;
@@ -1786,7 +1786,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                     cs,
                     &mut simulated_ext_element,
                     &sources,
-                    &values_at_z,
+                    values_at_z,
                     domain_element_for_quotiening,
                     z,
                     &challenges_for_fri_quotiening
@@ -1807,7 +1807,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                     cs,
                     &mut simulated_ext_element,
                     &sources,
-                    &values_at_z_omega,
+                    values_at_z_omega,
                     domain_element_for_quotiening,
                     z_omega,
                     &challenges_for_fri_quotiening
@@ -1836,7 +1836,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                         cs,
                         &mut simulated_ext_element,
                         &sources,
-                        &values_at_0,
+                        values_at_0,
                         domain_element_for_quotiening,
                         zero_ext,
                         &challenges_for_fri_quotiening
@@ -1851,7 +1851,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
             for (open_at, set) in public_input_opening_tuples.iter() {
                 let mut sources = Vec::with_capacity(set.len());
                 let mut values = Vec::with_capacity(set.len());
-                for (column, expected_value) in set.into_iter() {
+                for (column, expected_value) in set {
                     let c0 = queries.witness_query.leaf_elements[*column];
                     let el =
                         NumExtAsFieldWrapper::<F, EXT, CS>::from_num_coeffs_in_base([c0, zero_num]);
@@ -1939,7 +1939,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                 let is_included = verify_proof_over_cap::<F, H, CS>(
                     cs,
                     &fri_query.proof,
-                    &cap,
+                    cap,
                     &leaf_hash,
                     tree_idx,
                 );
@@ -1968,8 +1968,8 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
                         result.add_assign(b, cs);
 
                         let mut diff = *a;
-                        diff.sub_assign(&b, cs);
-                        diff.mul_assign(&challenge, cs);
+                        diff.sub_assign(b, cs);
+                        diff.mul_assign(challenge, cs);
                         // divide by corresponding power
                         let mut pow = base_pow;
                         pow.mul_assign(&interpolation_steps[i], cs);
@@ -2080,9 +2080,9 @@ fn quotening_operation<
     {
         // (f(x) - f(z))/(x - z)
         let mut tmp = *poly_value;
-        tmp.sub_assign(&value_at, cs);
+        tmp.sub_assign(value_at, cs);
 
-        NumExtAsFieldWrapper::<F, EXT, CS>::mul_and_accumulate_into(&mut acc, &tmp, &challenge, cs);
+        NumExtAsFieldWrapper::<F, EXT, CS>::mul_and_accumulate_into(&mut acc, &tmp, challenge, cs);
 
         // let mut as_ext = *challenge;
         // as_ext.mul_assign(&tmp, cs);
@@ -2145,12 +2145,12 @@ pub fn verify_proof_over_cap<
 ) -> Boolean<F> {
     assert!(path.len() >= proof.len());
 
-    let mut current = leaf_hash.clone();
+    let mut current = *leaf_hash;
     let path_bits = &path[..proof.len()];
     let cap_bits = &path[proof.len()..];
 
     for (proof_el, path_bit) in proof.iter().zip(path_bits.iter()) {
-        let (left, right) = H::swap_nodes(cs, *path_bit, &current, &proof_el, 0);
+        let (left, right) = H::swap_nodes(cs, *path_bit, &current, proof_el, 0);
         current = <H as CircuitTreeHasher<F, Num<F>>>::hash_into_node(cs, &left, &right, 0);
     }
 
@@ -2215,8 +2215,8 @@ mod test {
         type P = GoldilocksField;
         type TR = GoldilocksPoisedon2Transcript;
         type R = Poseidon2Goldilocks;
-        type CTR = CircuitAlgebraicSpongeBasedTranscript<GoldilocksField, 8, 12, 4, R>;
-        type EXT = GoldilocksExt2;
+        type Ctr = CircuitAlgebraicSpongeBasedTranscript<GoldilocksField, 8, 12, 4, R>;
+        type Ext = GoldilocksExt2;
         type H = GoldilocksPoseidon2Sponge<AbsorptionModeOverwrite>;
         type RH = CircuitGoldilocksPoseidon2Sponge;
         // type P = MixedGL;
@@ -2284,10 +2284,10 @@ mod test {
         use crate::cs::implementations::verifier::VerificationKey;
 
         let vk: VerificationKey<F, H> = serde_json::from_reader(&mut vk_file).unwrap();
-        let proof: Proof<F, H, EXT> = serde_json::from_reader(&mut proof_file).unwrap();
+        let proof: Proof<F, H, Ext> = serde_json::from_reader(&mut proof_file).unwrap();
 
         let builder_impl =
-            CsVerifierBuilder::<F, EXT>::new_from_parameters(vk.fixed_parameters.parameters);
+            CsVerifierBuilder::<F, Ext>::new_from_parameters(vk.fixed_parameters.parameters);
         let builder = new_builder::<_, GoldilocksField>(builder_impl);
         // copy parameters from actual circuit
         let builder = builder.allow_lookup(
@@ -2366,7 +2366,7 @@ mod test {
         let is_valid_proof = verifier.verify::<H, TR, NoPow>((), &vk, &proof);
         assert!(is_valid_proof);
 
-        let builder_impl = CsRecursiveVerifierBuilder::<'_, F, EXT, _>::new_from_parameters(
+        let builder_impl = CsRecursiveVerifierBuilder::<'_, F, Ext, _>::new_from_parameters(
             &mut cs,
             vk.fixed_parameters.parameters,
         );
@@ -2448,7 +2448,7 @@ mod test {
         use crate::gadgets::traits::allocatable::CSAllocatable;
 
         let allocated_vk = AllocatedVerificationKey::<F, RH>::allocate(&mut cs, vk.clone());
-        let allocated_proof = AllocatedProof::<F, RH, EXT>::allocate_from_witness(
+        let allocated_proof = AllocatedProof::<F, RH, Ext>::allocate_from_witness(
             &mut cs,
             Some(proof.clone()),
             &verifier,
@@ -2456,7 +2456,7 @@ mod test {
             &proof.proof_config,
         );
 
-        let (is_valid, public_inputs) = verifier.verify::<RH, TR, CTR, NoPow>(
+        let (is_valid, public_inputs) = verifier.verify::<RH, TR, Ctr, NoPow>(
             &mut cs,
             (),
             &allocated_proof,

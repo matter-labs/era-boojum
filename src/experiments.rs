@@ -8,6 +8,9 @@ use packed_simd::FromCast;
 
 use crate::field::{goldilocks::GoldilocksField, Field};
 
+/// # Safety
+///
+/// `a`, `b`, and `c` must have the same length.
 pub unsafe fn naive(a: &[u64], b: &[u64], dst: &mut Vec<u64>) {
     let mut i = 0;
     while i < a.len() {
@@ -44,56 +47,56 @@ impl GLN {
     }
 }
 
-pub fn vec_add_native(a: &mut Vec<GoldilocksField>, b: &Vec<GoldilocksField>) {
+pub fn vec_add_native(a: &mut [GoldilocksField], b: &[GoldilocksField]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.add_assign(b);
     }
 }
 
-pub fn vec_mul_native(a: &mut Vec<GoldilocksField>, b: &Vec<GoldilocksField>) {
+pub fn vec_mul_native(a: &mut [GoldilocksField], b: &[GoldilocksField]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.mul_assign(b);
     }
 }
 
-pub fn vec_add_vectorized(a: &mut Vec<GLN>, b: &Vec<GLN>) {
+pub fn vec_add_vectorized(a: &mut [GLN], b: &[GLN]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.add_assign_impl(b);
     }
 }
 
-pub fn vec_mul_vectorized(a: &mut Vec<GLN>, b: &Vec<GLN>) {
+pub fn vec_mul_vectorized(a: &mut [GLN], b: &[GLN]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.mul_assign_impl(b);
     }
 }
 
-pub fn vec_add_simd(a: &mut Vec<GLV>, b: &Vec<GLV>) {
+pub fn vec_add_simd(a: &mut [GLV], b: &[GLV]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.add_assign_impl(b);
     }
 }
 
-pub fn vec_mul_simd(a: &mut Vec<GLV>, b: &Vec<GLV>) {
+pub fn vec_mul_simd(a: &mut [GLV], b: &[GLV]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.mul_assign_impl(b);
     }
 }
 
-pub fn vec_add_portable_simd(a: &mut Vec<GLPS>, b: &Vec<GLPS>) {
+pub fn vec_add_portable_simd(a: &mut [GLPS], b: &[GLPS]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.add_assign_impl(b);
     }
 }
 
-pub fn vec_mul_portable_simd_long(a: &mut Vec<GLPSL>, b: &Vec<GLPSL>) {
+pub fn vec_mul_portable_simd_long(a: &mut [GLPSL], b: &[GLPSL]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.mul_assign_impl(b);
     }
 }
 
 use crate::utils::*;
-pub fn vec_mul_mixed(a: &mut Vec<LN>, b: &Vec<LN>) {
+pub fn vec_mul_mixed(a: &mut [LN], b: &[LN]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.mul_assign_nonred_impl(b);
     }
@@ -106,7 +109,7 @@ pub fn vec_mul_mixed(a: &mut Vec<LN>, b: &Vec<LN>) {
     }
 }
 
-pub fn vec_mul_portable_simd(a: &mut Vec<GLPS>, b: &Vec<GLPS>) {
+pub fn vec_mul_portable_simd(a: &mut [GLPS], b: &[GLPS]) {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         a.mul_assign_impl(b);
     }

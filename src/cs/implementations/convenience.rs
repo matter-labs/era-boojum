@@ -54,14 +54,14 @@ impl<
 
         let mut ctx = P::Context::placeholder();
 
-        let setup_base = self.create_base_setup(&worker, &mut ctx);
+        let setup_base = self.create_base_setup(worker, &mut ctx);
         let (setup, vk, setup_tree) = self.materialize_setup_storage_and_vk::<H>(
             proof_config.fri_lde_factor,
             proof_config.merkle_tree_cap_size,
-            &worker,
+            worker,
             &mut ctx,
         );
-        let witness_set = self.take_witness(&worker);
+        let witness_set = self.take_witness(worker);
 
         let proof = self.prove_cpu_basic::<EXT, TR, H, POW>(
             worker,
@@ -103,11 +103,11 @@ impl<
 
         let (vars_hint, wits_hint) = self.create_copy_hints();
 
-        let setup_base = self.create_base_setup(&worker, &mut ctx);
+        let setup_base = self.create_base_setup(worker, &mut ctx);
         let (setup, vk, setup_tree) = self.materialize_setup_storage_and_vk::<H>(
             proof_config.fri_lde_factor,
             proof_config.merkle_tree_cap_size,
-            &worker,
+            worker,
             &mut ctx,
         );
 
@@ -138,15 +138,15 @@ impl<
 
         assert!(proof_config.fri_lde_factor.is_power_of_two());
 
-        let witness_set = self.take_witness_using_hints(&worker, vars_hint, wits_hint);
+        let witness_set = self.take_witness_using_hints(worker, vars_hint, wits_hint);
 
         let proof = self.prove_cpu_basic::<EXT, TR, H, POW>(
             worker,
             witness_set,
-            &setup_base,
-            &setup,
-            &setup_tree,
-            &vk,
+            setup_base,
+            setup,
+            setup_tree,
+            vk,
             proof_config,
             transcript_params,
         );
@@ -176,15 +176,15 @@ impl<
         assert!(proof_config.fri_lde_factor.is_power_of_two());
 
         let witness_set =
-            self.witness_set_from_witness_vec(witness_vector, vars_hint, wits_hint, &worker);
+            self.witness_set_from_witness_vec(witness_vector, vars_hint, wits_hint, worker);
 
         let proof = self.prove_cpu_basic::<EXT, TR, H, POW>(
             worker,
             witness_set,
-            &setup_base,
-            &setup,
-            &setup_tree,
-            &vk,
+            setup_base,
+            setup,
+            setup_tree,
+            vk,
             proof_config,
             transcript_params,
         );

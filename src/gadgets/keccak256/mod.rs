@@ -67,11 +67,11 @@ pub fn keccak256<F: SmallField, CS: ConstraintSystem<F>>(
     let last_block_size = input.len() % block_size;
     let padlen = block_size - last_block_size;
     if padlen == 1 {
-        padded_message.push(cs.allocate_constant(F::from_u64_unchecked(0x81 as u64)));
+        padded_message.push(cs.allocate_constant(F::from_u64_unchecked(0x81)));
     } else {
-        padded_message.push(cs.allocate_constant(F::from_u64_unchecked(0x01 as u64)));
+        padded_message.push(cs.allocate_constant(F::from_u64_unchecked(0x01)));
         padded_message.extend(std::iter::repeat(zero).take(padlen - 2));
-        padded_message.push(cs.allocate_constant(F::from_u64_unchecked(0x80 as u64)));
+        padded_message.push(cs.allocate_constant(F::from_u64_unchecked(0x80)));
     }
 
     assert_eq!(padded_message.len() % block_size, 0);
@@ -85,8 +85,7 @@ pub fn keccak256<F: SmallField, CS: ConstraintSystem<F>>(
                 if i + LANE_WIDTH * j < (KECCAK_RATE_BYTES / BYTES_PER_WORD) {
                     let tmp = block
                         .array_chunks::<BYTES_PER_WORD>()
-                        .skip(i + LANE_WIDTH * j)
-                        .next()
+                        .nth(i + LANE_WIDTH * j)
                         .unwrap();
                     use crate::gadgets::blake2s::mixing_function::xor_many;
                     state[i][j] = xor_many(cs, &state[i][j], tmp);
@@ -155,7 +154,7 @@ mod test {
 
     fn test_keccak256(len: usize) {
         use rand::{Rng, SeedableRng};
-        let mut rng = rand::rngs::StdRng::seed_from_u64(42 as u64);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         let mut input = vec![];
         for _ in 0..len {
@@ -235,7 +234,7 @@ mod test {
         }
 
         let output = keccak256(cs, &circuit_input);
-        let output = hex::encode(&(output.witness_hook(&*cs))().unwrap());
+        let output = hex::encode((output.witness_hook(&*cs))().unwrap());
         let reference_output = hex::encode(reference_output.as_slice());
         assert_eq!(output, reference_output);
 

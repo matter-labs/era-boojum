@@ -20,7 +20,7 @@ pub trait CircuitTranscript<F: SmallField>: Clone + Send + Sync + std::fmt::Debu
     fn witness_merkle_tree_cap<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
-        cap: &Vec<Self::CircuitCompatibleCap>,
+        cap: &[Self::CircuitCompatibleCap],
     );
     fn get_challenge<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Num<F>;
     fn get_multiple_challenges_fixed<CS: ConstraintSystem<F>, const N: usize>(
@@ -180,7 +180,7 @@ impl<
     fn witness_merkle_tree_cap<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
-        cap: &Vec<Self::CircuitCompatibleCap>,
+        cap: &[Self::CircuitCompatibleCap],
     ) {
         for el in cap.iter() {
             self.witness_field_elements(cs, &el[..]);
@@ -206,7 +206,7 @@ impl<
             }
         }
 
-        let mut to_absorb = std::mem::replace(&mut self.buffer, vec![]);
+        let mut to_absorb = std::mem::take(&mut self.buffer);
         let one_num = Num::allocated_constant(cs, F::ONE);
         let zero_num = Num::zero(cs);
         // we do rescue prime padding and absorb

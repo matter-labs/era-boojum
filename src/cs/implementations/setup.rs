@@ -99,10 +99,12 @@ impl<
             "must have setup available to compute finalization hints"
         );
 
-        let mut finalization_hints = FinalizationHintsForProver::default();
-        finalization_hints.public_inputs = self.public_inputs.clone();
+        let mut finalization_hints = FinalizationHintsForProver {
+            public_inputs: self.public_inputs.clone(),
+            ..Default::default()
+        };
 
-        let row_cleanups = std::mem::replace(&mut self.row_cleanups, vec![]);
+        let row_cleanups = std::mem::take(&mut self.row_cleanups);
 
         for el in row_cleanups.into_iter() {
             let hint = el(self, &None);
@@ -210,7 +212,7 @@ impl<
             preliminary_required_size,
         );
 
-        let columns_cleanups = std::mem::replace(&mut self.columns_cleanups, vec![]);
+        let columns_cleanups = std::mem::take(&mut self.columns_cleanups);
 
         for el in columns_cleanups.into_iter() {
             let hint = el(self, preliminary_required_size, &None);
@@ -353,7 +355,7 @@ impl<
 
         let preliminary_required_size = hint.final_trace_len;
 
-        let row_cleanups = std::mem::replace(&mut self.row_cleanups, vec![]);
+        let row_cleanups = std::mem::take(&mut self.row_cleanups);
         assert_eq!(row_cleanups.len(), hint.row_finalization_hints.len());
 
         for (el, hint) in row_cleanups
@@ -364,7 +366,7 @@ impl<
             let _hint = el(self, &hint);
         }
 
-        let columns_cleanups = std::mem::replace(&mut self.columns_cleanups, vec![]);
+        let columns_cleanups = std::mem::take(&mut self.columns_cleanups);
         assert_eq!(columns_cleanups.len(), hint.column_finalization_hints.len());
 
         for (el, hint) in columns_cleanups
@@ -588,7 +590,7 @@ impl<
                 GateDescription {
                     gate_idx: i,
                     needs_selector: evaluator.gate_purpose.needs_selector(),
-                    num_constants: num_constants,
+                    num_constants,
                     degree: evaluator.max_constraint_degree,
                     is_lookup,
                 }
@@ -647,7 +649,7 @@ impl<
         // degree and highest number of constants closer to the "root"
         all_gates.sort_by(|a, b| match b.degree.cmp(&a.degree) {
             std::cmp::Ordering::Equal => b.num_constants.cmp(&a.num_constants),
-            a @ _ => a,
+            a => a,
         });
 
         // we know that
@@ -844,10 +846,8 @@ impl<
                                 if *selector {
                                     column[subrow_idx] = F::ONE;
                                 }
-                            } else {
-                                if let Some(constant) = constants_iter.next().copied() {
-                                    column[subrow_idx] = constant;
-                                }
+                            } else if let Some(constant) = constants_iter.next().copied() {
+                                column[subrow_idx] = constant;
                             }
                         }
 
@@ -865,7 +865,7 @@ impl<
                     );
                     for (dst, src) in rows_chunk[number_of_constant_polys_for_general_purpose_gates..].iter_mut()
                         .zip(specialized_constants_chunk.iter()) {
-                            dst.copy_from_slice(&src);
+                            dst.copy_from_slice(src);
                         }
                 });
             }
@@ -1053,16 +1053,10 @@ impl<
 
         let copy_permutataion_columns = copy_permutataion_columns
             .into_iter()
-            .map(|el| Arc::new(el))
+            .map(Arc::new)
             .collect();
-        let constant_columns = constant_columns
-            .into_iter()
-            .map(|el| Arc::new(el))
-            .collect();
-        let lookup_tables_columns = lookup_tables_columns
-            .into_iter()
-            .map(|el| Arc::new(el))
-            .collect();
+        let constant_columns = constant_columns.into_iter().map(Arc::new).collect();
+        let lookup_tables_columns = lookup_tables_columns.into_iter().map(Arc::new).collect();
 
         SetupBaseStorage {
             copy_permutation_polys: copy_permutataion_columns,
@@ -1138,16 +1132,10 @@ impl<
 
         let copy_permutataion_columns = copy_permutataion_columns
             .into_iter()
-            .map(|el| Arc::new(el))
+            .map(Arc::new)
             .collect();
-        let constant_columns = constant_columns
-            .into_iter()
-            .map(|el| Arc::new(el))
-            .collect();
-        let lookup_tables_columns = lookup_tables_columns
-            .into_iter()
-            .map(|el| Arc::new(el))
-            .collect();
+        let constant_columns = constant_columns.into_iter().map(Arc::new).collect();
+        let lookup_tables_columns = lookup_tables_columns.into_iter().map(Arc::new).collect();
 
         (
             SetupStorage::from_base_trace(
@@ -1227,11 +1215,11 @@ impl<
             total_tables_len: self.lookups_tables_total_len() as u64,
             public_inputs_locations: self.public_inputs.clone(),
             extra_constant_polys_for_selectors,
-            table_ids_column_idxes: table_ids_column_idxes,
+            table_ids_column_idxes,
             quotient_degree,
             selectors_placement: gate_placement,
-            fri_lde_factor: fri_lde_factor,
-            cap_size: cap_size,
+            fri_lde_factor,
+            cap_size,
         };
 
         let vk = VerificationKey {
@@ -1274,11 +1262,11 @@ impl<
     ) {
         let mut ctx = P::Context::placeholder();
 
-        let setup_base = self.create_base_setup(&worker, &mut ctx);
+        let setup_base = self.create_base_setup(worker, &mut ctx);
         let (setup, vk, setup_tree) = self.materialize_setup_storage_and_vk::<H>(
             fri_lde_factor,
             merkle_tree_cap_size,
-            &worker,
+            worker,
             &mut ctx,
         );
         let (vars_hint, witness_hints) = self.create_copy_hints();
@@ -1468,7 +1456,7 @@ impl TreeNode {
                     return Some(result);
                 }
 
-                return None;
+                None
             }
         }
     }
@@ -1485,14 +1473,14 @@ impl TreeNode {
                 if gate.degree_at_depth(current_depth) > max_resulting_degree
                     || gate.num_constants > max_num_constants
                 {
-                    return None;
+                    None
                 } else {
-                    return Some(Self::GateOnly(gate));
+                    Some(Self::GateOnly(gate))
                 }
             }
             Self::GateOnly(existing_gate) => {
                 // we need to fork
-                let node_0 = Self::GateOnly(existing_gate.clone());
+                let node_0 = Self::GateOnly(*existing_gate);
                 let node_1 = Self::GateOnly(gate);
 
                 let new = Self::Fork {
@@ -1523,7 +1511,7 @@ impl TreeNode {
                     return Some(new);
                 }
 
-                return None;
+                None
             }
             Self::Fork { left, right } => {
                 if let Some(new_left_node) = left.try_add_gate(
@@ -1554,7 +1542,7 @@ impl TreeNode {
                     return Some(new);
                 }
 
-                return None;
+                None
             }
         }
     }

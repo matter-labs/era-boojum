@@ -58,7 +58,6 @@ const _: () = const {
     if matrix_const_equal(&EXPECTED_IDENTITY, &TRUE_IDENTITY) == false {
         panic!()
     } else {
-        ()
     }
 };
 

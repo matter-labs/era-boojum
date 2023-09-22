@@ -63,6 +63,11 @@ impl<V> ResolverBox<V> {
 
         self.allocations += 1;
 
+        debug_assert!(
+            loc < u32::MAX as usize,
+            "Allocated more than 4GB or resolvers. Signifies a faulty circuit."
+        );
+
         ResolverIx::new_resolver(loc as u32)
     }
 
@@ -179,7 +184,7 @@ impl ContainerPage {
     unsafe fn reserve(&mut self, size: usize) -> (usize, *mut u8) {
         let loc = self.commited;
         self.commited += size;
-        let ptr = self.allocation.as_mut_ptr().add(loc) as *mut u8;
+        let ptr = self.allocation.as_mut_ptr().add(loc);
 
         if cfg!(not(miri)) {
             debug_assert!(loc % 4 == 0);
@@ -211,6 +216,8 @@ where
             size_of::<F>()
         );
 
+        debug_assert!(self.inputs.len() <= u16::MAX as usize);
+        debug_assert!(self.outputs.len() <= u16::MAX as usize);
         // Otherwise the size will be `x % 8 != 0` and the next allocation will
         // be aligned to 4 bytes.
         // This is a fix for a closure that was found in nature. I haven't been
@@ -342,7 +349,7 @@ impl Resolver {
 
         let head_ptr = header as *const ResolverHeader as *const ();
 
-        let ptr = std::ptr::from_raw_parts(head_ptr, payload_size) as *const Resolver;
+        let ptr = std::ptr::from_raw_parts(head_ptr, payload_size);
 
         &*ptr
     }
@@ -671,10 +678,10 @@ mod test {
         let ix2 = rbox.push(&ins, &out, resolution_fn, binder);
 
         let value = unsafe { rbox.get(ix1) };
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, &value);
+        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value);
 
         let value = unsafe { rbox.get(ix2) };
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, &value);
+        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value);
     }
 
     #[test]

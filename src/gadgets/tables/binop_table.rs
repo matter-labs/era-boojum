@@ -1,6 +1,6 @@
 use super::*;
 
-pub const TABLE_NAME: &'static str = "Binop table";
+pub const TABLE_NAME: &str = "Binop table";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]

@@ -53,11 +53,11 @@ pub trait CsBuilderImpl<F: SmallField, TImpl> {
 
 pub struct CsBuilder<TImpl, F: SmallField, GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>
 {
-    pub(crate) phantom: std::marker::PhantomData<F>,
+    pub phantom: std::marker::PhantomData<F>,
 
-    pub(crate) implementation: TImpl,
-    pub(crate) gates_config: GC,
-    pub(crate) toolbox: TB,
+    pub implementation: TImpl,
+    pub gates_config: GC,
+    pub toolbox: TB,
 }
 
 pub fn new_builder<TImpl: CsBuilderImpl<F, TImpl>, F: SmallField>(

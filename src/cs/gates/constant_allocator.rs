@@ -26,9 +26,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for ConstantAllocatorConstraintEv
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -88,7 +86,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for ConstantAllocatorConstraintEv
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     // there are no constants that would be shared between instances
@@ -104,7 +101,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for ConstantAllocatorConstraintEv
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]

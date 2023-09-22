@@ -140,7 +140,7 @@ impl<T: pairing::ff::PrimeField, const N: usize> NonNativeFieldOverU16Params<T, 
         let mut modulus = [0u16; N];
         let mut tmp = modulus_u1024;
         for dst in modulus.iter_mut() {
-            let low = tmp.as_words()[0] as u64;
+            let low = tmp.as_words()[0];
             *dst = low as u16;
 
             tmp = tmp.shr_vartime(16);
@@ -199,21 +199,15 @@ pub fn get_16_bits_range_check_table<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &CS,
 ) -> Option<u32> {
     use crate::gadgets::tables::range_check_16_bits::RangeCheck16BitsTable;
-    if let Some(table_id) = cs.get_table_id_for_marker::<RangeCheck16BitsTable>() {
-        Some(table_id)
-    } else {
-        None
-    }
+    cs.get_table_id_for_marker::<RangeCheck16BitsTable>()
 }
 
 pub fn range_check_u16<F: SmallField, CS: ConstraintSystem<F>>(cs: &mut CS, variable: Variable) {
     if let Some(table_id) = get_16_bits_range_check_table(&*cs) {
         cs.enforce_lookup::<1>(table_id, &[variable]);
+    } else if let Some(_table_id) = get_8_by_8_range_check_table(&*cs) {
+        let _ = UInt16::from_variable_checked(cs, variable);
     } else {
-        if let Some(_table_id) = get_8_by_8_range_check_table(&*cs) {
-            let _ = UInt16::from_variable_checked(cs, variable);
-        } else {
-            unimplemented!()
-        }
+        unimplemented!()
     }
 }

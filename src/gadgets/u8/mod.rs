@@ -24,41 +24,20 @@ use crate::{cs::Variable, field::SmallField};
 pub fn get_8_by_8_range_check_table<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &CS,
 ) -> Option<u32> {
-    if let Some(table_id) = cs.get_table_id_for_marker::<BinopTable>() {
-        Some(table_id)
-    } else {
-        if let Some(table_id) = cs.get_table_id_for_marker::<Xor8Table>() {
-            Some(table_id)
-        } else {
-            None
-        }
-    }
+    cs.get_table_id_for_marker::<BinopTable>()
+        .or_else(|| cs.get_table_id_for_marker::<Xor8Table>())
 }
 
 #[inline(always)]
 pub fn get_8_bit_range_check_table<F: SmallField, CS: ConstraintSystem<F>>(cs: &CS) -> Option<u32> {
-    if let Some(table_id) = cs.get_table_id_for_marker::<RangeCheckTable<8>>() {
-        Some(table_id)
-    } else {
-        None
-    }
+    cs.get_table_id_for_marker::<RangeCheckTable<8>>()
 }
 
 #[inline(always)]
 pub fn get_4x4x4_range_check_table<F: SmallField, CS: ConstraintSystem<F>>(cs: &CS) -> Option<u32> {
-    if let Some(table_id) = cs.get_table_id_for_marker::<TriXor4Table>() {
-        Some(table_id)
-    } else {
-        if let Some(table_id) = cs.get_table_id_for_marker::<Ch4Table>() {
-            Some(table_id)
-        } else {
-            if let Some(table_id) = cs.get_table_id_for_marker::<Maj4Table>() {
-                Some(table_id)
-            } else {
-                None
-            }
-        }
-    }
+    cs.get_table_id_for_marker::<TriXor4Table>()
+        .or_else(|| cs.get_table_id_for_marker::<Ch4Table>())
+        .or_else(|| cs.get_table_id_for_marker::<Maj4Table>())
 }
 
 #[inline(always)]
@@ -67,23 +46,19 @@ pub fn range_check_u8_pair<F: SmallField, CS: ConstraintSystem<F>>(
     pair: &[Variable; 2],
 ) {
     if let Some(table_id) = get_8_by_8_range_check_table(cs) {
-        let _ = cs.perform_lookup::<2, 1>(table_id, &pair);
+        let _ = cs.perform_lookup::<2, 1>(table_id, pair);
+    } else if let Some(table_id) = get_8_bit_range_check_table(cs) {
+        let _ = cs.perform_lookup::<1, 0>(table_id, &[pair[0]]);
+        let _ = cs.perform_lookup::<1, 0>(table_id, &[pair[1]]);
+    } else if let Some(table_id) = get_4x4x4_range_check_table(cs) {
+        let [low, high] = uint8_into_4bit_chunks_unchecked(cs, pair[0]);
+        let _ = cs.perform_lookup::<3, 1>(table_id, &[low, high, low]);
+        let [low, high] = uint8_into_4bit_chunks_unchecked(cs, pair[1]);
+        let _ = cs.perform_lookup::<3, 1>(table_id, &[low, high, low]);
     } else {
-        if let Some(table_id) = get_8_bit_range_check_table(cs) {
-            let _ = cs.perform_lookup::<1, 0>(table_id, &[pair[0]]);
-            let _ = cs.perform_lookup::<1, 0>(table_id, &[pair[1]]);
-        } else {
-            if let Some(table_id) = get_4x4x4_range_check_table(cs) {
-                let [low, high] = uint8_into_4bit_chunks_unchecked(cs, pair[0]);
-                let _ = cs.perform_lookup::<3, 1>(table_id, &[low, high, low]);
-                let [low, high] = uint8_into_4bit_chunks_unchecked(cs, pair[1]);
-                let _ = cs.perform_lookup::<3, 1>(table_id, &[low, high, low]);
-            } else {
-                // baseline one by one
-                range_check_u8(cs, pair[0]);
-                range_check_u8(cs, pair[1]);
-            }
-        }
+        // baseline one by one
+        range_check_u8(cs, pair[0]);
+        range_check_u8(cs, pair[1]);
     }
 }
 
@@ -91,19 +66,15 @@ pub fn range_check_u8_pair<F: SmallField, CS: ConstraintSystem<F>>(
 pub fn range_check_u8<F: SmallField, CS: ConstraintSystem<F>>(cs: &mut CS, input: Variable) {
     if let Some(table_id) = get_8_bit_range_check_table(cs) {
         let _ = cs.perform_lookup::<1, 0>(table_id, &[input]);
+    } else if let Some(table_id) = get_8_by_8_range_check_table(cs) {
+        let zero = cs.allocate_constant(F::ZERO);
+        let _ = cs.perform_lookup::<2, 1>(table_id, &[input, zero]);
+    } else if let Some(table_id) = get_4x4x4_range_check_table(cs) {
+        let [low, high] = uint8_into_4bit_chunks_unchecked(cs, input);
+        let _ = cs.perform_lookup::<3, 1>(table_id, &[low, high, low]);
     } else {
-        if let Some(table_id) = get_8_by_8_range_check_table(cs) {
-            let zero = cs.allocate_constant(F::ZERO);
-            let _ = cs.perform_lookup::<2, 1>(table_id, &[input, zero]);
-        } else {
-            if let Some(table_id) = get_4x4x4_range_check_table(cs) {
-                let [low, high] = uint8_into_4bit_chunks_unchecked(cs, input);
-                let _ = cs.perform_lookup::<3, 1>(table_id, &[low, high, low]);
-            } else {
-                // degrade to booleanity gate
-                let _bits = Num::from_variable(input).spread_into_bits::<CS, 8>(cs);
-            }
-        }
+        // degrade to booleanity gate
+        let _bits = Num::from_variable(input).spread_into_bits::<CS, 8>(cs);
     }
 }
 
@@ -310,17 +281,20 @@ impl<F: SmallField> UInt8<F> {
         range_check_u8(cs, variable);
 
         let a = Self {
-            variable: variable,
+            variable,
             _marker: std::marker::PhantomData,
         };
 
         a
     }
 
+    /// # Safety
+    ///
+    /// Does not check the variable to be valid.
     #[inline(always)]
     pub const unsafe fn from_variable_unchecked(variable: Variable) -> Self {
         Self {
-            variable: variable,
+            variable,
             _marker: std::marker::PhantomData,
         }
     }
@@ -405,6 +379,9 @@ impl<F: SmallField> UInt8<F> {
         )
     }
 
+    /// # Safety
+    ///
+    /// Does not check if the resulting variable is valid.
     pub unsafe fn increment_unchecked<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let one = cs.allocate_constant(F::ONE);
         let var = Num::from_variable(self.variable)
@@ -417,17 +394,14 @@ impl<F: SmallField> UInt8<F> {
     #[track_caller]
     pub fn add_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
-                (Some(a), Some(b)) => {
-                    let (_, of) = a.overflowing_add(b);
-                    assert!(
-                        of == false,
-                        "trying to add {} and {} that leads to overflow",
-                        a,
-                        b
-                    );
-                }
-                _ => {}
+            if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                let (_, of) = a.overflowing_add(b);
+                assert!(
+                    of == false,
+                    "trying to add {} and {} that leads to overflow",
+                    a,
+                    b
+                );
             }
         }
 
@@ -452,17 +426,14 @@ impl<F: SmallField> UInt8<F> {
     #[track_caller]
     pub fn sub_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
-                (Some(a), Some(b)) => {
-                    let (_, uf) = a.overflowing_sub(b);
-                    assert!(
-                        uf == false,
-                        "trying to sub {} and {} that leads to underflow",
-                        a,
-                        b
-                    );
-                }
-                _ => {}
+            if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                let (_, uf) = a.overflowing_sub(b);
+                assert!(
+                    uf == false,
+                    "trying to sub {} and {} that leads to underflow",
+                    a,
+                    b
+                );
             }
         }
 

@@ -176,7 +176,7 @@ pub fn absorb_into_state_vararg<
     if to_absorb.array_chunks::<AW>().remainder().is_empty() == false {
         let mut tmp = [F::ZERO; AW];
         let remainder = to_absorb.array_chunks::<AW>().remainder();
-        tmp[..remainder.len()].copy_from_slice(&remainder);
+        tmp[..remainder.len()].copy_from_slice(remainder);
         T::absorb_into_state::<M>(state, &tmp);
         T::round_function(state);
     }

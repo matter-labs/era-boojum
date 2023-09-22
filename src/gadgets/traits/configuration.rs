@@ -4,31 +4,45 @@ use crate::gadgets::traits::configuration::cs_builder::*;
 
 use super::*;
 
-pub trait ConfigurationFunction<F: SmallField, TImpl: CsBuilderImpl<F, TImpl>>:
-    std::fmt::Debug
-{
-    fn configure(
+pub trait ConfigurationFunction<F: SmallField>: 'static + Sized + std::fmt::Debug {
+    fn configure<TImpl: CsBuilderImpl<F, TImpl>>(
         builder: CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>,
         placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>;
 
-    fn configure_proxy(
-        &self,
+    fn configure_proxy<TImpl: CsBuilderImpl<F, TImpl>>(
+        self,
         builder: CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>,
         placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {
-        <Self as ConfigurationFunction<F, TImpl>>::configure(builder, placement_strategy)
+        <Self as ConfigurationFunction<F>>::configure::<TImpl>(builder, placement_strategy)
     }
 }
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug)]
-pub struct IdentityConfiguration;
+pub struct IdentityConfiguration<F: SmallField> {
+    _marker: std::marker::PhantomData<F>,
+}
 
-impl<F: SmallField, TImpl: CsBuilderImpl<F, TImpl>> ConfigurationFunction<F, TImpl>
-    for IdentityConfiguration
-{
-    fn configure(
+impl<F: SmallField> IdentityConfiguration<F> {
+    pub fn new() -> Self {
+        Self {
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    pub fn add_confituration_step<A: ConfigurationFunction<F>>(
+        self,
+    ) -> ConfigurationComposition<F, Self, A> {
+        ConfigurationComposition {
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<F: SmallField> ConfigurationFunction<F> for IdentityConfiguration<F> {
+    fn configure<TImpl: CsBuilderImpl<F, TImpl>>(
         builder: CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>,
         _placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {
@@ -41,21 +55,16 @@ impl<F: SmallField, TImpl: CsBuilderImpl<F, TImpl>> ConfigurationFunction<F, TIm
 #[derivative(Clone, Copy, Debug)]
 pub struct ConfigurationComposition<
     F: SmallField,
-    TImpl: CsBuilderImpl<F, TImpl>,
-    A: ConfigurationFunction<F, TImpl>,
-    B: ConfigurationFunction<F, TImpl>,
+    A: ConfigurationFunction<F>,
+    B: ConfigurationFunction<F>,
 > {
-    _marker: std::marker::PhantomData<(F, TImpl, A, B)>,
+    _marker: std::marker::PhantomData<(F, A, B)>,
 }
 
-impl<
-        F: SmallField,
-        TImpl: CsBuilderImpl<F, TImpl>,
-        A: ConfigurationFunction<F, TImpl>,
-        B: ConfigurationFunction<F, TImpl>,
-    > ConfigurationFunction<F, TImpl> for ConfigurationComposition<F, TImpl, A, B>
+impl<F: SmallField, A: ConfigurationFunction<F>, B: ConfigurationFunction<F>>
+    ConfigurationFunction<F> for ConfigurationComposition<F, A, B>
 {
-    fn configure(
+    fn configure<TImpl: CsBuilderImpl<F, TImpl>>(
         builder: CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>,
         placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {
@@ -64,30 +73,12 @@ impl<
     }
 }
 
-impl IdentityConfiguration {
-    pub fn add_confituration_step<
-        F: SmallField,
-        TImpl: CsBuilderImpl<F, TImpl>,
-        A: ConfigurationFunction<F, TImpl>,
-    >(
-        self,
-    ) -> ConfigurationComposition<F, TImpl, Self, A> {
-        ConfigurationComposition {
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<
-        F: SmallField,
-        TImpl: CsBuilderImpl<F, TImpl>,
-        A: ConfigurationFunction<F, TImpl>,
-        B: ConfigurationFunction<F, TImpl>,
-    > ConfigurationComposition<F, TImpl, A, B>
+impl<F: SmallField, A: ConfigurationFunction<F>, B: ConfigurationFunction<F>>
+    ConfigurationComposition<F, A, B>
 {
-    pub fn add_confituration_step<C: ConfigurationFunction<F, TImpl>>(
+    pub fn add_confituration_step<C: ConfigurationFunction<F>>(
         self,
-    ) -> ConfigurationComposition<F, TImpl, Self, C> {
+    ) -> ConfigurationComposition<F, Self, C> {
         ConfigurationComposition {
             _marker: std::marker::PhantomData,
         }

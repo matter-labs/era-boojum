@@ -304,7 +304,7 @@ pub fn u1024_to_u16_words<const N: usize>(input: &U1024) -> [u16; N] {
     let mut result = [0u16; N];
     let mut tmp = *input;
     for dst in result.iter_mut() {
-        let low = tmp.as_words()[0] as u64;
+        let low = tmp.as_words()[0];
         *dst = low as u16;
 
         tmp = tmp.shr_vartime(16);

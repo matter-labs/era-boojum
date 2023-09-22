@@ -12,9 +12,9 @@ impl<F: SmallField> CSReferenceAssembly<F, F, DevCSConfig> {
         let (constants, selectors_placement, _) = self.create_constant_setup_polys(worker);
         let (_deg, num_constants_for_general_purpose_columns) = selectors_placement.compute_stats();
         log!("Constants are ready");
-        let variables = self.materialize_variables_polynomials(&worker);
+        let variables = self.materialize_variables_polynomials(worker);
         log!("Variables are ready");
-        let witness = self.materialize_witness_polynomials(&worker);
+        let witness = self.materialize_witness_polynomials(worker);
         log!("Witnesses are ready");
 
         let view = SatisfiabilityCheckRowView::from_storages(variables, witness, constants);

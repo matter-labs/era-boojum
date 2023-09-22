@@ -75,7 +75,7 @@ impl Registrar {
 
                 self.vars
                     .entry(*max_input_place)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(resolver_ix);
 
                 self.stats.max_resolvers_per_place = self
@@ -97,6 +97,14 @@ impl Registrar {
         for (place, resolver_ixs) in self.vars.iter_mut() {
             if place.0 <= to.0 {
                 resolvers.append(resolver_ixs);
+
+                if super::resolver::PARANOIA
+                    && resolver_ixs
+                        .iter()
+                        .any(|x| *x == ResolverIx::new_resolver(0))
+                {
+                    println!("CRR: advancing with resolver_ix 0");
+                }
             }
         }
 

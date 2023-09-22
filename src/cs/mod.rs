@@ -117,12 +117,12 @@ impl Place {
 
     #[inline(always)]
     pub fn from_variables<const N: usize>(variables: [Variable; N]) -> [Self; N] {
-        variables.map(|el| Self::from_variable(el))
+        variables.map(Self::from_variable)
     }
 
     #[inline(always)]
     pub fn from_witnesses<const N: usize>(witnesses: [Witness; N]) -> [Self; N] {
-        witnesses.map(|el| Self::from_witness(el))
+        witnesses.map(Self::from_witness)
     }
 }
 
@@ -176,7 +176,7 @@ impl Variable {
 
     #[inline(always)]
     pub const fn from_variable_index(variable_index: u64) -> Self {
-        Self(variable_index as u64)
+        Self(variable_index)
     }
 }
 
@@ -248,10 +248,7 @@ pub enum LookupParameters {
 
 impl LookupParameters {
     pub const fn lookup_is_allowed(&self) -> bool {
-        match self {
-            LookupParameters::NoLookup => false,
-            _ => true,
-        }
+        !matches!(self, LookupParameters::NoLookup)
     }
 
     pub const fn is_specialized_lookup(&self) -> bool {
@@ -370,9 +367,7 @@ pub trait GateTool: 'static + std::any::Any + Send + Sync {
 }
 
 impl GateTool for () {
-    fn create() -> Self {
-        ()
-    }
+    fn create() -> Self {}
 }
 
 impl<K: 'static + Send + Sync, V: 'static + Send + Sync> GateTool
@@ -407,16 +402,16 @@ impl<T: 'static + Send + Sync> GateTool for VecDeque<T> {
     }
 }
 
-impl Into<Place> for Variable {
+impl From<Variable> for Place {
     #[inline(always)]
-    fn into(self) -> Place {
-        Place::from_variable(self)
+    fn from(variable: Variable) -> Place {
+        Place::from_variable(variable)
     }
 }
 
-impl Into<Place> for Witness {
+impl From<Witness> for Place {
     #[inline(always)]
-    fn into(self) -> Place {
-        Place::from_witness(self)
+    fn from(witness: Witness) -> Place {
+        Place::from_witness(witness)
     }
 }

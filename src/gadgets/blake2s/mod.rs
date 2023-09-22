@@ -178,7 +178,7 @@ mod test {
 
     fn test_blake2s(len: usize) {
         use rand::{Rng, SeedableRng};
-        let mut rng = rand::rngs::StdRng::seed_from_u64(42 as u64);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         let mut input = vec![];
         for _ in 0..len {
@@ -245,7 +245,7 @@ mod test {
         }
 
         let output = blake2s(cs, &circuit_input);
-        let output = hex::encode(&(output.witness_hook(&*cs))().unwrap());
+        let output = hex::encode((output.witness_hook(cs))().unwrap());
         let reference_output = hex::encode(reference_output.as_slice());
         assert_eq!(output, reference_output);
 

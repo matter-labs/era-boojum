@@ -346,7 +346,7 @@ lazy_static! {
 }
 
 fn get_context() -> &'static GPUVariablesGlobalContext<GoldilocksField> {
-    &*GPU_CONTEXT
+    &GPU_CONTEXT
 }
 
 #[derive(Derivative)]
@@ -499,11 +499,7 @@ impl GatesSetForGPU {
             }
         }
 
-        if let Some(found) = found {
-            Some((found, &self.descriptions[found]))
-        } else {
-            None
-        }
+        found.map(|found| (found, &self.descriptions[found]))
     }
 }
 
@@ -751,7 +747,7 @@ mod test {
         // we test as non-specialized one for now
         let final_per_chunk_offset = GateConstraintEvaluator::<F>::per_chunk_offset_for_repetition_over_general_purpose_columns(&evaluator);
         let evaluator = GenericRowwiseEvaluator::<F, F, _> {
-            evaluator: evaluator.clone(),
+            evaluator,
             global_constants: evaluator.create_global_constants::<F>(ctx),
             num_repetitions: num_repetitions_on_row,
             per_chunk_offset: final_per_chunk_offset,

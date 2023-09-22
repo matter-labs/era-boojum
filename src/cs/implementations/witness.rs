@@ -246,7 +246,7 @@ impl<
         result
     }
 
-    pub(crate) fn materialize_multiplicities_polynomials(
+    pub fn materialize_multiplicities_polynomials(
         &mut self,
         worker: &Worker,
     ) -> Vec<Polynomial<F, LagrangeForm, Global>> {
@@ -295,7 +295,7 @@ impl<
         result
     }
 
-    pub(crate) fn materialize_witness_polynomials_from_dense_hint(
+    pub fn materialize_witness_polynomials_from_dense_hint(
         &mut self,
         worker: &Worker,
         hint: &DenseWitnessCopyHint,
@@ -356,7 +356,7 @@ impl<
         result
     }
 
-    pub(crate) fn materialize_variables_polynomials_from_dense_hint(
+    pub fn materialize_variables_polynomials_from_dense_hint(
         &mut self,
         worker: &Worker,
         hint: &DenseVariablesCopyHint,

@@ -134,11 +134,10 @@ where
         mut dst: W,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let outer_len_le_bytes = (self.len() as u64).to_le_bytes();
-        dst.write_all(&outer_len_le_bytes)
-            .map_err(|el| Box::new(el))?;
+        dst.write_all(&outer_len_le_bytes).map_err(Box::new)?;
 
         for el in self.iter() {
-            let inner: &GenericPolynomial<F, FORM, P, A> = &*el;
+            let inner: &GenericPolynomial<F, FORM, P, A> = el;
             MemcopySerializable::write_into_buffer(inner, &mut dst)?;
         }
 
@@ -147,7 +146,7 @@ where
 
     fn read_from_buffer<R: std::io::Read>(mut src: R) -> Result<Self, Box<dyn std::error::Error>> {
         let mut buffer = [0u8; 8];
-        src.read_exact(&mut buffer).map_err(|el| Box::new(el))?;
+        src.read_exact(&mut buffer).map_err(Box::new)?;
         let capacity = u64::from_le_bytes(buffer) as usize;
 
         assert!(capacity.is_power_of_two());

@@ -252,14 +252,14 @@ pub trait GateConstraintEvaluator<
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct GateBatchEvaluationComparisonFunction {
-    pub(crate) type_id: std::any::TypeId,
-    pub(crate) evaluator_dyn: Box<dyn std::any::Any + 'static + Send + Sync>,
+    pub type_id: std::any::TypeId,
+    pub evaluator_dyn: Box<dyn std::any::Any + 'static + Send + Sync>,
     #[derivative(Debug = "ignore")]
-    pub(crate) equality_fn: Box<dyn Fn(&dyn std::any::Any) -> bool + 'static + Send + Sync>,
+    pub equality_fn: Box<dyn Fn(&dyn std::any::Any) -> bool + 'static + Send + Sync>,
 }
 
 impl GateBatchEvaluationComparisonFunction {
-    pub(crate) fn equals_to(&self, other: &Self) -> bool {
+    pub fn equals_to(&self, other: &Self) -> bool {
         if self.type_id != other.type_id {
             return false;
         }
@@ -465,7 +465,7 @@ impl<
 }
 
 // set of traits that will allow dynamic dispatch, but also to drive evaluation as efficient as possible
-pub(crate) trait GenericDynamicEvaluatorOverSpecializedColumns<
+pub trait GenericDynamicEvaluatorOverSpecializedColumns<
     F: PrimeField,
     P: field::traits::field_like::PrimeFieldLike<Base = F>,
     S: TraceSourceDerivable<F, P>,
@@ -477,16 +477,16 @@ pub(crate) trait GenericDynamicEvaluatorOverSpecializedColumns<
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
-pub(crate) struct GenericColumnwiseEvaluator<
+pub struct GenericColumnwiseEvaluator<
     F: PrimeField,
     P: field::traits::field_like::PrimeFieldLike<Base = F>,
     E: GateConstraintEvaluator<F>,
 > {
-    pub(crate) evaluator: E,
+    pub evaluator: E,
     #[derivative(Debug = "ignore")]
-    pub(crate) global_constants: E::GlobalConstants<P>,
-    pub(crate) num_repetitions: usize,
-    pub(crate) per_chunk_offset: PerChunkOffset,
+    pub global_constants: E::GlobalConstants<P>,
+    pub num_repetitions: usize,
+    pub per_chunk_offset: PerChunkOffset,
 }
 
 impl<

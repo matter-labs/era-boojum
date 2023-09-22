@@ -416,7 +416,7 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, Ba
 
             queries_per_fri_repetition,
 
-            pow_challenge: pow_challenge,
+            pow_challenge,
 
             _marker: std::marker::PhantomData,
         }

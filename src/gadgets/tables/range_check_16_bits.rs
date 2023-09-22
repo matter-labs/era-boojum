@@ -1,6 +1,6 @@
 use super::*;
 
-const TABLE_NAME: &'static str = "Range check 16 bits table";
+const TABLE_NAME: &str = "Range check 16 bits table";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]

@@ -9,7 +9,7 @@ use super::*;
 // `carry_out` is boolean constrainted
 // but `c` is NOT. We will use reduction gate to perform decomposition of `c`, and separate range checks
 
-const UNIQUE_IDENTIFIER: &'static str = "a + b + carry_in = c + 2^N * carry_out";
+const UNIQUE_IDENTIFIER: &str = "a + b + carry_in = c + 2^N * carry_out";
 const PRINCIPAL_WIDTH: usize = 5;
 
 #[derive(Derivative)]
@@ -25,9 +25,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for UIntXAddConstraintEvaluator {
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -83,7 +81,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for UIntXAddConstraintEvaluator {
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = [P; 1];
@@ -399,7 +396,7 @@ impl<const WIDTH: usize> UIntXAddGate<WIDTH> {
                 let c = result & ((1u64 << WIDTH) - 1);
                 let borrow_out = result < (1u64 << WIDTH);
 
-                let c = F::from_u64_with_reduction(c as u64);
+                let c = F::from_u64_with_reduction(c);
                 let borrow_out = F::from_u64_with_reduction(borrow_out as u64);
 
                 [c, borrow_out]
@@ -462,7 +459,7 @@ impl<const WIDTH: usize> UIntXAddGate<WIDTH> {
 
                 debug_assert_eq!(borrow_out, false);
 
-                let c = F::from_u64_with_reduction(c as u64);
+                let c = F::from_u64_with_reduction(c);
 
                 [c]
             };
@@ -584,7 +581,7 @@ impl<const WIDTH: usize> UIntXAddGate<WIDTH> {
 
                 debug_assert_eq!(borrow_out as u64, expected_borrow_out);
 
-                let c = F::from_u64_with_reduction(c as u64);
+                let c = F::from_u64_with_reduction(c);
 
                 [c]
             };

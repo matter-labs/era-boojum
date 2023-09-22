@@ -175,13 +175,13 @@ impl<F: SmallField> TreeHasher<F> for blake2::Blake2s256 {
     #[inline]
     fn accumulate_into_leaf(&mut self, value: &F) {
         let as_u64 = value.as_u64_reduced().to_le_bytes();
-        self.update(&as_u64);
+        self.update(as_u64);
     }
     #[inline]
     fn finalize_into_leaf_hash_and_reset(&mut self) -> Self::Output {
         let mut output = [0u8; 32];
         let raw_output = self.finalize_reset();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -198,7 +198,7 @@ impl<F: SmallField> TreeHasher<F> for blake2::Blake2s256 {
 
         let mut output = [0u8; 32];
         let raw_output = hasher.finalize();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -212,7 +212,7 @@ impl<F: SmallField> TreeHasher<F> for blake2::Blake2s256 {
 
         let mut output = [0u8; 32];
         let raw_output = hasher.finalize();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -224,7 +224,7 @@ impl<F: SmallField> TreeHasher<F> for blake2::Blake2s256 {
 
         let mut output = [0u8; 32];
         let raw_output = hasher.finalize();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -243,13 +243,13 @@ impl<F: SmallField> TreeHasher<F> for sha3::Keccak256 {
     #[inline]
     fn accumulate_into_leaf(&mut self, value: &F) {
         let as_u64 = value.as_u64_reduced().to_le_bytes();
-        self.update(&as_u64);
+        self.update(as_u64);
     }
     #[inline]
     fn finalize_into_leaf_hash_and_reset(&mut self) -> Self::Output {
         let mut output = [0u8; 32];
         let raw_output = self.finalize_reset();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -266,7 +266,7 @@ impl<F: SmallField> TreeHasher<F> for sha3::Keccak256 {
 
         let mut output = [0u8; 32];
         let raw_output = hasher.finalize();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -280,7 +280,7 @@ impl<F: SmallField> TreeHasher<F> for sha3::Keccak256 {
 
         let mut output = [0u8; 32];
         let raw_output = hasher.finalize();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }
@@ -292,7 +292,7 @@ impl<F: SmallField> TreeHasher<F> for sha3::Keccak256 {
 
         let mut output = [0u8; 32];
         let raw_output = hasher.finalize();
-        output[..].copy_from_slice(&raw_output.as_slice());
+        output[..].copy_from_slice(raw_output.as_slice());
 
         output
     }

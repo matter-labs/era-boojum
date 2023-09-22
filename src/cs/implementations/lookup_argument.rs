@@ -64,7 +64,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
     // now we can work on every individual argument
 
     // we should also precompute a selector
-    let mut selector: GenericPolynomial<F, LagrangeForm, P, A> = (&*constant_polys[0]).clone();
+    let mut selector: GenericPolynomial<F, LagrangeForm, P, A> = (*constant_polys[0]).clone();
     if lookup_selector_path[0] == false {
         worker.scope(selector.storage.len(), |scope, chunk_size| {
             for dst in selector.storage.chunks_mut(chunk_size) {
@@ -105,7 +105,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
                     } else {
                         // just mul
                         for (src, dst) in src.iter().zip(dst.iter_mut()) {
-                            dst.mul_assign(&src, &mut ctx);
+                            dst.mul_assign(src, &mut ctx);
                         }
                     }
                 });
@@ -168,8 +168,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
                     let chunk = src
                         .storage
                         .chunks(chunk_size)
-                        .skip(idx)
-                        .next()
+                        .nth(idx)
                         .expect("next chunk")
                         .iter();
                     tmp.push(chunk);
@@ -244,18 +243,16 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
                         let chunk = src
                             .storage
                             .chunks(chunk_size)
-                            .skip(idx)
-                            .next()
+                            .nth(idx)
                             .expect("next chunk")
                             .iter();
                         tmp.push(chunk);
                     }
-                    if let Some(table_id_poly_idx) = table_id_column_idxes.get(0).copied() {
+                    if let Some(table_id_poly_idx) = table_id_column_idxes.first().copied() {
                         let chunk = constant_polys[table_id_poly_idx]
                             .storage
                             .chunks(chunk_size)
-                            .skip(idx)
-                            .next()
+                            .nth(idx)
                             .expect("next chunk")
                             .iter();
                         tmp.push(chunk);
@@ -477,8 +474,7 @@ pub(crate) fn compute_lookup_poly_pairs_specialized<
                     let chunk = src
                         .storage
                         .chunks(chunk_size)
-                        .skip(idx)
-                        .next()
+                        .nth(idx)
                         .expect("next chunk")
                         .iter();
                     tmp.push(chunk);
@@ -546,19 +542,17 @@ pub(crate) fn compute_lookup_poly_pairs_specialized<
                         let chunk = src
                             .storage
                             .chunks(chunk_size)
-                            .skip(idx)
-                            .next()
+                            .nth(idx)
                             .expect("next chunk")
                             .iter();
                         tmp.push(chunk);
                     }
-                    if let Some(table_id_poly) = table_id_column_idxes.get(0).copied() {
+                    if let Some(table_id_poly) = table_id_column_idxes.first().copied() {
                         assert!(use_constant_for_table_id);
                         let chunk = constant_polys[table_id_poly]
                             .storage
                             .chunks(chunk_size)
-                            .skip(idx)
-                            .next()
+                            .nth(idx)
                             .expect("next chunk")
                             .iter();
                         tmp.push(chunk);

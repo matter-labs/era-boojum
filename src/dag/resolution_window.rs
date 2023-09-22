@@ -100,6 +100,8 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             .map(|x| x as char)
             .collect();
 
+        // False positive: https://github.com/rust-lang/rust-clippy/issues/11382
+        #[allow(clippy::arc_with_non_send_sync)]
         let channel = Arc::new(LockStepChannel::new(threads as usize));
 
         let pool = (0..threads)
@@ -501,11 +503,15 @@ impl<V: SmallField, const SIZE: usize> Worker<V, SIZE> {
                                 })).unwrap_or_else(|_| {
                                     this.receiver.channel.panicked.store(true, std::sync::atomic::Ordering::Relaxed);
 
+                                    let inputs = resolver.inputs();
+
                                     panic!(
-                                        "Panic in resolution invocation. Order {}, resolver index {:?}', input ixs {:?}\nWorker stats:\n{:?}\n", 
+                                        "Panic in resolution invocation. Order {}, resolver index {:?}', \
+                                         input count {}, input ixs {:?}\nWorker stats:\n{:?}\n", 
                                         order_ix,
                                         resolver_ix,
-                                        resolver.inputs().iter().map(|x| format!("{:?}", x)).collect_vec(),
+                                        inputs.len(),
+                                        inputs.iter().map(|x| format!("{:?}", x)).collect_vec(),
                                         stats)
                                 })
                             }
@@ -764,10 +770,10 @@ impl LockStepChannel {
 
         unsafe { self.pool.u_deref().iter().for_each(|x| x.unpark()) }
 
-        let expected_done = PRIMES
+        let expected_done: usize = PRIMES
             .iter()
             .take(unsafe { self.data.u_deref().len() })
-            .fold(1, |acc, cur| acc * cur);
+            .product();
 
         while self.batch_done_res.load(Relaxed) != expected_done
             && self.panicked.load(Relaxed) == false

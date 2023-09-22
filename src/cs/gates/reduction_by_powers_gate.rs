@@ -23,9 +23,7 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -83,7 +81,6 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = [P; 1];
@@ -198,7 +195,6 @@ impl<F: SmallField, const N: usize> ReductionByPowersGate<F, N> {
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
             let value_fn = move |inputs: [F; N]| {
                 let mut current_constant = F::ONE;
-                let reduction_constant = reduction_constant;
                 let mut result = F::ZERO;
                 for (idx, el) in inputs.into_iter().enumerate() {
                     if idx != 0 {

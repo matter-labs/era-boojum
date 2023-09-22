@@ -1,6 +1,6 @@
 use super::*;
 
-const TABLE_NAME: &'static str = "TriXor4 table";
+const TABLE_NAME: &str = "TriXor4 table";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]

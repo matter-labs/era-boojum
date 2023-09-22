@@ -61,7 +61,7 @@ pub fn test_evaluator<F: SmallField, E: GateConstraintEvaluator<F>>(evaluator: E
             max_constraint_degree: _,
             num_quotient_terms,
         } => num_quotient_terms,
-        a @ _ => {
+        a => {
             unreachable!("testing is not usable for evaluator with purpose {:?}", a);
         }
     };

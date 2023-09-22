@@ -80,7 +80,7 @@ fn keccak_1600_round<F: SmallField, CS: ConstraintSystem<F>>(
         i = new_i;
         j = new_j;
         let existing = state[i][j];
-        let rotation = (idx as u64 + 1) * (idx as u64 + 2) >> 1;
+        let rotation = ((idx as u64 + 1) * (idx as u64 + 2)) >> 1;
         let rotation = rotation % 64;
         let rotated = rotate_word(cs, &current, one, rotation as u32);
         state[i][j] = rotated;

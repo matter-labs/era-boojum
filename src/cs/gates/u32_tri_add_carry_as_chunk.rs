@@ -25,9 +25,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for U32TriAddCarryAsChunkConstrai
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {

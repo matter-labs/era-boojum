@@ -44,7 +44,7 @@ where
         mut dst: W,
     ) -> Result<(), Box<dyn std::error::Error>> {
         dst.write_all(&(self.cap_size as u64).to_le_bytes())
-            .map_err(|el| Box::new(el))?;
+            .map_err(Box::new)?;
 
         MemcopySerializable::write_into_buffer(&self.leaf_hashes, &mut dst)?;
         use crate::cs::implementations::fast_serialization::*;
@@ -55,7 +55,7 @@ where
 
     fn read_from_buffer<R: std::io::Read>(mut src: R) -> Result<Self, Box<dyn std::error::Error>> {
         let mut buffer = [0u8; 8];
-        src.read_exact(&mut buffer).map_err(|el| Box::new(el))?;
+        src.read_exact(&mut buffer).map_err(Box::new)?;
         let cap_size = u64::from_le_bytes(buffer) as usize;
 
         let leaf_hashes = MemcopySerializable::read_from_buffer(&mut src)?;
@@ -135,7 +135,7 @@ impl<F: PrimeField, H: TreeHasher<F>, A: GoodAllocator, B: GoodAllocator>
                 let mut flatteners = Vec::with_capacity_in(num_subchunks, B::default());
 
                 for c in sources_flattened.chunks(leafs_sources.len()) {
-                    let leaf_flattener = Flattener::new(c.into_iter().map(|el| el.as_ref()), 1);
+                    let leaf_flattener = Flattener::new(c.iter().map(|el| el.as_ref()), 1);
                     flatteners.push(leaf_flattener);
                 }
 

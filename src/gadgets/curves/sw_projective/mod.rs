@@ -31,9 +31,9 @@ where
         let z = NN::allocated_constant(cs, C::Base::one(), params);
 
         Self {
-            x: x,
-            y: y,
-            z: z,
+            x,
+            y,
+            z,
             _marker: std::marker::PhantomData,
         }
     }
@@ -162,7 +162,6 @@ where
         let z1 = &mut self.z;
 
         let (x2, y2) = other_xy;
-        let x2 = x2;
 
         if is_subtraction {
             let y2_negated_computed = y2.negated(cs);

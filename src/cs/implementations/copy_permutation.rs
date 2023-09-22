@@ -98,7 +98,7 @@ pub(crate) fn pointwise_rational<
                     }
 
                     let buffer_den = P::slice_into_base_slice(&buffer_den[..]);
-                    batch_inverse(&buffer_den, &mut buffer_for_inverses);
+                    batch_inverse(buffer_den, &mut buffer_for_inverses);
                     let buffer_for_inverses = P::vec_from_base_vec(buffer_for_inverses);
                     assert_eq!(dst.len(), buffer_for_inverses.len());
 
@@ -175,7 +175,7 @@ pub(crate) fn pointwise_rational_in_extension<
                         // w, non_res and x are in base field,
                         // so we split the evaluation
                         let mut numerator_common = non_residue;
-                        numerator_common.mul_assign(&x_poly, &mut ctx);
+                        numerator_common.mul_assign(x_poly, &mut ctx);
 
                         // c0 and c1 parts
                         let mut numerator_c0 = numerator_common;
@@ -287,7 +287,7 @@ pub(crate) fn pointwise_product_into<
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
                     for (dst, src) in dst.iter_mut().zip(src.iter()) {
-                        dst.mul_assign(&src, &mut ctx);
+                        dst.mul_assign(src, &mut ctx);
                     }
                 });
             }
@@ -497,7 +497,7 @@ pub(crate) fn shifted_grand_product_in_extension<
                 for (dst_c0, dst_c1) in chunk_c0.iter_mut().zip(chunk_c1.iter_mut()) {
                     let mut dst =
                         ExtensionField::<F, 2, EXT>::from_coeff_in_base([*dst_c0, *dst_c1]);
-                    crate::field::Field::mul_assign(&mut dst, &acc);
+                    crate::field::Field::mul_assign(&mut dst, acc);
                     let [c0, c1] = dst.into_coeffs_in_base();
                     *dst_c0 = c0;
                     *dst_c1 = c1;
@@ -1068,7 +1068,7 @@ pub(crate) fn compute_quotient_terms_in_extension<
         .intermediate_polys
         .iter()
         .map(|el| el.clone().map(|el| el.subset_for_degree(degree)))
-        .chain([z_poly_shifted].into_iter());
+        .chain([z_poly_shifted]);
 
     let z_poly = grand_products
         .z_poly
@@ -1171,14 +1171,14 @@ pub(crate) fn compute_quotient_terms_in_extension<
                         for (non_res, variables) in non_residues.iter().zip(variables.iter()) {
                             // numerator is w + beta * non_res * x + gamma
                             let mut subres_c0 = x_poly_value;
-                            subres_c0.mul_assign(&non_res, &mut ctx);
+                            subres_c0.mul_assign(non_res, &mut ctx);
                             subres_c0.mul_assign(&beta_c0, &mut ctx);
                             subres_c0
                                 .add_assign(&variables.storage[outer].storage[inner], &mut ctx);
                             subres_c0.add_assign(&gamma_c0, &mut ctx);
 
                             let mut subres_c1 = x_poly_value;
-                            subres_c1.mul_assign(&non_res, &mut ctx);
+                            subres_c1.mul_assign(non_res, &mut ctx);
                             subres_c1.mul_assign(&beta_c1, &mut ctx);
                             subres_c1.add_assign(&gamma_c1, &mut ctx);
 
@@ -1204,33 +1204,31 @@ pub(crate) fn compute_quotient_terms_in_extension<
                             &mut ctx,
                         );
 
-                        if crate::config::DEBUG_SATISFIABLE == true {
-                            if outer == 0 {
-                                // only on base coset
-                                let t = [contribution_c0];
-                                let as_base = P::slice_into_base_slice(&t);
-                                for el in as_base.iter() {
-                                    if el.is_zero() == false {
-                                        dbg!(_relation_idx);
-                                        dbg!(lhs[0].storage[outer].storage[inner]);
-                                        dbg!(rhs[0].storage[outer].storage[inner]);
-                                        dbg!(variables[0].storage[outer].storage[inner]);
-                                        dbg!(variables[1].storage[outer].storage[inner]);
-                                        dbg!(variables[2].storage[outer].storage[inner]);
-                                        dbg!(variables[3].storage[outer].storage[inner]);
-                                        dbg!(sigmas[0].storage[outer].storage[inner]);
-                                        dbg!(sigmas[1].storage[outer].storage[inner]);
-                                        dbg!(sigmas[2].storage[outer].storage[inner]);
-                                        dbg!(sigmas[3].storage[outer].storage[inner]);
-                                    }
-                                    assert_eq!(
-                                        *el,
-                                        F::ZERO,
-                                        "failed at outer = {}, inner = {}",
-                                        outer,
-                                        inner
-                                    );
+                        if crate::config::DEBUG_SATISFIABLE == true && outer == 0 {
+                            // only on base coset
+                            let t = [contribution_c0];
+                            let as_base = P::slice_into_base_slice(&t);
+                            for el in as_base.iter() {
+                                if el.is_zero() == false {
+                                    dbg!(_relation_idx);
+                                    dbg!(lhs[0].storage[outer].storage[inner]);
+                                    dbg!(rhs[0].storage[outer].storage[inner]);
+                                    dbg!(variables[0].storage[outer].storage[inner]);
+                                    dbg!(variables[1].storage[outer].storage[inner]);
+                                    dbg!(variables[2].storage[outer].storage[inner]);
+                                    dbg!(variables[3].storage[outer].storage[inner]);
+                                    dbg!(sigmas[0].storage[outer].storage[inner]);
+                                    dbg!(sigmas[1].storage[outer].storage[inner]);
+                                    dbg!(sigmas[2].storage[outer].storage[inner]);
+                                    dbg!(sigmas[3].storage[outer].storage[inner]);
                                 }
+                                assert_eq!(
+                                    *el,
+                                    F::ZERO,
+                                    "failed at outer = {}, inner = {}",
+                                    outer,
+                                    inner
+                                );
                             }
                         }
 

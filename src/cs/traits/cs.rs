@@ -98,7 +98,7 @@ pub trait ConstraintSystem<F: SmallField>: Send + Sync {
     );
 
     fn set_values_with_dependencies_vararg<
-        FN: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) -> () + 'static + Send + Sync,
+        FN: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + 'static + Send + Sync,
     >(
         &mut self,
         dependencies: &[Place],
@@ -202,19 +202,15 @@ pub trait ConstraintSystem<F: SmallField>: Send + Sync {
     fn get_gate_params<G: Gate<F>>(
         &self,
     ) -> <G::Evaluator as GateConstraintEvaluator<F>>::UniqueParameterizationParams {
-        self.get_gates_config().get_params::<G>().expect(&format!(
-            "gate {} must be allowed",
-            std::any::type_name::<G>()
-        ))
+        self.get_gates_config()
+            .get_params::<G>()
+            .unwrap_or_else(|| panic!("gate {} must be allowed", std::any::type_name::<G>()))
     }
     #[inline(always)]
     fn get_gate_placement_strategy<G: Gate<F>>(&self) -> GatePlacementStrategy {
         self.get_gates_config()
             .placement_strategy::<G>()
-            .expect(&format!(
-                "gate {} must be allowed",
-                std::any::type_name::<G>()
-            ))
+            .unwrap_or_else(|| panic!("gate {} must be allowed", std::any::type_name::<G>()))
     }
 
     // When we declare a circuit (not just variables, but their concrete locations)

@@ -1,16 +1,32 @@
-#![allow(clippy::drop_ref)]
+// Allowed lints
+// Whenever add an item here, please write a short yet meaningful comment on why so.
+#![allow(
+    clippy::incorrect_clone_impl_on_copy_type, // False positives in derivative: https://github.com/mcarton/rust-derivative/issues/112
+    clippy::bool_comparison, // Explicitness is good in critical contexts.
+    clippy::mut_from_ref, // Triggers on unsafe functions (e.g. ones using `UnsafeCell`).
+    clippy::type_complexity, // Many types in this create are inherently complex.
+    clippy::needless_range_loop, // Suggested code is often less readable than original.
+    clippy::identity_op, // Suggested code is often less readable than original.
+    clippy::too_many_arguments, // No easy way around this.
+    clippy::len_zero, // Breaks consistency for bound checks.
+    clippy::new_without_default, // Suggests writing more code than required
+    clippy::let_unit_value, // False positives.
+    clippy::let_and_return, // Suggests less expressive code.
+    clippy::assertions_on_constants, // Doesn't play well with existing dev approach.
+    clippy::drop_non_drop, // Reduces explicitness when marking mutable references as dropped.
+    clippy::needless_pass_by_ref_mut, // Mutable references are often used indirectly (e.g. via unsafe code).
+    clippy::int_plus_one, // Suggests less expressive code.
+    clippy::bool_assert_comparison, // This crate prefers explicitness.
+)]
 #![allow(dead_code)]
-#![allow(dropping_references)]
+#![allow(dropping_references)] // Required to explicitly show that mutable references are dropped.
 #![allow(incomplete_features)]
+// Enabled features
 #![feature(allocator_api)]
 #![feature(const_mut_refs)]
-#![feature(const_refs_to_cell)]
-#![feature(const_for)]
 #![feature(const_swap)]
 #![feature(inline_const)]
-#![feature(const_intoiterator_identity)]
 #![feature(slice_swap_unchecked)]
-#![feature(const_option)]
 #![feature(const_slice_index)]
 #![feature(core_intrinsics)]
 #![feature(const_eval_select)]
@@ -20,26 +36,18 @@
 #![feature(vec_into_raw_parts)]
 #![feature(iter_collect_into)]
 #![feature(strict_provenance)]
-#![feature(ready_into_inner)]
 #![feature(unboxed_closures)]
 #![feature(portable_simd)]
 #![feature(ptr_metadata)]
 #![feature(fn_traits)]
 #![feature(generic_const_exprs)]
-#![feature(const_type_id)]
-#![feature(const_type_name)]
 #![feature(iter_array_chunks)]
-#![feature(iter_next_chunk)]
 // #![recursion_limit = "1024"]
-#![feature(bigint_helper_methods)]
-#![feature(const_bigint_helper_methods)]
 #![feature(stdsimd)]
 #![feature(avx512_target_feature)]
 #![feature(associated_type_defaults)]
 #![feature(trait_alias)]
-#![feature(is_sorted)]
 #![feature(vec_push_within_capacity)]
-#![feature(cell_update)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_changing_struct_update)]
 #![feature(slice_flatten)]

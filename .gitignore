@@ -1,4 +1,5 @@
 /.vscode/
 
 /target
+/profiling-target/target
 /Cargo.lock

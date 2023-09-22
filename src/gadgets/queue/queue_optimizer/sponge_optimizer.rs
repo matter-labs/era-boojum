@@ -88,11 +88,11 @@ impl<
 
                 // Select the correct request
                 let mut it = per_round_requests.into_iter();
-                let (mut current, _) = (&mut it).next().expect("is some");
+                let (mut current, _) = it.next().expect("is some");
 
                 let mut request_flags = ArrayVec::<_, N>::new();
-                for (el, flag) in it.into_iter() {
-                    current = SpongeRoundRequest::conditionally_select(cs, *flag, &el, &current);
+                for (el, flag) in it {
+                    current = SpongeRoundRequest::conditionally_select(cs, *flag, el, &current);
                     request_flags.push(*flag);
                 }
                 let applies = Boolean::multi_or(cs, &request_flags[..]);

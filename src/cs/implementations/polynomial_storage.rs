@@ -166,7 +166,7 @@ where
         let table_ids_column_idxes: Vec<usize> = bincode::deserialize_from(&mut src)?;
 
         let mut buffer = [0u8; 8];
-        src.read_exact(&mut buffer).map_err(|el| Box::new(el))?;
+        src.read_exact(&mut buffer).map_err(Box::new)?;
         let used_lde_degree = u64::from_le_bytes(buffer) as usize;
 
         assert!(used_lde_degree.is_power_of_two());
@@ -195,7 +195,7 @@ where
         bincode::serialize_into(&mut dst, &self.table_ids_column_idxes)?;
 
         dst.write_all(&(self.used_lde_degree as u64).to_le_bytes())
-            .map_err(|el| Box::new(el))?;
+            .map_err(Box::new)?;
 
         Ok(())
     }
@@ -558,21 +558,15 @@ impl<F: BaseField, A: GoodAllocator, B: GoodAllocator> SatisfiabilityCheckRowVie
         constants: Vec<Polynomial<F, LagrangeForm, A>, B>,
     ) -> Self {
         let mut vars = Vec::with_capacity_in(variables.len(), B::default());
-        variables
-            .into_iter()
-            .map(|el| Arc::new(el))
-            .collect_into(&mut vars);
+        variables.into_iter().map(Arc::new).collect_into(&mut vars);
 
         let mut wits = Vec::with_capacity_in(witness.len(), B::default());
-        witness
-            .into_iter()
-            .map(|el| Arc::new(el))
-            .collect_into(&mut wits);
+        witness.into_iter().map(Arc::new).collect_into(&mut wits);
 
         let mut consts = Vec::with_capacity_in(constants.len(), B::default());
         constants
             .into_iter()
-            .map(|el| Arc::new(el))
+            .map(Arc::new)
             .collect_into(&mut consts);
 
         Self {
@@ -670,9 +664,9 @@ impl<
         B: GoodAllocator,
     > SetupStorage<F, P, A, B>
 {
-    pub(crate) fn flattened_source<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = &'a ArcGenericLdeStorage<F, P, A, B>> + Clone {
+    pub(crate) fn flattened_source(
+        &self,
+    ) -> impl Iterator<Item = &ArcGenericLdeStorage<F, P, A, B>> + Clone {
         self.copy_permutation_polys
             .iter()
             .chain(self.constant_columns.iter())
@@ -687,9 +681,9 @@ impl<
         B: GoodAllocator,
     > WitnessStorage<F, P, A, B>
 {
-    pub(crate) fn flattened_source<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = &'a ArcGenericLdeStorage<F, P, A, B>> + Clone {
+    pub(crate) fn flattened_source(
+        &self,
+    ) -> impl Iterator<Item = &ArcGenericLdeStorage<F, P, A, B>> + Clone {
         self.variables_columns
             .iter()
             .chain(self.witness_columns.iter())
@@ -704,9 +698,9 @@ impl<
         B: GoodAllocator,
     > SecondStageProductsStorage<F, P, A, B>
 {
-    pub(crate) fn flattened_source<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = &'a ArcGenericLdeStorage<F, P, A, B>> + Clone {
+    pub(crate) fn flattened_source(
+        &self,
+    ) -> impl Iterator<Item = &ArcGenericLdeStorage<F, P, A, B>> + Clone {
         self.z_poly
             .iter()
             .chain(self.intermediate_polys.iter().flatten())
@@ -757,7 +751,7 @@ mod test {
                         tmp.mul_assign(b).mul_assign(c0);
 
                         let mut t = *c;
-                        t.mul_assign(&c1);
+                        t.mul_assign(c1);
 
                         tmp.add_assign(&t);
 

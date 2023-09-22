@@ -159,11 +159,11 @@ where
         {
             let total_range = self.tracker.add(&other.tracker);
             let used_words =
-                total_range.used_words_if_normalized(&self.params.modulus_u1024.as_ref());
+                total_range.used_words_if_normalized(self.params.modulus_u1024.as_ref());
             debug_assert!(used_words <= N);
 
             let num_overflow_bits = total_range.overflow_over_representation(
-                &self.params.modulus_u1024.as_ref(),
+                self.params.modulus_u1024.as_ref(),
                 self.params.repr_bits(),
             );
             // classical long addition
@@ -740,7 +740,7 @@ where
                 .wrapping_mul(&U1024::from_word(self.tracker.max_moduluses as u64));
             let used_words = self
                 .tracker
-                .used_words_if_normalized(&self.params.modulus_u1024.as_ref());
+                .used_words_if_normalized(self.params.modulus_u1024.as_ref());
             debug_assert!(used_words <= N);
 
             let modulus_words = u1024_to_u16_words::<N>(&modulus_shifted);
@@ -877,7 +877,7 @@ where
             let modulus_u1024 = self.params.modulus_u1024;
             let modulus_limbs = self.params.modulus_limbs;
             let value_fn = move |input: &[F], dst: &mut DstBuffer<'_, '_, F>| {
-                let mut value = unnormalized_u16_field_words_to_u1024(&input);
+                let mut value = unnormalized_u16_field_words_to_u1024(input);
                 value = value.checked_rem(&modulus_u1024).unwrap();
 
                 let inner = u1024_to_fe::<T>(&value);
@@ -1108,9 +1108,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> Selectable<F>
         let selected_limbs = Num::parallel_select(cs, flag, &a_limbs, &b_limbs);
 
         let max_moduluses = std::cmp::max(a.tracker.max_moduluses, b.tracker.max_moduluses);
-        let new_tracker = OverflowTracker {
-            max_moduluses: max_moduluses,
-        };
+        let new_tracker = OverflowTracker { max_moduluses };
 
         let new_form = match (a.form, b.form) {
             (RepresentationForm::Normalized, RepresentationForm::Normalized) => {
@@ -1147,9 +1145,9 @@ mod test {
     use pairing::ff::{Field, PrimeField};
 
     type F = GoldilocksField;
-    type EXT = pairing::bn256::Fq;
-    type NN = NonNativeFieldOverU16<F, EXT, 16>;
-    type Params = NonNativeFieldOverU16Params<EXT, 16>;
+    type Ext = pairing::bn256::Fq;
+    type NN = NonNativeFieldOverU16<F, Ext, 16>;
+    type Params = NonNativeFieldOverU16Params<Ext, 16>;
 
     #[test]
     fn test_mul() {
@@ -1210,8 +1208,8 @@ mod test {
 
         let cs = &mut owned_cs;
 
-        let a_value = EXT::from_str("123").unwrap();
-        let b_value = EXT::from_str("456").unwrap();
+        let a_value = Ext::from_str("123").unwrap();
+        let b_value = Ext::from_str("456").unwrap();
 
         let params = Params::create();
         let params = std::sync::Arc::new(params);

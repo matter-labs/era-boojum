@@ -22,8 +22,7 @@ pub struct DenseWitnessCopyHint {
 impl MemcopySerializable for Vec<Variable> {
     fn read_from_buffer<R: std::io::Read>(mut src: R) -> Result<Self, Box<dyn std::error::Error>> {
         let mut len_le_bytes = [0u8; 8];
-        src.read_exact(&mut len_le_bytes)
-            .map_err(|el| Box::new(el))?;
+        src.read_exact(&mut len_le_bytes).map_err(Box::new)?;
         let length: u64 = u64::from_le_bytes(len_le_bytes);
         let length = length as usize;
 
@@ -35,7 +34,7 @@ impl MemcopySerializable for Vec<Variable> {
         assert_eq!(std::mem::size_of::<Variable>(), 8);
         let len = length * 8;
         let dst = unsafe { std::slice::from_raw_parts_mut(ptr, len) };
-        src.read_exact(dst).map_err(|el| Box::new(el))?;
+        src.read_exact(dst).map_err(Box::new)?;
         drop(dst);
         drop(dst_buffer);
         unsafe { result.set_len(length) };
@@ -49,12 +48,12 @@ impl MemcopySerializable for Vec<Variable> {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let len = self.len();
         let len_le_bytes = (len as u64).to_le_bytes();
-        dst.write_all(&len_le_bytes).map_err(|el| Box::new(el))?;
+        dst.write_all(&len_le_bytes).map_err(Box::new)?;
 
         let ptr: *const u8 = self.as_ptr().cast();
         let src = unsafe { std::slice::from_raw_parts(ptr, len) };
 
-        dst.write_all(src).map_err(|el| Box::new(el))?;
+        dst.write_all(src).map_err(Box::new)?;
 
         Ok(())
     }
@@ -63,8 +62,7 @@ impl MemcopySerializable for Vec<Variable> {
 impl MemcopySerializable for Vec<Witness> {
     fn read_from_buffer<R: std::io::Read>(mut src: R) -> Result<Self, Box<dyn std::error::Error>> {
         let mut len_le_bytes = [0u8; 8];
-        src.read_exact(&mut len_le_bytes)
-            .map_err(|el| Box::new(el))?;
+        src.read_exact(&mut len_le_bytes).map_err(Box::new)?;
         let length: u64 = u64::from_le_bytes(len_le_bytes);
         let length = length as usize;
 
@@ -76,7 +74,7 @@ impl MemcopySerializable for Vec<Witness> {
         assert_eq!(std::mem::size_of::<Witness>(), 8);
         let len = length * 8;
         let dst = unsafe { std::slice::from_raw_parts_mut(ptr, len) };
-        src.read_exact(dst).map_err(|el| Box::new(el))?;
+        src.read_exact(dst).map_err(Box::new)?;
         drop(dst);
         drop(dst_buffer);
         unsafe { result.set_len(length) };
@@ -90,12 +88,12 @@ impl MemcopySerializable for Vec<Witness> {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let len = self.len();
         let len_le_bytes = (len as u64).to_le_bytes();
-        dst.write_all(&len_le_bytes).map_err(|el| Box::new(el))?;
+        dst.write_all(&len_le_bytes).map_err(Box::new)?;
 
         let ptr: *const u8 = self.as_ptr().cast();
         let src = unsafe { std::slice::from_raw_parts(ptr, len) };
 
-        dst.write_all(src).map_err(|el| Box::new(el))?;
+        dst.write_all(src).map_err(Box::new)?;
 
         Ok(())
     }
