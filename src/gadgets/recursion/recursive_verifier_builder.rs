@@ -260,7 +260,7 @@ impl<
         Self {
             cs,
 
-            parameters: parameters,
+            parameters,
             lookup_parameters: LookupParameters::NoLookup,
 
             gate_type_ids_for_specialized_columns: Vec::with_capacity(16),

@@ -124,7 +124,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for ZeroCheckEvaluator {
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = ();
@@ -138,7 +137,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for ZeroCheckEvaluator {
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]

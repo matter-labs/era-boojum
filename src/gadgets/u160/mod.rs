@@ -112,6 +112,9 @@ impl<F: SmallField> UInt160<F> {
         Self::allocated_constant(cs, Address::zero())
     }
 
+    /// # Safety
+    ///
+    /// Does not check the variable to be valid.
     #[inline(always)]
     pub unsafe fn from_variables_unchecked(variables: [Variable; 5]) -> Self {
         Self {
@@ -154,7 +157,7 @@ impl<F: SmallField> UInt160<F> {
         let mut encoding = [std::mem::MaybeUninit::uninit(); 20];
         for (dst, src) in encoding
             .iter_mut()
-            .zip(self.inner.iter().map(|el| el.to_le_bytes(cs)).flatten())
+            .zip(self.inner.iter().flat_map(|el| el.to_le_bytes(cs)))
         {
             dst.write(src);
         }

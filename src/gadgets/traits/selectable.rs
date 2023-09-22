@@ -62,7 +62,6 @@ impl<F: SmallField> Selectable<F> for () {
         _a: &Self,
         _b: &Self,
     ) -> Self {
-        ()
     }
 }
 

@@ -262,17 +262,16 @@ impl<F: PrimeField, P: field::traits::field_like::PrimeFieldLikeVectorized<Base 
         };
 
         // we actually want to do the reduction and swap the result
-        if crate::config::DEBUG_SATISFIABLE {
-            if outer == 0 {
-                let selector = [gate_selector_value];
-                let value = [self.work_buffer[0]];
-                let selector = P::slice_into_base_slice(&selector);
-                let value = P::slice_into_base_slice(&value);
+        if crate::config::DEBUG_SATISFIABLE == true && outer == 0 {
+            let selector = [gate_selector_value];
+            let value = [self.work_buffer[0]];
+            let selector = P::slice_into_base_slice(&selector);
+            let value = P::slice_into_base_slice(&value);
 
-                for (idx, (selector, value)) in selector.iter().zip(value.iter()).enumerate() {
-                    let inner = inner * P::SIZE_FACTOR + idx;
-                    if selector.is_zero() == false {
-                        debug_assert!(
+            for (idx, (selector, value)) in selector.iter().zip(value.iter()).enumerate() {
+                let inner = inner * P::SIZE_FACTOR + idx;
+                if selector.is_zero() == false {
+                    debug_assert!(
                             value.is_zero() == true,
                             "aggregated term value is non-zero and has value {} for selector value {} at trace row {}", 
                             value,
@@ -284,7 +283,6 @@ impl<F: PrimeField, P: field::traits::field_like::PrimeFieldLikeVectorized<Base 
                                 normal_enumeration
                             }
                         );
-                    }
                 }
             }
         }

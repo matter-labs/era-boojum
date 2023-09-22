@@ -158,7 +158,7 @@ mod test {
 
     fn test_sha256(len: usize) {
         use rand::{Rng, SeedableRng};
-        let mut rng = rand::rngs::StdRng::seed_from_u64(42 as u64);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         let mut input = vec![];
         for _ in 0..len {
@@ -235,7 +235,7 @@ mod test {
         }
 
         let output = sha256(cs, &circuit_input);
-        let output = hex::encode(&(output.witness_hook(&*cs))().unwrap());
+        let output = hex::encode((output.witness_hook(&*cs))().unwrap());
         let reference_output = hex::encode(reference_output.as_slice());
         assert_eq!(output, reference_output);
 
@@ -305,12 +305,14 @@ mod test {
         let quotient_lde_degree = 8; // Setup params are not split yet, so it's should be equal to max(FRI lde degree, quotient degree)
         let fri_lde_degree = 8;
         let cap_size = 16;
-        let mut prover_config = ProofConfig::default();
-        prover_config.fri_lde_factor = fri_lde_degree;
-        prover_config.pow_bits = 0; // not important in practice for anything. 2^20 Blake2s POW uses 30ms
+        let prover_config = ProofConfig {
+            fri_lde_factor: fri_lde_degree,
+            pow_bits: 0, // not important in practice for anything. 2^20 Blake2s POW uses 30ms
+            ..Default::default()
+        };
 
         use rand::{Rng, SeedableRng};
-        let mut rng = rand::rngs::StdRng::seed_from_u64(42 as u64);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         let mut input = vec![];
         for _ in 0..len {

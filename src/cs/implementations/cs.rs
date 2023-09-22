@@ -97,11 +97,11 @@ impl<
     #[inline]
     fn set_values<const N: usize>(&mut self, places: &[Place; N], values: [F; N]) {
         if CFG::WitnessConfig::EVALUATE_WITNESS == true {
-            // places.into_iter().zip(values).for_each(|(a, b)| {
+            // places.iter().zip(values).for_each(|(a, b)| {
             //     self.storage_debug_trace_file.get_mut().unwrap().write(format!("set {:?} <- {}\n", a, b.as_raw_u64()).as_bytes()).unwrap();
             // });
 
-            places.into_iter().zip(values).for_each(|(a, b)| {
+            places.iter().zip(values).for_each(|(a, b)| {
                 self.variables_storage.get_mut().unwrap().set_value(*a, b);
             });
         }
@@ -377,7 +377,7 @@ impl<
         if offset == 0 {
             if row < self.constants_requested_per_row.len() {
                 // some gates may reuse constants
-                debug_assert!(&self.constants_requested_per_row[row][..] == &gate_constants[..]);
+                debug_assert!(self.constants_requested_per_row[row][..] == gate_constants[..]);
             } else {
                 // use new row
                 debug_assert!(self.constants_requested_per_row.len() <= row);
@@ -1037,8 +1037,7 @@ impl<
     fn get_table(&self, table_num: u32) -> std::sync::Arc<LookupTableWrapper<F>> {
         let table_id = table_num - INITIAL_LOOKUP_TABLE_ID_VALUE;
         std::sync::Arc::clone(
-            &self
-                .lookup_tables
+            self.lookup_tables
                 .get(table_id as usize)
                 .expect("table must exist when queried"),
         )
@@ -1167,9 +1166,11 @@ mod test {
         let cs = cs.into_assembly();
 
         let lde_factor_to_use = 16;
-        let mut proof_config = ProofConfig::default();
-        proof_config.fri_lde_factor = lde_factor_to_use;
-        proof_config.pow_bits = 0;
+        let proof_config = ProofConfig {
+            fri_lde_factor: lde_factor_to_use,
+            pow_bits: 0,
+            ..Default::default()
+        };
 
         let (proof, vk) = cs.prove_one_shot::<
             GoldilocksExt2,
@@ -1200,7 +1201,7 @@ mod test {
     #[test]
     #[ignore = "Computation of poly pairs for lookups unimplemented"]
     fn prove_simple_with_lookups() {
-        pub const TEST_TABLE_NAME: &'static str = "Test table";
+        pub const TEST_TABLE_NAME: &str = "Test table";
 
         #[derive(Derivative)]
         #[derivative(Clone, Copy, Debug)]
@@ -1324,9 +1325,11 @@ mod test {
         let cs = cs.into_assembly();
 
         let lde_factor_to_use = 16;
-        let mut proof_config = ProofConfig::default();
-        proof_config.fri_lde_factor = lde_factor_to_use;
-        proof_config.pow_bits = 0;
+        let proof_config = ProofConfig {
+            fri_lde_factor: lde_factor_to_use,
+            pow_bits: 0,
+            ..Default::default()
+        };
 
         let (proof, vk) = cs.prove_one_shot::<
             GoldilocksExt2,
@@ -1425,9 +1428,11 @@ mod test {
         // assert!(cs.check_if_satisfied(&worker));
 
         let lde_factor_to_use = 16;
-        let mut proof_config = ProofConfig::default();
-        proof_config.fri_lde_factor = lde_factor_to_use;
-        proof_config.pow_bits = 0;
+        let proof_config = ProofConfig {
+            fri_lde_factor: lde_factor_to_use,
+            pow_bits: 0,
+            ..Default::default()
+        };
 
         let (proof, vk) = cs.prove_one_shot::<
             GoldilocksExt2,
@@ -1457,8 +1462,8 @@ mod test {
 
     #[test]
     fn prove_simple_specialized_with_lookups() {
-        pub const TEST_TABLE_NAME: &'static str = "Test table";
-        pub const TEST_TABLE_NAME2: &'static str = "Test table 2";
+        pub const TEST_TABLE_NAME: &str = "Test table";
+        pub const TEST_TABLE_NAME2: &str = "Test table 2";
 
         #[derive(Derivative)]
         #[derivative(Clone, Copy, Debug)]
@@ -1651,9 +1656,11 @@ mod test {
         assert!(cs.check_if_satisfied(&worker));
 
         let lde_factor_to_use = 16;
-        let mut proof_config = ProofConfig::default();
-        proof_config.fri_lde_factor = lde_factor_to_use;
-        proof_config.pow_bits = 0;
+        let proof_config = ProofConfig {
+            fri_lde_factor: lde_factor_to_use,
+            pow_bits: 0,
+            ..Default::default()
+        };
 
         // let witness = cs.take_witness(&worker);
         // dbg!(&witness.multiplicities[0].storage);

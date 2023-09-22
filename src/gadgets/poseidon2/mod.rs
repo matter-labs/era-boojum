@@ -88,10 +88,13 @@ impl BuildableCircuitRoundFunction<GoldilocksField, 8, 12, 4> for Poseidon2Goldi
     }
 
     // matrix multiplications, and non-linearity
-    fn make_specialization_function_0<TImpl: CsBuilderImpl<GoldilocksField, TImpl>>(
-    ) -> impl ConfigurationFunction<GoldilocksField, TImpl> {
-        let configuration_fn = IdentityConfiguration;
-        let configuration_fn = configuration_fn.add_confituration_step::<_, _, MatrixMultiplicationGate<_, 12, Poseidon2GoldilocksExternalMatrix>>();
+    fn make_specialization_function_0() -> impl ConfigurationFunction<GoldilocksField> {
+        let configuration_fn = IdentityConfiguration::new();
+        let configuration_fn = configuration_fn.add_confituration_step::<MatrixMultiplicationGate<
+            _,
+            12,
+            Poseidon2GoldilocksExternalMatrix,
+        >>();
         let configuration_fn = configuration_fn.add_confituration_step::<MatrixMultiplicationGate<
             _,
             12,
@@ -104,10 +107,13 @@ impl BuildableCircuitRoundFunction<GoldilocksField, 8, 12, 4> for Poseidon2Goldi
     }
 
     // matrix multiplications only
-    fn make_specialization_function_1<TImpl: CsBuilderImpl<GoldilocksField, TImpl>>(
-    ) -> impl ConfigurationFunction<GoldilocksField, TImpl> {
-        let configuration_fn = IdentityConfiguration;
-        let configuration_fn = configuration_fn.add_confituration_step::<_, _, MatrixMultiplicationGate<_, 12, Poseidon2GoldilocksExternalMatrix>>();
+    fn make_specialization_function_1() -> impl ConfigurationFunction<GoldilocksField> {
+        let configuration_fn = IdentityConfiguration::new();
+        let configuration_fn = configuration_fn.add_confituration_step::<MatrixMultiplicationGate<
+            _,
+            12,
+            Poseidon2GoldilocksExternalMatrix,
+        >>();
         let configuration_fn = configuration_fn.add_confituration_step::<MatrixMultiplicationGate<
             _,
             12,
@@ -282,7 +288,7 @@ fn mul_by_inner_matrix<CS: ConstraintSystem<GoldilocksField>>(
 fn poseidon2_goldilocks_apply_nonlinearity<CS: ConstraintSystem<GoldilocksField>>(
     cs: &mut CS,
     state: &mut [Variable; 12],
-    full_round_counter: &mut usize,
+    full_round_counter: &usize,
 ) {
     // add constants
     // apply non-linearity

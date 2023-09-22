@@ -59,7 +59,7 @@ impl<F: SmallField, T: CircuitBuilder<F> + 'static> CircuitBuilderProxy<F, T> {
     // Create a boxed builder
     pub fn dyn_verifier_builder<EXT: FieldExtension<2, BaseField = F>>(
     ) -> Box<dyn ErasedBuilderForVerifier<F, EXT>> {
-        Box::new(Self::default())
+        Box::<Self>::default()
     }
 
     // Create a boxed builder
@@ -67,7 +67,7 @@ impl<F: SmallField, T: CircuitBuilder<F> + 'static> CircuitBuilderProxy<F, T> {
         EXT: FieldExtension<2, BaseField = F>,
         CS: ConstraintSystem<F> + 'static,
     >() -> Box<dyn ErasedBuilderForRecursiveVerifier<F, EXT, CS>> {
-        Box::new(Self::default())
+        Box::<Self>::default()
     }
 }
 

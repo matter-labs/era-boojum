@@ -1732,7 +1732,7 @@ mod test {
     use super::*;
 
     type F = GoldilocksField;
-    type EXT = GoldilocksExt2;
+    type Ext = GoldilocksExt2;
 
     #[test]
     fn test_materialize_powers() {
@@ -1883,8 +1883,8 @@ mod test {
 
             let z = ExtensionField::from_coeff_in_base([z_c0, z_c1]);
 
-            let mut naive = ExtensionField::<F, 2, EXT>::ZERO;
-            let mut current = ExtensionField::<F, 2, EXT>::ONE;
+            let mut naive = ExtensionField::<F, 2, Ext>::ZERO;
+            let mut current = ExtensionField::<F, 2, Ext>::ONE;
             for (c0, c1) in coeffs_c0.iter().zip(coeffs_c1.iter()) {
                 let mut tmp = ExtensionField::from_coeff_in_base([*c0, *c1]);
                 tmp.mul_assign(&current);
@@ -1896,7 +1896,7 @@ mod test {
             let worker = Worker::new();
 
             let [precomps_c0, precomps_c1] =
-                precompute_for_barycentric_evaluation_in_extension::<F, EXT, F, Global>(
+                precompute_for_barycentric_evaluation_in_extension::<F, Ext, F, Global>(
                     size,
                     F::multiplicative_generator(),
                     z,
@@ -1925,7 +1925,7 @@ mod test {
             }
 
             let barycentric_val =
-                barycentric_evaluate_extension_at_extension_for_bitreversed_parallel::<F, EXT>(
+                barycentric_evaluate_extension_at_extension_for_bitreversed_parallel::<F, Ext>(
                     &forward_c0,
                     &forward_c1,
                     &precomps_c0,

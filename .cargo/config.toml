@@ -1,0 +1,5 @@
+[build]
+# The following configs are in an increasing performance order for x86_64.
+# rustflags = ["-Ctarget-feature=+avx2"]
+# rustflags = ["-Ctarget-feature=+avx512vl,+avx512f"]
+# rustflags = ["-Ctarget-feature=+avx512vl,+avx512f,+avx512bw,+avx512cd,+avx512dq"]

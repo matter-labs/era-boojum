@@ -101,7 +101,7 @@ pub trait Gate<F: SmallField>:
         match cs.get_gate_placement_strategy::<Self>() {
             GatePlacementStrategy::UseGeneralPurposeColumns => {
                 <<Self as Gate<F>>::Evaluator as GateConstraintEvaluator<F>>::num_repetitions_in_geometry(
-                    &<Self as Gate<F>>::evaluator(&self),
+                    &<Self as Gate<F>>::evaluator(self),
                     &cs.get_params()
                 )
             },

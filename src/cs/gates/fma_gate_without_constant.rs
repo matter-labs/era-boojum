@@ -17,9 +17,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for FmaGateInBaseWithoutConstantC
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -75,7 +73,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for FmaGateInBaseWithoutConstantC
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = [P; 2];
@@ -145,7 +142,7 @@ pub struct FmaGateInBaseFieldWithoutConstant<F: SmallField> {
     pub rhs_part: Variable,
 }
 
-const UNIQUE_IDENTIFIER: &'static str = "c0 * A * B + c1 * C -> D";
+const UNIQUE_IDENTIFIER: &str = "c0 * A * B + c1 * C -> D";
 const PRINCIPAL_WIDTH: usize = 4;
 
 // HashMap coefficients into row index to know vacant places
@@ -292,7 +289,7 @@ impl<F: SmallField> FmaGateInBaseFieldWithoutConstant<F> {
 
         let params = FmaGateInBaseWithoutConstantParams {
             coeff_for_quadtaric_part,
-            linear_term_coeff: linear_term_coeff,
+            linear_term_coeff,
         };
 
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {

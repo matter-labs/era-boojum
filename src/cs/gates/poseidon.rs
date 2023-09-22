@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::{
     algebraic_props::poseidon_parameters::{MatrixParameters, PoseidonParameters},
@@ -194,7 +193,6 @@ where
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]
@@ -1191,10 +1189,7 @@ mod test {
             .wait()
             .unwrap();
 
-        log!(
-            "Circuit result = {:?}",
-            circuit_result
-        );
+        log!("Circuit result = {:?}", circuit_result);
 
         assert_eq!(circuit_result, state);
 

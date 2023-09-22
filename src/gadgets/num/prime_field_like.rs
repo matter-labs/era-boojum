@@ -330,8 +330,6 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
             let result = Self::from_num_coeffs_in_base([c0, c1]);
 
             *dst = result;
-
-            return;
         } else {
             // baseline
             let mut tmp = *other;

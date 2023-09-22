@@ -211,18 +211,7 @@ impl<F: SmallField, const N: usize> LookupKey<F, N> {
 
 impl<F: SmallField, const N: usize> PartialOrd for LookupKey<F, N> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        for (a, b) in self.0.iter().zip(other.0.iter()) {
-            match a.as_u64_reduced().cmp(&b.as_u64_reduced()) {
-                std::cmp::Ordering::Equal => {
-                    continue;
-                }
-                ordering @ _ => {
-                    return Some(ordering);
-                }
-            }
-        }
-
-        panic!("most likely duplicate entries in the table");
+        Some(self.cmp(other))
     }
 }
 
@@ -234,7 +223,7 @@ impl<F: SmallField, const N: usize> Ord for LookupKey<F, N> {
                 std::cmp::Ordering::Equal => {
                     continue;
                 }
-                ordering @ _ => {
+                ordering => {
                     return ordering;
                 }
             }
@@ -250,18 +239,7 @@ struct ContentLookupKey<F: SmallField, const N: usize>([F; N]);
 
 impl<F: SmallField, const N: usize> PartialOrd for ContentLookupKey<F, N> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        for (a, b) in self.0.iter().zip(other.0.iter()) {
-            match a.as_u64_reduced().cmp(&b.as_u64_reduced()) {
-                std::cmp::Ordering::Equal => {
-                    continue;
-                }
-                ordering @ _ => {
-                    return Some(ordering);
-                }
-            }
-        }
-
-        panic!("most likely duplicate entries in the table");
+        Some(self.cmp(other))
     }
 }
 
@@ -273,7 +251,7 @@ impl<F: SmallField, const N: usize> Ord for ContentLookupKey<F, N> {
                 std::cmp::Ordering::Equal => {
                     continue;
                 }
-                ordering @ _ => {
+                ordering => {
                     return ordering;
                 }
             }
@@ -291,14 +269,14 @@ impl<F: SmallField, const N: usize> PartialEq<LookupTable<F, N>> for LookupTable
 }
 
 impl<F: SmallField, const N: usize> LookupTable<F, N> {
-    fn sort_content(content: &mut Vec<[F; N]>) {
+    fn sort_content(content: &mut [[F; N]]) {
         content.sort_by(|a, b| {
             for i in 0..N {
                 match a[i].as_u64_reduced().cmp(&b[i].as_u64_reduced()) {
                     std::cmp::Ordering::Equal => {
                         continue;
                     }
-                    a @ _ => {
+                    a => {
                         return a;
                     }
                 }
@@ -309,7 +287,7 @@ impl<F: SmallField, const N: usize> LookupTable<F, N> {
     }
 
     fn compute_cache(
-        content: &Vec<[F; N]>,
+        content: &[[F; N]],
         num_key_columns: usize,
     ) -> BTreeMap<LookupKey<F, N>, usize> {
         assert!(num_key_columns <= N);

@@ -104,18 +104,15 @@ pub trait BuildableCircuitRoundFunction<
         placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<T, F, Self::GateConfiguration<GC>, Self::Toolbox<TB>>;
 
-    fn make_specialization_function_0<TImpl: CsBuilderImpl<F, TImpl>>(
-    ) -> impl ConfigurationFunction<F, TImpl> {
-        IdentityConfiguration
+    fn make_specialization_function_0() -> impl ConfigurationFunction<F> {
+        IdentityConfiguration::new()
     }
 
-    fn make_specialization_function_1<TImpl: CsBuilderImpl<F, TImpl>>(
-    ) -> impl ConfigurationFunction<F, TImpl> {
-        IdentityConfiguration
+    fn make_specialization_function_1() -> impl ConfigurationFunction<F> {
+        IdentityConfiguration::new()
     }
 
-    fn make_specialization_function_2<TImpl: CsBuilderImpl<F, TImpl>>(
-    ) -> impl ConfigurationFunction<F, TImpl> {
-        IdentityConfiguration
+    fn make_specialization_function_2() -> impl ConfigurationFunction<F> {
+        IdentityConfiguration::new()
     }
 }

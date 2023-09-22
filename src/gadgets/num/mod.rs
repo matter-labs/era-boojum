@@ -325,7 +325,7 @@ impl<F: SmallField> Num<F> {
             powers.copy_from_slice(&F::SHIFTS[..LIMIT]);
             linear_combination_collapse(
                 cs,
-                &mut vars.into_iter().zip(powers.into_iter()),
+                &mut vars.into_iter().zip(powers),
                 Some(self.get_variable()),
             );
         } else if cs.gate_is_allowed::<ReductionByPowersGate<F, 4>>() {
@@ -394,11 +394,8 @@ impl<F: SmallField> Num<F> {
     #[track_caller]
     pub fn enforce_equal<CS: ConstraintSystem<F>>(cs: &mut CS, a: &Self, b: &Self) {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match ((a.witness_hook(cs))(), (b.witness_hook(cs))()) {
-                (Some(a), Some(b)) => {
-                    assert_eq!(a, b, "enforce equal failed");
-                }
-                _ => {}
+            if let (Some(a), Some(b)) = ((a.witness_hook(cs))(), (b.witness_hook(cs))()) {
+                assert_eq!(a, b, "enforce equal failed");
             }
         }
 
@@ -805,7 +802,7 @@ impl<F: SmallField> Num<F> {
                 // recurse
                 if extra.is_none() {
                     let mut chunks = input.array_chunks::<4>();
-                    let chunk = (&mut chunks).next().expect("is some");
+                    let chunk = chunks.next().expect("is some");
                     let intermediate_var = cs.alloc_variable_without_value();
 
                     if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
@@ -857,7 +854,7 @@ impl<F: SmallField> Num<F> {
                     )
                 } else {
                     let mut chunks = input.array_chunks::<3>();
-                    let chunk = (&mut chunks).next().expect("is some");
+                    let chunk = chunks.next().expect("is some");
                     let intermediate_var = cs.alloc_variable_without_value();
 
                     if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
@@ -944,7 +941,7 @@ impl<F: SmallField> Num<F> {
             };
 
             cs.set_values_with_dependencies_vararg(
-                &dependencies,
+                dependencies,
                 &Place::from_variables(outputs),
                 value_fn,
             );
@@ -964,17 +961,14 @@ impl<F: SmallField> Num<F> {
         // and then simultaneously enforce over masked 0
 
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (
+            if let (Some(a), Some(b), Some(should_enforce)) = (
                 (a.witness_hook(cs))(),
                 (b.witness_hook(cs))(),
                 (should_enforce.witness_hook(cs))(),
             ) {
-                (Some(a), Some(b), Some(should_enforce)) => {
-                    if should_enforce {
-                        assert_eq!(a, b, "conditional enforce to equal failed");
-                    }
+                if should_enforce {
+                    assert_eq!(a, b, "conditional enforce to equal failed");
                 }
-                _ => {}
             }
         }
 

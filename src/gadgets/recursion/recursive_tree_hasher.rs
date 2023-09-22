@@ -212,10 +212,10 @@ impl<
     ) -> Self::CircuitOutput {
         let mut hasher = Self::new(cs);
 
-        for el in left.into_iter() {
+        for el in left {
             <Self as CircuitTreeHasher<F, Num<F>>>::accumulate_into_leaf(&mut hasher, cs, el);
         }
-        for el in right.into_iter() {
+        for el in right {
             <Self as CircuitTreeHasher<F, Num<F>>>::accumulate_into_leaf(&mut hasher, cs, el);
         }
 

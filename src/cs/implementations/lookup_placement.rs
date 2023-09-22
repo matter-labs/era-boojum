@@ -28,7 +28,7 @@ impl<
 
         let non_zero_table_id = table_id;
 
-        let mut principal_width = lookup_width as usize;
+        let mut principal_width = lookup_width;
         if id_in_constant == false {
             principal_width += 1;
         }

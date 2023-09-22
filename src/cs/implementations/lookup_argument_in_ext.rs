@@ -438,8 +438,7 @@ pub(crate) fn compute_lookup_poly_pairs_specialized<
                 let chunk = src
                     .storage
                     .chunks(chunk_size)
-                    .skip(idx)
-                    .next()
+                    .nth(idx)
                     .expect("next chunk")
                     .iter();
                 tmp.push(chunk);
@@ -489,8 +488,8 @@ pub(crate) fn compute_lookup_poly_pairs_specialized<
                         .zip(powers_of_gamma_c1.iter())
                     {
                         let src = src.next().expect("table column element");
-                        P::mul_and_accumulate_into(&mut acc_c0, &src, gamma_c0, &mut ctx);
-                        P::mul_and_accumulate_into(&mut acc_c1, &src, gamma_c1, &mut ctx);
+                        P::mul_and_accumulate_into(&mut acc_c0, src, gamma_c0, &mut ctx);
+                        P::mul_and_accumulate_into(&mut acc_c1, src, gamma_c1, &mut ctx);
                     }
 
                     dst_c0.write(acc_c0);
@@ -538,19 +537,17 @@ pub(crate) fn compute_lookup_poly_pairs_specialized<
                     let chunk = src
                         .storage
                         .chunks(chunk_size)
-                        .skip(idx)
-                        .next()
+                        .nth(idx)
                         .expect("next chunk")
                         .iter();
                     tmp.push(chunk);
                 }
-                if let Some(table_id_poly) = table_id_column_idxes.get(0).copied() {
+                if let Some(table_id_poly) = table_id_column_idxes.first().copied() {
                     assert!(use_constant_for_table_id);
                     let chunk = constant_polys[table_id_poly]
                         .storage
                         .chunks(chunk_size)
-                        .skip(idx)
-                        .next()
+                        .nth(idx)
                         .expect("next chunk")
                         .iter();
                     tmp.push(chunk);
@@ -601,8 +598,8 @@ pub(crate) fn compute_lookup_poly_pairs_specialized<
                             .zip(powers_of_gamma_c1.iter())
                         {
                             let src = src.next().expect("witness column element");
-                            P::mul_and_accumulate_into(&mut acc_c0, &src, gamma_c0, &mut ctx);
-                            P::mul_and_accumulate_into(&mut acc_c1, &src, gamma_c1, &mut ctx);
+                            P::mul_and_accumulate_into(&mut acc_c0, src, gamma_c0, &mut ctx);
+                            P::mul_and_accumulate_into(&mut acc_c1, src, gamma_c1, &mut ctx);
                         }
 
                         dst_c0.write(acc_c0);
@@ -1135,7 +1132,7 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
             columns.push(subset);
         }
 
-        if let Some(table_id_poly) = table_id_column_idxes.get(0).copied() {
+        if let Some(table_id_poly) = table_id_column_idxes.first().copied() {
             let subset = setup.constant_columns[table_id_poly].subset_for_degree(quotient_degree);
             columns.push(subset);
         }
@@ -1200,18 +1197,16 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
                             &mut ctx,
                         );
 
-                        if crate::config::DEBUG_SATISFIABLE == true {
-                            if outer == 0 {
-                                if tmp_c0.is_zero() == false {
-                                    let mut normal_enumeration = inner.reverse_bits();
-                                    normal_enumeration >>=
-                                        usize::BITS - domain_size.trailing_zeros();
-                                    panic!(
-                                        "A(x) term is invalid for index {} for subargument {}",
-                                        normal_enumeration, idx
-                                    );
-                                }
-                            }
+                        if crate::config::DEBUG_SATISFIABLE == true
+                            && outer == 0
+                            && tmp_c0.is_zero() == false
+                        {
+                            let mut normal_enumeration = inner.reverse_bits();
+                            normal_enumeration >>= usize::BITS - domain_size.trailing_zeros();
+                            panic!(
+                                "A(x) term is invalid for index {} for subargument {}",
+                                normal_enumeration, idx
+                            );
                         }
 
                         // add into accumulator
@@ -1291,18 +1286,16 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
                             &mut ctx,
                         );
 
-                        if crate::config::DEBUG_SATISFIABLE == true {
-                            if outer == 0 {
-                                if tmp_c0.is_zero() == false {
-                                    let mut normal_enumeration = inner.reverse_bits();
-                                    normal_enumeration >>=
-                                        usize::BITS - domain_size.trailing_zeros();
-                                    panic!(
-                                        "B(x) term is invalid for index {} for subargument {}",
-                                        normal_enumeration, idx
-                                    );
-                                }
-                            }
+                        if crate::config::DEBUG_SATISFIABLE == true
+                            && outer == 0
+                            && tmp_c0.is_zero() == false
+                        {
+                            let mut normal_enumeration = inner.reverse_bits();
+                            normal_enumeration >>= usize::BITS - domain_size.trailing_zeros();
+                            panic!(
+                                "B(x) term is invalid for index {} for subargument {}",
+                                normal_enumeration, idx
+                            );
                         }
 
                         // add into accumulator

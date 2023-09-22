@@ -351,7 +351,7 @@ pub fn do_fri<
     FriOracles {
         base_oracle: fri_base_oracle,
         leaf_sources_for_intermediate_oracles: intermediate_sources,
-        intermediate_oracles: intermediate_oracles,
+        intermediate_oracles,
         monomial_forms: [monomial_form_0, monomial_form_1],
     }
 }
@@ -402,14 +402,14 @@ fn fold_multiple<F: SmallField, EXT: FieldExtension<2, BaseField = F>>(
             let mut diff_c0 = f_at_x_c0;
             diff_c0.sub_assign(&f_at_minus_x_c0);
             diff_c0.mul_assign(&roots[i]);
-            diff_c0.mul_assign(&coset_inverse);
+            diff_c0.mul_assign(coset_inverse);
 
             let f_at_x_c1 = c1_pairs[2 * i];
             let f_at_minus_x_c1 = c1_pairs[2 * i + 1];
             let mut diff_c1 = f_at_x_c1;
             diff_c1.sub_assign(&f_at_minus_x_c1);
             diff_c1.mul_assign(&roots[i]);
-            diff_c1.mul_assign(&coset_inverse);
+            diff_c1.mul_assign(coset_inverse);
 
             // now we multiply
             let mut diff_as_extension = ExtensionField::<F, 2, EXT> {
@@ -446,14 +446,14 @@ fn fold_multiple<F: SmallField, EXT: FieldExtension<2, BaseField = F>>(
         let mut diff_c0 = f_at_x_c0;
         diff_c0.sub_assign(&f_at_minus_x_c0);
         diff_c0.mul_assign(&roots[i]);
-        diff_c0.mul_assign(&coset_inverse);
+        diff_c0.mul_assign(coset_inverse);
 
         let f_at_x_c1 = c1_pairs[2 * i];
         let f_at_minus_x_c1 = c1_pairs[2 * i + 1];
         let mut diff_c1 = f_at_x_c1;
         diff_c1.sub_assign(&f_at_minus_x_c1);
         diff_c1.mul_assign(&roots[i]);
-        diff_c1.mul_assign(&coset_inverse);
+        diff_c1.mul_assign(coset_inverse);
 
         // now we multiply
         let mut diff_as_extension = ExtensionField::<F, 2, EXT> {
@@ -982,7 +982,7 @@ mod test {
         for [even, odd] in monomials.array_chunks::<2>() {
             let mut tmp = *odd;
             tmp.mul_assign(&alpha);
-            tmp.add_assign(&even);
+            tmp.add_assign(even);
             folded_monomials.push(tmp);
         }
 
@@ -1001,13 +1001,13 @@ mod test {
         let mut folded_by_values = vec![];
         for (idx, [even, odd]) in values_on_coset.array_chunks::<2>().enumerate() {
             let mut diff = *even;
-            diff.sub_assign(&odd);
+            diff.sub_assign(odd);
             diff.mul_assign(&alpha);
             diff.mul_assign(&inverse_twiddles[idx]);
             diff.mul_assign(&gen_inverse);
 
             let mut sum = *even;
-            sum.add_assign(&odd);
+            sum.add_assign(odd);
             sum.add_assign(&diff);
 
             sum.mul_assign(&two_inverse);

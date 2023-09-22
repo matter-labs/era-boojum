@@ -25,9 +25,7 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -85,7 +83,6 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = [P; N];
@@ -384,7 +381,7 @@ impl<F: SmallField, const N: usize> ReductionGate<F, N> {
                 num_repetitions,
                 share_constants: _,
             } => {
-                let t: &mut ReductionGateTooling<F, N> = &mut cs
+                let t: &mut ReductionGateTooling<F, N> = cs
                     .get_gates_config_mut()
                     .get_aux_data_mut::<Self, _>()
                     .expect("gate must be allowed");

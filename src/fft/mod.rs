@@ -141,7 +141,7 @@ const fn bitreverse_enumeration_inplace_hybrid<T>(input: &mut [T]) {
         let mut j = 0;
         while j < MEDIUM_BITREVERSE_LOOKUP_TABLE.len() {
             let reversed_j = MEDIUM_BITREVERSE_LOOKUP_TABLE[j];
-            let dst = ((i as usize) << MEDIUM_BITREVERSE_LOOKUP_TABLE_LOG_2_SIZE) | (j as usize);
+            let dst = ((i as usize) << MEDIUM_BITREVERSE_LOOKUP_TABLE_LOG_2_SIZE) | j;
             let src = ((reversed_j as usize) << common_part_log_n) | (reversed_i as usize);
             if dst < src {
                 unsafe { input.swap_unchecked(src, dst) };
@@ -561,17 +561,15 @@ pub fn ifft_natural_to_natural_mixedgl(
     if coset != GoldilocksField::ONE {
         let coset = coset.inverse().expect("coset must be non-trivial");
         distribute_powers_normalized_mixedgl(input, coset);
-    } else {
-        if input.len() > 1 {
-            let n_inv = GoldilocksField::from_u64_with_reduction((input.len() * 16) as u64)
-                .inverse()
-                .unwrap();
-            let mut i = 0;
-            let work_size = input.len();
-            while i < work_size {
-                input[i].mul_constant_assign(&n_inv);
-                i += 1;
-            }
+    } else if input.len() > 1 {
+        let n_inv = GoldilocksField::from_u64_with_reduction((input.len() * 16) as u64)
+            .inverse()
+            .unwrap();
+        let mut i = 0;
+        let work_size = input.len();
+        while i < work_size {
+            input[i].mul_constant_assign(&n_inv);
+            i += 1;
         }
     }
 }
@@ -634,7 +632,7 @@ pub fn precompute_twiddles_for_fft_wrapper<F: BaseField, A: GoodAllocator, const
         F,
         A,
         INVERSED,
-    >(fft_size, &worker, &mut ());
+    >(fft_size, worker, &mut ());
 
     forward_twiddles
 }
@@ -653,7 +651,7 @@ pub fn precompute_twiddles_for_fft_natural_wrapper<
         F,
         A,
         INVERSED,
-    >(fft_size, &worker, ());
+    >(fft_size, worker, ());
 
     forward_twiddles
 }
@@ -1030,9 +1028,7 @@ pub(crate) fn mixedgl_cache_friendly_ntt_natural_to_bitreversed(
                 a[idx_1].0[8 * i + 7].mul_assign(&s);
                 i += 1;
             }
-            unsafe {
-                a[idx_1].butterfly_4x4_impl();
-            }
+            unsafe { a[idx_1].butterfly_4x4_impl() };
             k += parts;
             k_idx += 1;
         }
@@ -1052,9 +1048,7 @@ pub(crate) fn mixedgl_cache_friendly_ntt_natural_to_bitreversed(
                 a[idx_1].0[4 * i + 3].mul_assign(&s);
                 i += 1;
             }
-            unsafe {
-                a[idx_1].butterfly_2x2_impl();
-            }
+            unsafe { a[idx_1].butterfly_2x2_impl() };
             k += parts;
             k_idx += 1;
         }
@@ -1073,9 +1067,7 @@ pub(crate) fn mixedgl_cache_friendly_ntt_natural_to_bitreversed(
                 a[idx_1].0[2 * i + 1].mul_assign(&s);
                 i += 1;
             }
-            unsafe {
-                a[idx_1].butterfly_1x1_impl();
-            }
+            unsafe { a[idx_1].butterfly_1x1_impl() };
             k += parts;
             k_idx += 1;
         }

@@ -79,8 +79,8 @@ use crate::gadgets::traits::witnessable::CSWitnessable;
 use super::traits::castable::Convertor;
 use super::traits::witnessable::WitnessHookable;
 
-pub const UINT16_DECOMPOSITION_LOOKUP_TOOLING: &'static str = "UInt16 decomposition tooling";
-pub const UINT16_RECOMPOSITION_LOOKUP_TOOLING: &'static str = "UInt16 recomposition tooling";
+pub const UINT16_DECOMPOSITION_LOOKUP_TOOLING: &str = "UInt16 decomposition tooling";
+pub const UINT16_RECOMPOSITION_LOOKUP_TOOLING: &str = "UInt16 recomposition tooling";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]
@@ -216,7 +216,7 @@ impl<F: SmallField> UInt16<F> {
     #[inline]
     pub fn from_variable_checked<CS: ConstraintSystem<F>>(cs: &mut CS, variable: Variable) -> Self {
         let result = Self {
-            variable: variable,
+            variable,
             _marker: std::marker::PhantomData,
         };
 
@@ -225,10 +225,13 @@ impl<F: SmallField> UInt16<F> {
         result
     }
 
+    /// # Safety
+    ///
+    /// Does not check the variable to be valid.
     #[inline(always)]
     pub const unsafe fn from_variable_unchecked(variable: Variable) -> Self {
         Self {
-            variable: variable,
+            variable,
             _marker: std::marker::PhantomData,
         }
     }
@@ -398,17 +401,14 @@ impl<F: SmallField> UInt16<F> {
     #[track_caller]
     pub fn add_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
-                (Some(a), Some(b)) => {
-                    let (_, of) = a.overflowing_add(b);
-                    assert!(
-                        of == false,
-                        "trying to add {} and {} that leads to overflow",
-                        a,
-                        b
-                    );
-                }
-                _ => {}
+            if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                let (_, of) = a.overflowing_add(b);
+                assert!(
+                    of == false,
+                    "trying to add {} and {} that leads to overflow",
+                    a,
+                    b
+                );
             }
         }
 
@@ -433,17 +433,14 @@ impl<F: SmallField> UInt16<F> {
     #[track_caller]
     pub fn sub_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
-                (Some(a), Some(b)) => {
-                    let (_, uf) = a.overflowing_sub(b);
-                    assert!(
-                        uf == false,
-                        "trying to sub {} and {} that leads to underflow",
-                        a,
-                        b
-                    );
-                }
-                _ => {}
+            if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
+                let (_, uf) = a.overflowing_sub(b);
+                assert!(
+                    uf == false,
+                    "trying to sub {} and {} that leads to underflow",
+                    a,
+                    b
+                );
             }
         }
 
@@ -499,6 +496,9 @@ impl<F: SmallField> UInt16<F> {
         )
     }
 
+    /// # Safety
+    ///
+    /// Does not check if the resulting variable is valid.
     pub unsafe fn increment_unchecked<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let one = cs.allocate_constant(F::ONE);
         let var = Num::from_variable(self.variable)
@@ -508,6 +508,9 @@ impl<F: SmallField> UInt16<F> {
         Self::from_variable_unchecked(var)
     }
 
+    /// # Safety
+    ///
+    /// Does not check if the resulting variable is valid.
     pub unsafe fn decrement_unchecked<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let one = cs.allocate_constant(F::ONE);
         let var = Num::from_variable(self.variable)

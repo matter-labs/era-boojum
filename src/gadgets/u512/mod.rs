@@ -170,7 +170,7 @@ impl<F: SmallField> UInt512<F> {
             };
 
             cs.set_values_with_dependencies_vararg(
-                &dependencies,
+                dependencies,
                 &Place::from_variables(outputs),
                 value_fn,
             );
@@ -283,7 +283,7 @@ impl<F: SmallField> UInt512<F> {
         let mut encoding = [std::mem::MaybeUninit::uninit(); 64];
         for (dst, src) in encoding
             .iter_mut()
-            .zip(self.inner.iter().map(|el| el.to_le_bytes(cs)).flatten())
+            .zip(self.inner.iter().flat_map(|el| el.to_le_bytes(cs)))
         {
             dst.write(src);
         }

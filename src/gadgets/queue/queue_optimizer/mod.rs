@@ -107,7 +107,7 @@ where
                 if inputs[AW + SW] == F::ONE {
                     let mut state = *inputs[..SW].array_chunks::<SW>().next().unwrap();
                     let to_absorb = inputs[SW..AW + SW].array_chunks::<AW>().next().unwrap();
-                    R::absorb_into_state::<AbsorptionModeOverwrite>(&mut state, &to_absorb);
+                    R::absorb_into_state::<AbsorptionModeOverwrite>(&mut state, to_absorb);
                     R::round_function(&mut state);
                     state
                 } else {

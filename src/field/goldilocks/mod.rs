@@ -89,7 +89,7 @@ const EPSILON: u64 = (1 << 32) - 1;
 ///   = 2**64 - 2**32 + 1
 ///   = 2**32 * (2**32 - 1) + 1
 /// ```
-#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 #[repr(transparent)]
 pub struct GoldilocksField(pub u64);
 
@@ -243,12 +243,6 @@ impl GoldilocksField {
     }
 }
 
-impl Default for GoldilocksField {
-    fn default() -> Self {
-        Self(0u64)
-    }
-}
-
 impl PartialEq for GoldilocksField {
     fn eq(&self, other: &Self) -> bool {
         self.to_reduced_u64() == other.to_reduced_u64()
@@ -361,7 +355,7 @@ impl SqrtField for GoldilocksField {
 
         let mut omega = self.pow_u64(GoldilocksField::T >> 1);
         let mut a_omega = omega;
-        a_omega.mul_assign(&self);
+        a_omega.mul_assign(self);
         let mut b = a_omega;
         b.mul_assign(&omega);
 

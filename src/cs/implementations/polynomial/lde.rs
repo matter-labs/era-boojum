@@ -185,11 +185,10 @@ where
         mut dst: W,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let outer_len_le_bytes = (self.storage.len() as u64).to_le_bytes();
-        dst.write_all(&outer_len_le_bytes)
-            .map_err(|el| Box::new(el))?;
+        dst.write_all(&outer_len_le_bytes).map_err(Box::new)?;
 
         for el in self.storage.iter() {
-            let inner: &GenericPolynomial<F, BitreversedLagrangeForm, P, A> = &*el;
+            let inner: &GenericPolynomial<F, BitreversedLagrangeForm, P, A> = el;
             MemcopySerializable::write_into_buffer(inner, &mut dst)?;
         }
 
@@ -198,7 +197,7 @@ where
 
     fn read_from_buffer<R: std::io::Read>(mut src: R) -> Result<Self, Box<dyn std::error::Error>> {
         let mut buffer = [0u8; 8];
-        src.read_exact(&mut buffer).map_err(|el| Box::new(el))?;
+        src.read_exact(&mut buffer).map_err(Box::new)?;
         let capacity = u64::from_le_bytes(buffer) as usize;
 
         assert!(capacity.is_power_of_two());
@@ -273,6 +272,9 @@ impl<
         Self { storage }
     }
 
+    /// # Safety
+    ///
+    /// The internal state must be initialized prior to calling this function.
     #[inline]
     pub unsafe fn assume_init(&mut self, inner_size: usize) {
         debug_assert!(inner_size.is_power_of_two());
@@ -365,7 +367,7 @@ impl<
         assert!((self.storage.outer_len() / degree).is_power_of_two());
         let extra_pow = self.storage.outer_len() / degree;
 
-        let mut new_params = self.lde_params.clone();
+        let mut new_params = self.lde_params;
         new_params.ldes_generator = new_params.ldes_generator.pow_u64(extra_pow as u64);
 
         let mut new_storage = Vec::with_capacity_in(degree, B::default());

@@ -1,6 +1,6 @@
 use super::*;
 
-const TABLE_NAME: &'static str = "AND8 table";
+const TABLE_NAME: &str = "AND8 table";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]

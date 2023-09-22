@@ -110,9 +110,9 @@ impl<
 {
     fn clone(&self) -> Self {
         Self {
-            head: self.head.clone(),
-            tail: self.tail.clone(),
-            length: self.length.clone(),
+            head: self.head,
+            tail: self.tail,
+            length: self.length,
             witness: Arc::clone(&self.witness),
             _marker: std::marker::PhantomData,
         }
@@ -479,9 +479,9 @@ impl<
         let head_is_equal_to_tail = Boolean::multi_and(cs, &tmp_bools);
         Boolean::enforce_equal(cs, &length_is_zero, &head_is_equal_to_tail);
         let new = Self {
-            head: head,
-            tail: tail,
-            length: length,
+            head,
+            tail,
+            length,
             witness: Arc::new(CircuitQueueWitness::empty()),
             _marker: std::marker::PhantomData,
         };

@@ -67,6 +67,7 @@ pub(crate) struct ResolverComms {
 struct Stats {
     values_added: u64,
     witnesses_added: u64,
+    registrations_added: u64,
     started_at: std::time::Instant,
     registration_time: std::time::Duration,
     total_resolution_time: std::time::Duration,
@@ -77,6 +78,7 @@ impl Stats {
         Self {
             values_added: 0,
             witnesses_added: 0,
+            registrations_added: 0,
             started_at: std::time::Instant::now(),
             registration_time: std::time::Duration::from_secs(0),
             total_resolution_time: std::time::Duration::from_secs(0),
@@ -215,6 +217,10 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
     where
         F: FnOnce(&[V], &mut DstBuffer<'_, '_, V>) + Send + Sync + 'cr,
     {
+        debug_assert!(inputs
+            .iter()
+            .all(|x| x.0 < self.options.max_variables as u64));
+
         // Safety: This thread is the only one to use `push` on the resolvers
         // and is the only thread to do so. `push` is the only mutable function
         // on that struct.
@@ -224,6 +230,13 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
                 .u_deref_mut()
                 .push(inputs, outputs, f, invocation_binder::<F, V>)
         };
+
+        if PARANOIA && resolver_ix.0 == 0 {
+            println!(
+                "CR: Resolvers push returned ix 0, on resolution {}",
+                self.stats.registrations_added
+            );
+        }
 
         let mut hit = false;
 
@@ -283,11 +296,17 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
             // Safety: `self.resolvers` is dropped as a temp value a few lines above.
             unsafe { self.internalize(resolver_ix, inputs, outputs) };
         }
+
+        self.stats.registrations_added += 1;
     }
 
     /// Safety: `self.common.resolvers` must not have a &mut reference to it.
     unsafe fn internalize(&mut self, resolver_ix: ResolverIx, inputs: &[Place], outputs: &[Place]) {
         let mut resolvers = vec![(resolver_ix, inputs, outputs)];
+
+        if PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
+            println!("CR: Internalize called with resolver_ix 0");
+        }
 
         // Safety: using as shared, assuming no &mut references to
         // `self.resolvers` that access the same underlying data. This is
@@ -300,6 +319,12 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
             let (resolver_ix, inputs, outputs) = resolvers.pop().unwrap();
 
             let new_resolvers = self.internalize_one(resolver_ix, inputs, outputs);
+
+            if PARANOIA {
+                if new_resolvers.iter().any(|x| x.0 == 0) {
+                    println!("CR: internalize_one returned resolver with ix 0");
+                }
+            }
 
             self.registrar.stats.secondary_resolutions += new_resolvers.len();
 
@@ -346,8 +371,12 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
             );
         }
 
-        if cfg!(cr_paranoia_mode) && resolver_ix == ResolverIx::new_resolver(71280) {
+        if PARANOIA && resolver_ix == ResolverIx::new_resolver(0) && false {
             self.guide.tracing = true;
+        }
+
+        if PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
+            println!("CR: resolver_ix {} pushed to guide.", resolver_ix.0);
         }
 
         let (guide_loc, order) = self
@@ -387,8 +416,14 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
 
             if PARANOIA {
                 for i in len..len + order.size() {
-                    if tgt[i].value == ResolverIx(8310568) {
-                        log!("CR: resolver 8310568 added to order.");
+                    if tgt[i].value == ResolverIx(0) {
+                        log!(
+                            "CR: resolver {} added to order at ix {}, during write {}..{}.",
+                            tgt[i].value.0,
+                            i,
+                            len,
+                            len + order.size()
+                        );
                     }
                 }
             }

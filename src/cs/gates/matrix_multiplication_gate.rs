@@ -21,9 +21,7 @@ impl<F: SmallField, const N: usize, PAR: MatrixParameters<F, N>> GateConstraintE
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -94,7 +92,6 @@ impl<F: SmallField, const N: usize, PAR: MatrixParameters<F, N>> GateConstraintE
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]
@@ -257,14 +254,10 @@ impl<F: SmallField, const N: usize, PAR: MatrixParameters<F, N>>
 
 use crate::gadgets::traits::configuration::ConfigurationFunction;
 
-impl<
-        F: SmallField,
-        TImpl: CsBuilderImpl<F, TImpl>,
-        const N: usize,
-        PAR: MatrixParameters<F, N>,
-    > ConfigurationFunction<F, TImpl> for MatrixMultiplicationGate<F, N, PAR>
+impl<F: SmallField, const N: usize, PAR: MatrixParameters<F, N>> ConfigurationFunction<F>
+    for MatrixMultiplicationGate<F, N, PAR>
 {
-    fn configure(
+    fn configure<TImpl: CsBuilderImpl<F, TImpl>>(
         builder: CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>,
         placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {

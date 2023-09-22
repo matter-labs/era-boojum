@@ -1,3 +1,8 @@
+#![allow(
+    dead_code, // OK for benches
+    clippy::let_unit_value, // False positives
+    clippy::needless_range_loop, // Suggests less readable code
+)]
 #![feature(iter_collect_into)]
 #![feature(allocator_api)]
 
@@ -16,13 +21,13 @@ const MUL_UPPER_BOUND: usize = 1024;
 fn criterion_benchmark_multiplication(c: &mut Criterion) {
     let aa: [GoldilocksField; MUL_UPPER_BOUND] = (0..MUL_UPPER_BOUND)
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect::<Vec<_>>()
         .try_into()
         .unwrap();
     let bb: [GoldilocksField; MUL_UPPER_BOUND] = (0..MUL_UPPER_BOUND)
         .map(|x| x as u64 + MUL_UPPER_BOUND as u64)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect::<Vec<_>>()
         .try_into()
         .unwrap();
@@ -82,7 +87,7 @@ fn criterion_benchmark_poseidon2_statevec(c: &mut Criterion) {
 fn criterion_benchmark_keccak(c: &mut Criterion) {
     let input = [0u8; 64];
     c.bench_function("Keccak256", |b| {
-        b.iter(|| Keccak256::digest(&mut black_box(input)))
+        b.iter(|| Keccak256::digest(black_box(input)))
     });
 }
 
@@ -206,11 +211,11 @@ fn criterion_benchmark_add_vectors_naive(c: &mut Criterion) {
 
     let mut aa: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
     let bb: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
 
     c.bench_function("Naive Vec add", |b| {
@@ -223,11 +228,11 @@ fn criterion_benchmark_add_vectors_vectorized(c: &mut Criterion) {
 
     let aa: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
     let bb: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -247,11 +252,11 @@ fn criterion_benchmark_add_vectors_simd(c: &mut Criterion) {
 
     (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut aa);
     (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut bb);
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -271,11 +276,11 @@ fn criterion_benchmark_add_vectors_portable_simd(c: &mut Criterion) {
 
     (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut aa);
     (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut bb);
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -293,11 +298,11 @@ fn criterion_benchmark_add_vectors_mixedgl(c: &mut Criterion) {
 
     let aa: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
     let bb: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
 
     // let mut aa: Vec<MixedGL> = boojum::utils::cast_check_alignment(aa);
@@ -323,11 +328,11 @@ fn criterion_benchmark_mul_vectors_naive(c: &mut Criterion) {
 
     let aa: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
     let bb: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
 
     let mut aa: Vec<MixedGL> =
@@ -350,11 +355,11 @@ fn criterion_benchmark_mul_vectors_vectorized(c: &mut Criterion) {
 
     let aa: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
     let bb: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -374,11 +379,11 @@ fn criterion_benchmark_mul_vectors_simd(c: &mut Criterion) {
 
     (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut aa);
     (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut bb);
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -398,11 +403,11 @@ fn criterion_benchmark_mul_vectors_portable_simd_long(c: &mut Criterion) {
 
     (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut aa);
     (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut bb);
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -424,11 +429,11 @@ fn criterion_benchmark_mul_vectors_portable_simd(c: &mut Criterion) {
 
     (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut aa);
     (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect_into(&mut bb);
 
     let mut aa = boojum::utils::cast_check_alignment(aa);
@@ -444,11 +449,11 @@ fn criterion_benchmark_mul_vectors_mixedgl(c: &mut Criterion) {
 
     let aa: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 1)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
     let bb: Vec<GoldilocksField> = (0..(degree * 2))
         .map(|x| x as u64 + 2)
-        .map(|el| GoldilocksField::from_u64_with_reduction(el))
+        .map(GoldilocksField::from_u64_with_reduction)
         .collect();
 
     let mut aa: Vec<MixedGL> =

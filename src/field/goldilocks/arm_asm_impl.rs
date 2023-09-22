@@ -10,7 +10,7 @@ use super::GoldilocksField;
 
 // we need max of an alignment of u64x4 and u64x8 in this implementation, so 64
 
-#[derive(Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(C, align(64))]
 pub struct MixedGL(pub [GoldilocksField; 16]);
 
@@ -81,7 +81,7 @@ impl MixedGL {
     #[unroll::unroll_for_loops]
     pub fn mul_constant_assign(&'_ mut self, other: &GoldilocksField) -> &mut Self {
         for i in 0..16 {
-            self.0[i].mul_assign(&other);
+            self.0[i].mul_assign(other);
         }
 
         self
@@ -244,12 +244,18 @@ impl MixedGL {
         self
     }
 
+    /// # Safety
+    ///
+    /// Pointers must be properly aligned for `MixedGL` type, should point to arrays of length 8, and should point
+    /// to memory that can be mutated.
+    /// No references to the same memory should exist when this function is called.
+    /// Pointers should be different.
     pub unsafe fn butterfly_8x8_impl(this: *const u64, other: *const u64) {
         debug_assert!(this.addr() % std::mem::align_of::<MixedGL>() == 0);
         debug_assert!(other.addr() % std::mem::align_of::<MixedGL>() == 0);
 
-        let mut u = std::slice::from_raw_parts_mut(this as *mut u64, 8);
-        let mut v = std::slice::from_raw_parts_mut(other as *mut u64, 8);
+        let u = std::slice::from_raw_parts_mut(this as *mut u64, 8);
+        let v = std::slice::from_raw_parts_mut(other as *mut u64, 8);
         let a = packed_simd::u64x8::from_slice_aligned(u);
         let b = packed_simd::u64x8::from_slice_aligned(v);
         //additional reduction over b
@@ -269,10 +275,16 @@ impl MixedGL {
         let cmp = a.lt(b);
         let res2 = cmp.select(diff_reduced, diff);
 
-        res1.write_to_slice_aligned(&mut u);
-        res2.write_to_slice_aligned(&mut v);
+        res1.write_to_slice_aligned(u);
+        res2.write_to_slice_aligned(v);
     }
 
+    /// # Safety
+    ///
+    /// Pointers must be properly aligned for `MixedGL` type, should point to arrays of length 16, and should point
+    /// to memory that can be mutated.
+    /// No references to the same memory should exist when this function is called.
+    /// Pointers should be different.
     pub unsafe fn butterfly_16x16_impl(mut this: *mut u64, mut other: *mut u64) {
         debug_assert!(this.addr() % std::mem::align_of::<MixedGL>() == 0);
         debug_assert!(other.addr() % std::mem::align_of::<MixedGL>() == 0);
@@ -329,7 +341,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    pub fn vec_add_assign(a: &mut Vec<Self>, b: &Vec<Self>) {
+    pub fn vec_add_assign(a: &mut [Self], b: &[Self]) {
         use crate::field::traits::field_like::PrimeFieldLike;
         for (a, b) in a.iter_mut().zip(b.iter()) {
             a.add_assign(b, &mut ());
@@ -337,7 +349,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    pub fn vec_mul_assign(a: &mut Vec<Self>, b: &Vec<Self>) {
+    pub fn vec_mul_assign(a: &mut [Self], b: &[Self]) {
         use crate::field::traits::field_like::PrimeFieldLike;
         for (a, b) in a.iter_mut().zip(b.iter()) {
             a.mul_assign(b, &mut ());
@@ -350,15 +362,6 @@ impl Default for MixedGL {
         Self([GoldilocksField::ZERO; 16])
     }
 }
-
-impl PartialEq for MixedGL {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Eq for MixedGL {}
 
 impl crate::field::traits::field_like::PrimeFieldLike for MixedGL {
     type Base = GoldilocksField;
@@ -458,7 +461,7 @@ impl crate::field::traits::field_like::PrimeFieldLikeVectorized for MixedGL {
 
     #[inline(always)]
     fn equals(&self, other: &Self) -> bool {
-        self.eq(&other)
+        self.eq(other)
     }
 
     #[inline(always)]
@@ -558,7 +561,7 @@ impl crate::field::traits::field_like::PrimeFieldLikeVectorized for MixedGL {
         ctx: &mut Self::Context,
     ) -> Self::Twiddles<A> {
         precompute_twiddles_for_fft::<GoldilocksField, GoldilocksField, A, false>(
-            fft_size, &worker, ctx,
+            fft_size, worker, ctx,
         )
     }
 
@@ -569,7 +572,7 @@ impl crate::field::traits::field_like::PrimeFieldLikeVectorized for MixedGL {
         ctx: &mut Self::Context,
     ) -> Self::Twiddles<A> {
         precompute_twiddles_for_fft::<GoldilocksField, GoldilocksField, A, true>(
-            fft_size, &worker, ctx,
+            fft_size, worker, ctx,
         )
     }
 }
@@ -656,7 +659,7 @@ mod test {
 
         // Test over GLPS
         for (aa, bb) in av.iter_mut().zip(bv.iter()) {
-            aa.add_assign(&bb, &mut ctx);
+            aa.add_assign(bb, &mut ctx);
         }
 
         let avv = MixedGL::vec_into_base_vec(av);
@@ -705,7 +708,7 @@ mod test {
 
         // Test over GLPS
         for (aa, bb) in av.iter_mut().zip(bv.iter()) {
-            aa.sub_assign(&bb, &mut ctx);
+            aa.sub_assign(bb, &mut ctx);
         }
 
         // dbg!(&ag);
@@ -743,7 +746,7 @@ mod test {
 
         // Test over GLPS
         for (aa, bb) in av.iter_mut().zip(bv.iter()) {
-            aa.mul_assign(&bb, &mut ctx);
+            aa.mul_assign(bb, &mut ctx);
         }
 
         // dbg!(&ag);
@@ -794,8 +797,8 @@ mod test {
             0x000000ffffffff00,
         ];
 
-        let a: Vec<GoldilocksField> = am.into_iter().map(|x| GoldilocksField(x)).collect();
-        // let b: Vec<GoldilocksField> = bm.into_iter().map(|x| GoldilocksField(x)).collect();
+        let a: Vec<GoldilocksField> = am.into_iter().map(GoldilocksField).collect();
+        // let b: Vec<GoldilocksField> = bm.into_iter().map(GoldilocksField).collect();
         let _s = GoldilocksField(0x0000000001000000);
 
         // Test over Goldilocks

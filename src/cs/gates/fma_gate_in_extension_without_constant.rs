@@ -27,9 +27,7 @@ impl<F: PrimeField, EXT: FieldExtension<2, BaseField = F>> GateConstraintEvaluat
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -146,16 +144,16 @@ impl<F: PrimeField, EXT: FieldExtension<2, BaseField = F>> GateConstraintEvaluat
 
         // c0 * c0
         let mut linear_c0 = c_c0;
-        linear_c0.mul_assign(&linear_term_coeff_c0, ctx);
+        linear_c0.mul_assign(linear_term_coeff_c0, ctx);
 
         // c1 * c1 * non-res
         let mut t = c_c1;
-        t.mul_assign(&linear_term_coeff_c1, ctx);
+        t.mul_assign(linear_term_coeff_c1, ctx);
         P::mul_and_accumulate_into(&mut linear_c0, &t, non_residue, ctx);
 
         // c0 * c1
         let mut linear_c1 = c_c0;
-        linear_c1.mul_assign(&linear_term_coeff_c1, ctx);
+        linear_c1.mul_assign(linear_term_coeff_c1, ctx);
         // c1 * c0
         P::mul_and_accumulate_into(&mut linear_c1, &c_c1, linear_term_coeff_c0, ctx);
 
@@ -175,7 +173,7 @@ impl<F: PrimeField, EXT: FieldExtension<2, BaseField = F>> GateConstraintEvaluat
         // and use those to make next term
 
         let mut final_c0 = inner_c0;
-        final_c0.mul_assign(&quadratic_term_coeff_c0, ctx);
+        final_c0.mul_assign(quadratic_term_coeff_c0, ctx);
 
         let mut t = inner_c1;
         t.mul_assign(quadratic_term_coeff_c1, ctx);
@@ -221,7 +219,7 @@ pub struct FmaGateInExtensionWithoutConstant<F: SmallField, EXT: FieldExtension<
     pub rhs_part: [Variable; 2],
 }
 
-const UNIQUE_IDENTIFIER: &'static str = "c0 * A * B + c1 * C -> D in quadratic extension";
+const UNIQUE_IDENTIFIER: &str = "c0 * A * B + c1 * C -> D in quadratic extension";
 const PRINCIPAL_WIDTH: usize = 8;
 
 // HashMap coefficients into row index to know vacant places
@@ -380,7 +378,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 
         let params = FmaGateInExtensionWithoutConstantParams {
             coeff_for_quadtaric_part,
-            linear_term_coeff: linear_term_coeff,
+            linear_term_coeff,
         };
 
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
@@ -399,9 +397,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 
                 result.add_assign(&tmp);
 
-                let result = result.into_coeffs_in_base();
-
-                result
+                result.into_coeffs_in_base()
             };
 
             let dependencies =
@@ -487,7 +483,7 @@ mod test {
     use super::*;
     use crate::worker::Worker;
     type F = crate::field::goldilocks::GoldilocksField;
-    type EXT = crate::field::goldilocks::GoldilocksExt2;
+    type Ext = crate::field::goldilocks::GoldilocksExt2;
     use crate::cs::cs_builder::*;
     use crate::cs::cs_builder_reference::*;
 
@@ -504,7 +500,7 @@ mod test {
             CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 128, 8);
         let builder = new_builder::<_, F>(builder_impl);
 
-        let builder = FmaGateInExtensionWithoutConstant::<F, EXT>::configure_builder(
+        let builder = FmaGateInExtensionWithoutConstant::<F, Ext>::configure_builder(
             builder,
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
@@ -526,10 +522,10 @@ mod test {
             *dst = var;
         }
 
-        let mut k = ExtensionField::<F, 2, EXT>::ONE;
+        let mut k = ExtensionField::<F, 2, Ext>::ONE;
         k.coeffs[1] = F::MINUS_ONE;
 
-        let mut m = ExtensionField::<F, 2, EXT>::TWO;
+        let mut m = ExtensionField::<F, 2, Ext>::TWO;
         m.coeffs[1] = F::TWO;
 
         let result = FmaGateInExtensionWithoutConstant::compute_fma_in_extension(
@@ -543,7 +539,7 @@ mod test {
         let zero = cs.allocate_constant(F::ZERO);
         let one = cs.allocate_constant(F::ONE);
 
-        let _result = FmaGateInExtensionWithoutConstant::<F, EXT>::create_inversion_constraint(
+        let _result = FmaGateInExtensionWithoutConstant::<F, Ext>::create_inversion_constraint(
             cs, result, zero, one,
         );
 

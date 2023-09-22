@@ -61,7 +61,7 @@ impl PoWRunner for Blake2s256 {
             for challenge in 0u64..(BLAKE2S_NO_RESULT - 1) {
                 // we expect somewhat "good" hash distribution
                 let mut new_transcript = base_transcript.clone();
-                new_transcript.update(&challenge.to_le_bytes());
+                new_transcript.update(challenge.to_le_bytes());
                 let mut le_bytes = [0u8; 8];
                 le_bytes.copy_from_slice(&new_transcript.finalize().as_slice()[..8]);
                 if u64::from_le_bytes(le_bytes).trailing_zeros() >= pow_bits {
@@ -93,7 +93,7 @@ impl PoWRunner for Blake2s256 {
                             for j in 0..pow_rounds_per_invocation {
                                 let challenge_u64 = base + j;
                                 let mut new_transcript = base_transcript.clone();
-                                new_transcript.update(&challenge_u64.to_le_bytes());
+                                new_transcript.update(challenge_u64.to_le_bytes());
                                 let mut le_bytes = [0u8; 8];
                                 le_bytes
                                     .copy_from_slice(&new_transcript.finalize().as_slice()[..8]);
@@ -126,7 +126,7 @@ impl PoWRunner for Blake2s256 {
     fn verify_from_bytes(seed: Vec<u8>, pow_bits: u32, challenge: u64) -> bool {
         let mut new_transcript = Blake2s256::new();
         new_transcript.update(&seed);
-        new_transcript.update(&challenge.to_le_bytes());
+        new_transcript.update(challenge.to_le_bytes());
         let mut le_bytes = [0u8; 8];
         le_bytes.copy_from_slice(&new_transcript.finalize().as_slice()[..8]);
 
@@ -150,7 +150,7 @@ impl PoWRunner for Keccak256 {
             for challenge in 0u64..(KECCAK256_NO_RESULT - 1) {
                 // we expect somewhat "good" hash distribution
                 let mut new_transcript = base_transcript.clone();
-                new_transcript.update(&challenge.to_le_bytes());
+                new_transcript.update(challenge.to_le_bytes());
                 let mut le_bytes = [0u8; 8];
                 le_bytes.copy_from_slice(&new_transcript.finalize().as_slice()[..8]);
                 if u64::from_le_bytes(le_bytes).trailing_zeros() >= pow_bits {
@@ -183,7 +183,7 @@ impl PoWRunner for Keccak256 {
                             for j in 0..pow_rounds_per_invocation {
                                 let challenge_u64 = base + j;
                                 let mut new_transcript = base_transcript.clone();
-                                new_transcript.update(&challenge_u64.to_le_bytes());
+                                new_transcript.update(challenge_u64.to_le_bytes());
                                 let mut le_bytes = [0u8; 8];
                                 le_bytes
                                     .copy_from_slice(&new_transcript.finalize().as_slice()[..8]);
@@ -216,7 +216,7 @@ impl PoWRunner for Keccak256 {
     fn verify_from_bytes(seed: Vec<u8>, pow_bits: u32, challenge: u64) -> bool {
         let mut new_transcript = Keccak256::new();
         new_transcript.update(&seed);
-        new_transcript.update(&challenge.to_le_bytes());
+        new_transcript.update(challenge.to_le_bytes());
         let mut le_bytes = [0u8; 8];
         le_bytes.copy_from_slice(&new_transcript.finalize().as_slice()[..8]);
 

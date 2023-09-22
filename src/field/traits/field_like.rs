@@ -13,9 +13,7 @@ pub trait TrivialContext: 'static + Send + Sync + Clone + Copy + std::fmt::Debug
 
 impl TrivialContext for () {
     #[inline(always)]
-    fn placeholder() -> Self {
-        ()
-    }
+    fn placeholder() -> Self {}
 }
 
 // for some cases we want to be abstract not over algebraic properties of the field, but also
@@ -222,11 +220,11 @@ impl<F: BaseField> PrimeFieldLikeVectorized for F {
     type InverseTwiddles<A: GoodAllocator> = Vec<F, A>;
     #[inline(always)]
     fn is_zero(&self) -> bool {
-        <Self as Field>::is_zero(&self)
+        <Self as Field>::is_zero(self)
     }
     #[inline(always)]
     fn equals(&self, other: &Self) -> bool {
-        self.eq(&other)
+        self.eq(other)
     }
     #[inline(always)]
     fn mul_all_by_base(&'_ mut self, other: &F, _ctx: &mut Self::Context) -> &'_ mut Self {
@@ -276,7 +274,7 @@ impl<F: BaseField> PrimeFieldLikeVectorized for F {
         worker: &Worker,
         ctx: &mut Self::Context,
     ) -> Self::Twiddles<A> {
-        precompute_twiddles_for_fft::<F, Self, A, false>(fft_size, &worker, ctx)
+        precompute_twiddles_for_fft::<F, Self, A, false>(fft_size, worker, ctx)
     }
     #[inline(always)]
     fn precompute_inverse_twiddles_for_fft<A: GoodAllocator>(
@@ -284,7 +282,7 @@ impl<F: BaseField> PrimeFieldLikeVectorized for F {
         worker: &Worker,
         ctx: &mut Self::Context,
     ) -> Self::Twiddles<A> {
-        precompute_twiddles_for_fft::<F, Self, A, true>(fft_size, &worker, ctx)
+        precompute_twiddles_for_fft::<F, Self, A, true>(fft_size, worker, ctx)
     }
 }
 
@@ -628,13 +626,13 @@ pub fn mul_assign_vectorized_in_extension<
     ctx: &mut (),
 ) {
     let mut v0 = *a_c0;
-    v0.mul_assign(&b_c0, ctx);
+    v0.mul_assign(b_c0, ctx);
     let mut v1 = *a_c1;
-    v1.mul_assign(&b_c1, ctx);
+    v1.mul_assign(b_c1, ctx);
     let t = *a_c0;
     a_c1.add_assign(&t, ctx);
     let mut t0 = *b_c0;
-    t0.add_assign(&b_c1, ctx);
+    t0.add_assign(b_c1, ctx);
     a_c1.mul_assign(&t0, ctx);
     a_c1.sub_assign(&v0, ctx);
     a_c1.sub_assign(&v1, ctx);

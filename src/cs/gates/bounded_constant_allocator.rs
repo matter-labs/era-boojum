@@ -98,7 +98,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BoundedConstantAllocatorConst
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     // there are no constants that would be shared between instances
@@ -114,7 +113,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BoundedConstantAllocatorConst
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]

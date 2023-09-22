@@ -451,9 +451,9 @@ impl<
         let head_is_equal_to_tail = Boolean::multi_and(cs, &tmp_bools);
         Boolean::enforce_equal(cs, &length_is_zero, &head_is_equal_to_tail);
         let new = Self {
-            head: head,
-            tail: tail,
-            length: length,
+            head,
+            tail,
+            length,
             witness: Arc::new(FullStateCircuitQueueWitness::empty()),
             _marker: std::marker::PhantomData,
         };

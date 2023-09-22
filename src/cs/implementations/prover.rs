@@ -369,7 +369,7 @@ impl<
 
         profile_section!(mt_cap);
 
-        transcript.witness_merkle_tree_cap(&witness_tree_cap.as_ref());
+        transcript.witness_merkle_tree_cap(witness_tree_cap.as_ref());
 
         drop(mt_cap);
 
@@ -504,18 +504,18 @@ impl<
         // LDE them
         profile_section!(lde_lookups);
 
-        let z_poly = z_poly.map(|el| Arc::new(el));
+        let z_poly = z_poly.map(Arc::new);
         let intermediate_products: Vec<_> = intermediate_products
             .into_iter()
-            .map(|el| el.map(|el| Arc::new(el)))
+            .map(|el| el.map(Arc::new))
             .collect();
         let lookup_witness_encoding_polys: Vec<_> = lookup_witness_encoding_polys
             .into_iter()
-            .map(|el| el.map(|el| Arc::new(el)))
+            .map(|el| el.map(Arc::new))
             .collect();
         let lookup_multiplicities_encoding_polys: Vec<_> = lookup_multiplicities_encoding_polys
             .into_iter()
-            .map(|el| el.map(|el| Arc::new(el)))
+            .map(|el| el.map(Arc::new))
             .collect();
 
         drop(lde_lookups);
@@ -570,7 +570,7 @@ impl<
         // now we can commit to grand products and get new challenges
         let second_stage_tree_cap = second_stage_tree.get_cap();
 
-        transcript.witness_merkle_tree_cap(&second_stage_tree_cap.as_ref());
+        transcript.witness_merkle_tree_cap(second_stage_tree_cap.as_ref());
 
         drop(commit_comething);
 
@@ -1511,7 +1511,7 @@ impl<
         // now we can commit to grand products and get new challenges
         let quotients_tree_cap = quotients_tree.get_cap();
 
-        transcript.witness_merkle_tree_cap(&quotients_tree_cap.as_ref());
+        transcript.witness_merkle_tree_cap(quotients_tree_cap.as_ref());
 
         // now evaluate corresponding polynomials at corresponding z-s, and check equality
 
@@ -1549,9 +1549,9 @@ impl<
         let evaluate_from_base = |coeffs: &[P]| {
             barycentric_evaluate_base_at_extension_for_bitreversed_parallel(
                 P::slice_into_base_slice(coeffs),
-                &P::slice_into_base_slice(&precomputed_lagranges_c0),
-                &P::slice_into_base_slice(&precomputed_lagranges_c1),
-                &worker,
+                P::slice_into_base_slice(&precomputed_lagranges_c0),
+                P::slice_into_base_slice(&precomputed_lagranges_c1),
+                worker,
             )
         };
 
@@ -1559,9 +1559,9 @@ impl<
             barycentric_evaluate_extension_at_extension_for_bitreversed_parallel::<F, EXT>(
                 P::slice_into_base_slice(coeffs_c0),
                 P::slice_into_base_slice(coeffs_c1),
-                &P::slice_into_base_slice(&precomputed_lagranges_c0),
-                &P::slice_into_base_slice(&precomputed_lagranges_c1),
-                &worker,
+                P::slice_into_base_slice(&precomputed_lagranges_c0),
+                P::slice_into_base_slice(&precomputed_lagranges_c1),
+                worker,
             )
         };
 
@@ -1739,14 +1739,13 @@ impl<
             barycentric_evaluate_extension_at_extension_for_bitreversed_parallel::<F, EXT>(
                 P::slice_into_base_slice(coeffs_c0),
                 P::slice_into_base_slice(coeffs_c1),
-                &P::slice_into_base_slice(&precomputed_lagranges_c0),
-                &P::slice_into_base_slice(&precomputed_lagranges_c1),
-                &worker,
+                P::slice_into_base_slice(&precomputed_lagranges_c0),
+                P::slice_into_base_slice(&precomputed_lagranges_c1),
+                worker,
             )
         };
 
-        let mut all_polys_at_zomegas = vec![];
-        all_polys_at_zomegas.push(ExtensionField::<F, 2, EXT>::from_coeff_in_base(
+        let all_polys_at_zomegas = vec![ExtensionField::<F, 2, EXT>::from_coeff_in_base(
             evaluate_from_extension(
                 &second_stage_polys_storage.z_poly[0].storage[0]
                     .as_ref()
@@ -1755,7 +1754,7 @@ impl<
                     .as_ref()
                     .storage,
             ),
-        ));
+        )];
         assert_eq!(all_polys_at_zomegas.len(), 1);
 
         for set in all_polys_at_zomegas.iter() {
@@ -1781,9 +1780,9 @@ impl<
                 barycentric_evaluate_extension_at_extension_for_bitreversed_parallel::<F, EXT>(
                     P::slice_into_base_slice(coeffs_c0),
                     P::slice_into_base_slice(coeffs_c1),
-                    &P::slice_into_base_slice(&precomputed_lagranges_c0),
-                    &P::slice_into_base_slice(&precomputed_lagranges_c1),
-                    &worker,
+                    P::slice_into_base_slice(&precomputed_lagranges_c0),
+                    P::slice_into_base_slice(&precomputed_lagranges_c1),
+                    worker,
                 )
             };
 
@@ -1912,9 +1911,9 @@ impl<
             &trace_holder.setup.copy_permutation_polys,
         ));
         // copy permutation
-        sources.extend(map_extension_for_quotening(&vec![
-            second_stage_polys_storage.z_poly.clone(),
-        ]));
+        sources.extend(map_extension_for_quotening(&[second_stage_polys_storage
+            .z_poly
+            .clone()]));
         sources.extend(map_extension_for_quotening(
             &second_stage_polys_storage.intermediate_polys,
         ));
@@ -1963,9 +1962,9 @@ impl<
         // now at z_omega
 
         let mut sources = vec![];
-        sources.extend(map_extension_for_quotening(&vec![
-            second_stage_polys_storage.z_poly.clone(),
-        ]));
+        sources.extend(map_extension_for_quotening(&[second_stage_polys_storage
+            .z_poly
+            .clone()]));
 
         let num_challenges_required = sources.len();
 
@@ -2031,7 +2030,7 @@ impl<
                 let mut sources = Vec::with_capacity(set.len());
                 let mut values = Vec::with_capacity(set.len());
                 for (column, expected_value) in set.into_iter() {
-                    sources.extend(map_base_for_quotening(&vec![trace_holder
+                    sources.extend(map_base_for_quotening(&[trace_holder
                         .variables
                         .variables_columns[column]
                         .clone()]));
@@ -2234,7 +2233,7 @@ impl<
             );
 
             let setup_query = OracleQuery::construct(
-                &setup_tree,
+                setup_tree,
                 setup,
                 lde_factor_for_fri,
                 coset_idx,
@@ -2347,7 +2346,7 @@ pub fn compute_fri_schedule(
     // we can stop FRI as soon as we got into plausibly low enough degree
     // or we should stop based on our optimal cap size
     let candidate_degree_from_cap_size = cap_size >> rate_log_two;
-    let folding_stop_degree = std::cmp::max(1, candidate_degree_from_cap_size as usize);
+    let folding_stop_degree = std::cmp::max(1, candidate_degree_from_cap_size);
     assert!(folding_stop_degree.is_power_of_two());
     let folding_stop_degree_log_two = folding_stop_degree.trailing_zeros();
 

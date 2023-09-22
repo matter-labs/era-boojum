@@ -12,7 +12,7 @@ pub trait Transcript<F: PrimeField>: Clone + Send + Sync + std::fmt::Debug {
 
     fn new(params: Self::TransciptParameters) -> Self;
     fn witness_field_elements(&mut self, field_els: &[F]);
-    fn witness_merkle_tree_cap<A: GoodAllocator>(&mut self, cap: &Vec<Self::CompatibleCap, A>);
+    fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]);
     fn get_challenge(&mut self) -> F;
     fn get_multiple_challenges_fixed<const N: usize>(&mut self) -> [F; N] {
         let mut result = [F::ZERO; N];
@@ -80,7 +80,7 @@ impl<
     fn witness_field_elements(&mut self, field_els: &[F]) {
         self.buffer.extend_from_slice(field_els);
     }
-    fn witness_merkle_tree_cap<A: GoodAllocator>(&mut self, cap: &Vec<Self::CompatibleCap, A>) {
+    fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]) {
         for el in cap.iter() {
             // log!("Witnessing cap element {:?}", el);
             self.witness_field_elements(&el[..]);
@@ -107,7 +107,7 @@ impl<
             }
         }
 
-        let mut to_absorb = std::mem::replace(&mut self.buffer, vec![]);
+        let mut to_absorb = std::mem::take(&mut self.buffer);
         // we do rescue prime padding and absorb
         to_absorb.push(F::ONE);
         let mut multiple = to_absorb.len() / AW;
@@ -120,7 +120,7 @@ impl<
             assert_eq!(self.sponge.filled, 0);
         }
 
-        let commitment = self.sponge.clone().finalize::<AW>();
+        let commitment = self.sponge.finalize::<AW>();
         self.available_challenges = commitment.to_vec();
 
         // to avoid duplication
@@ -178,7 +178,7 @@ impl<F: SmallField> Transcript<F> for Blake2sTranscript {
             self.buffer.extend(el.as_u64_reduced().to_le_bytes());
         }
     }
-    fn witness_merkle_tree_cap<A: GoodAllocator>(&mut self, cap: &Vec<Self::CompatibleCap, A>) {
+    fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]) {
         for el in cap.iter() {
             self.buffer.extend_from_slice(&el[..]);
         }
@@ -192,9 +192,9 @@ impl<F: SmallField> Transcript<F> for Blake2sTranscript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
         }
 
@@ -215,9 +215,9 @@ impl<F: SmallField> Transcript<F> for Blake2sTranscript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
 
             assert!(self.available_challenge_bytes.is_empty() == false);
@@ -234,9 +234,9 @@ impl<F: SmallField> Transcript<F> for Blake2sTranscript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
         }
 
@@ -248,9 +248,9 @@ impl<F: SmallField> Transcript<F> for Blake2sTranscript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
 
             assert!(self.available_challenge_bytes.is_empty() == false);
@@ -285,7 +285,7 @@ impl<F: SmallField> Transcript<F> for Keccak256Transcript {
             self.buffer.extend(el.as_u64_reduced().to_le_bytes());
         }
     }
-    fn witness_merkle_tree_cap<A: GoodAllocator>(&mut self, cap: &Vec<Self::CompatibleCap, A>) {
+    fn witness_merkle_tree_cap(&mut self, cap: &[Self::CompatibleCap]) {
         for el in cap.iter() {
             self.buffer.extend_from_slice(&el[..]);
         }
@@ -299,9 +299,9 @@ impl<F: SmallField> Transcript<F> for Keccak256Transcript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
         }
 
@@ -322,9 +322,9 @@ impl<F: SmallField> Transcript<F> for Keccak256Transcript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
 
             assert!(self.available_challenge_bytes.is_empty() == false);
@@ -341,9 +341,9 @@ impl<F: SmallField> Transcript<F> for Keccak256Transcript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
         }
 
@@ -355,9 +355,9 @@ impl<F: SmallField> Transcript<F> for Keccak256Transcript {
             // reseed
             let mut output = [0u8; 32];
             let raw_output = self.inner.finalize_reset();
-            output[..].copy_from_slice(&raw_output.as_slice());
+            output[..].copy_from_slice(raw_output.as_slice());
 
-            self.inner.update(&output);
+            self.inner.update(output);
             self.available_challenge_bytes.extend(output);
 
             assert!(self.available_challenge_bytes.is_empty() == false);

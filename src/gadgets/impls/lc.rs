@@ -75,12 +75,10 @@ pub fn linear_combination_collapse_with_length<F: SmallField, CS: ConstraintSyst
 
         gate.add_to_cs(cs);
         // FMA is also enough
+    } else if cs.gate_is_allowed::<ReductionGate<F, 4>>() {
+        linear_combination_collapse_with_reduction_gate(cs, input, extra, input_len);
     } else {
-        if cs.gate_is_allowed::<ReductionGate<F, 4>>() {
-            linear_combination_collapse_with_reduction_gate(cs, input, extra, input_len);
-        } else {
-            unimplemented!()
-        }
+        unimplemented!()
     }
 }
 

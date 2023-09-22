@@ -194,21 +194,15 @@ impl<'a> ExactSizeIterator for LSBIterator<'a> {
     }
 }
 
-pub const fn u64_as_bool(value: u64) -> bool {
-    debug_assert!(value == 0 || value == 1);
-    if value == 1 {
-        true
-    } else {
-        false
-    }
-}
-
 pub fn wait_to_attach() {
     log!("Can attach now");
 
     loop {
         match std::fs::read_to_string(std::env::var("DEBUG_ATTACH_FILE").unwrap()) {
-            Ok(contents) if contents.trim() == "go" => break,
+            Ok(contents) if contents.trim() == "go" => {
+                let _ = std::fs::write(std::env::var("DEBUG_ATTACH_FILE").unwrap(), "nogo"); // Cause keep forgetting
+                break;
+            }
             _ => (),
         }
         std::thread::sleep(Duration::from_millis(10));
@@ -238,7 +232,23 @@ impl DilatoryPrinter {
 use std::cell::UnsafeCell;
 
 pub trait UnsafeCellEx<T> {
+    /// Dereferences the contained value. Synonym for `&*self.get()`.
+    ///
+    /// # Safety
+    ///
+    /// The value must not be referenced outside of the actual lifetime of the UnsafeCell.
+    ///
+    /// Violating this condition is undefined behavior.
     unsafe fn u_deref(&self) -> &'static T;
+
+    /// Mutably dereferences the contained value. Synonym for `&mut *self.get()`.
+    ///
+    /// # Safety
+    ///
+    /// 1. The value must not be referenced outside of the actual lifetime of the UnsafeCell.
+    /// 2. The caller must ensure that no other references to the value exist at the same time.
+    ///
+    /// Violating either of these conditions is undefined behavior.
     unsafe fn u_deref_mut(&self) -> &'static mut T;
 }
 
@@ -330,7 +340,7 @@ where
     type Value = Vec<T, A>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str(&format!("a vector"))
+        formatter.write_str("a vector")
     }
 
     fn visit_seq<B>(self, mut seq: B) -> Result<Self::Value, B::Error>
@@ -390,7 +400,7 @@ where
     type Value = Vec<std::sync::Arc<T>, A>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str(&format!("a vector"))
+        formatter.write_str("a vector")
     }
 
     fn visit_seq<B>(self, mut seq: B) -> Result<Self::Value, B::Error>
@@ -468,7 +478,7 @@ where
     type Value = Vec<Vec<T, A>, B>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str(&format!("a vector"))
+        formatter.write_str("a vector")
     }
 
     fn visit_seq<C>(self, mut seq: C) -> Result<Self::Value, C::Error>

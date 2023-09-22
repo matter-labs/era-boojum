@@ -21,9 +21,7 @@ pub trait CSPlaceholder<F: SmallField>: Sized {
 }
 
 impl<F: SmallField> CSPlaceholder<F> for () {
-    fn placeholder<CS: ConstraintSystem<F>>(_cs: &mut CS) -> Self {
-        ()
-    }
+    fn placeholder<CS: ConstraintSystem<F>>(_cs: &mut CS) -> Self {}
 }
 
 use crate::cs::traits::cs::DstBuffer;
@@ -53,24 +51,16 @@ impl<F: SmallField> CSAllocatable<F> for () {
     type Witness = ();
 
     #[inline(always)]
-    fn placeholder_witness() -> Self::Witness {
-        ()
-    }
+    fn placeholder_witness() -> Self::Witness {}
 
     #[inline(always)]
-    fn allocate_without_value<CS: ConstraintSystem<F>>(_cs: &mut CS) -> Self {
-        ()
-    }
+    fn allocate_without_value<CS: ConstraintSystem<F>>(_cs: &mut CS) -> Self {}
 
     #[inline(always)]
-    fn allocate<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {
-        ()
-    }
+    fn allocate<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {}
 
     #[inline(always)]
-    fn allocate_constant<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {
-        ()
-    }
+    fn allocate_constant<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {}
 }
 
 // Marker that we can use
@@ -135,7 +125,15 @@ pub fn allocate_num_elements<F: SmallField, CS: ConstraintSystem<F>, EL: CSAlloc
     match source {
         Some(mut source) => {
             for idx in 0..num_elements {
-                let witness = source.next().expect(&format!("must contain enough elements: failed to get element {} (zero enumerated) from expected list of {}", idx, num_elements));
+                let witness = source
+                    .next()
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "must contain enough elements: failed to get element {} (zero enumerated) from expected list of {}",
+                            idx,
+                            num_elements
+                        )
+                    });
                 let el = EL::allocate(cs, witness);
                 result.push(el);
             }

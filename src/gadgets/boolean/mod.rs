@@ -150,7 +150,7 @@ impl<F: SmallField> Selectable<F> for Boolean<F> {
     }
 }
 
-pub const BOOLEAN_NEGATION_LOOKUP_TOOLING: &'static str = "Boolean negation tooling";
+pub const BOOLEAN_NEGATION_LOOKUP_TOOLING: &str = "Boolean negation tooling";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]
@@ -197,15 +197,18 @@ impl<F: SmallField> Boolean<F> {
         }
 
         Self {
-            variable: variable,
+            variable,
             _marker: std::marker::PhantomData,
         }
     }
 
+    /// # Safety
+    ///
+    /// Does not check the variable to be valid.
     #[inline(always)]
     pub const unsafe fn from_variable_unchecked(variable: Variable) -> Self {
         Self {
-            variable: variable,
+            variable,
             _marker: std::marker::PhantomData,
         }
     }
@@ -479,16 +482,13 @@ impl<F: SmallField> Boolean<F> {
         should_enforce: Self,
     ) {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (
+            if let (Some(this), Some(should_enforce)) = (
                 (self.witness_hook(cs))(),
                 (should_enforce.witness_hook(cs))(),
             ) {
-                (Some(this), Some(should_enforce)) => {
-                    if should_enforce {
-                        assert!(this, "conditional enforce to `true` failed");
-                    }
+                if should_enforce {
+                    assert!(this, "conditional enforce to `true` failed");
                 }
-                _ => {}
             }
         }
 
@@ -524,16 +524,13 @@ impl<F: SmallField> Boolean<F> {
         // so self * should_enforce == 0
 
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match (
+            if let (Some(this), Some(should_enforce)) = (
                 (self.witness_hook(cs))(),
                 (should_enforce.witness_hook(cs))(),
             ) {
-                (Some(this), Some(should_enforce)) => {
-                    if should_enforce {
-                        assert!(this == false, "conditional enforce to `false` failed");
-                    }
+                if should_enforce {
+                    assert!(this == false, "conditional enforce to `false` failed");
                 }
-                _ => {}
             }
         }
 
@@ -576,7 +573,7 @@ impl<F: SmallField> Boolean<F> {
                 tmp = tmp.and(cs, *c);
             }
 
-            return tmp;
+            tmp
         } else {
             use crate::gadgets::u32::UInt32;
 
@@ -614,7 +611,7 @@ impl<F: SmallField> Boolean<F> {
                 tmp = tmp.or(cs, *c);
             }
 
-            return tmp;
+            tmp
         } else {
             let input: Vec<_> = candidates.iter().map(|el| (el.variable, F::ONE)).collect();
             let lc = Num::linear_combination(cs, &input);
@@ -652,11 +649,8 @@ impl<F: SmallField> Boolean<F> {
     #[track_caller]
     pub fn enforce_equal<CS: ConstraintSystem<F>>(cs: &mut CS, a: &Self, b: &Self) {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            match ((a.witness_hook(cs))(), (b.witness_hook(cs))()) {
-                (Some(a), Some(b)) => {
-                    assert_eq!(a, b, "Boolean enforce equal failed");
-                }
-                _ => {}
+            if let (Some(a), Some(b)) = ((a.witness_hook(cs))(), (b.witness_hook(cs))()) {
+                assert_eq!(a, b, "Boolean enforce equal failed");
             }
         }
 

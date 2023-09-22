@@ -161,7 +161,7 @@ impl<F: PrimeField, P: field::traits::field_like::PrimeFieldLike<Base = F>>
         }
     }
 
-    pub(crate) fn subset(
+    pub fn subset(
         &self,
         variables_range: Range<usize>,
         witness_range: Range<usize>,
@@ -274,7 +274,7 @@ impl<F: PrimeField, P: field::traits::field_like::PrimeFieldLike<Base = F>>
 
 // our path is a set of booleans true/false, and encode from the root,
 // so when we even encounter a path, we can check for all it's ascendants
-pub(crate) fn compute_selector_subpath_at_z<
+pub fn compute_selector_subpath_at_z<
     F: PrimeField,
     P: field::traits::field_like::PrimeFieldLike<Base = F>,
 >(
@@ -341,7 +341,7 @@ pub(crate) fn compute_selector_subpath_at_z<
     } else {
         // we need prefix * this
         let mut result = *other_poly;
-        result.mul_assign(&prefix_poly, ctx);
+        result.mul_assign(prefix_poly, ctx);
 
         result
     };
@@ -437,20 +437,20 @@ pub struct Verifier<F: SmallField, EXT: FieldExtension<2, BaseField = F>> {
     pub parameters: CSGeometry,
     pub lookup_parameters: LookupParameters,
 
-    pub(crate) gate_type_ids_for_specialized_columns: Vec<TypeId>,
-    pub(crate) evaluators_over_specialized_columns:
+    pub gate_type_ids_for_specialized_columns: Vec<TypeId>,
+    pub evaluators_over_specialized_columns:
         Vec<TypeErasedGateEvaluationVerificationFunction<F, EXT>>,
-    pub(crate) offsets_for_specialized_evaluators: Vec<(PerChunkOffset, PerChunkOffset, usize)>,
+    pub offsets_for_specialized_evaluators: Vec<(PerChunkOffset, PerChunkOffset, usize)>,
 
     // pub(crate) gate_type_ids_for_general_purpose_columns: Vec<TypeId>,
-    pub(crate) evaluators_over_general_purpose_columns:
+    pub evaluators_over_general_purpose_columns:
         Vec<TypeErasedGateEvaluationVerificationFunction<F, EXT>>,
 
-    pub(crate) total_num_variables_for_specialized_columns: usize,
-    pub(crate) total_num_witnesses_for_specialized_columns: usize,
-    pub(crate) total_num_constants_for_specialized_columns: usize,
+    pub total_num_variables_for_specialized_columns: usize,
+    pub total_num_witnesses_for_specialized_columns: usize,
+    pub total_num_constants_for_specialized_columns: usize,
 
-    pub(crate) placement_strategies: HashMap<TypeId, GatePlacementStrategy>,
+    pub placement_strategies: HashMap<TypeId, GatePlacementStrategy>,
 }
 
 // we can implement a verifier that drives the procedure itself as a CS, so we can easily add gates
@@ -458,7 +458,7 @@ pub struct Verifier<F: SmallField, EXT: FieldExtension<2, BaseField = F>> {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub(crate) struct TypeErasedGateEvaluationVerificationFunction<
+pub struct TypeErasedGateEvaluationVerificationFunction<
     F: SmallField,
     EXT: FieldExtension<2, BaseField = F>,
 > {
@@ -685,7 +685,7 @@ impl<F: SmallField, const N: usize, EXT: FieldExtension<N, BaseField = F>>
         total_tables_len: usize,
         domain_size: u64,
     ) -> usize {
-        lookup_parameters.num_multipicities_polys(total_tables_len as usize, domain_size as usize)
+        lookup_parameters.num_multipicities_polys(total_tables_len, domain_size as usize)
     }
 
     pub fn num_variable_polys(
@@ -1076,7 +1076,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
         // and public inputs should also go into quotient
         let mut public_input_opening_tuples: Vec<(F, Vec<(usize, F)>)> = vec![];
         {
-            let omega = domain_generator_for_size::<F>(vk.fixed_parameters.domain_size as u64);
+            let omega = domain_generator_for_size::<F>(vk.fixed_parameters.domain_size);
 
             for (column, row, value) in public_inputs_with_values.into_iter() {
                 let open_at = omega.pow_u64(row as u64);
@@ -1322,14 +1322,14 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                         assert_eq!(
                             lookup_witness_encoding_polys_values.len(),
                             variables_columns_for_lookup
-                                .chunks_exact(column_elements_per_subargument as usize)
+                                .chunks_exact(column_elements_per_subargument)
                                 .len()
                         );
 
                         for (a_poly, witness_columns) in
                             lookup_witness_encoding_polys_values.iter().zip(
                                 variables_columns_for_lookup
-                                    .chunks_exact(column_elements_per_subargument as usize),
+                                    .chunks_exact(column_elements_per_subargument),
                             )
                         {
                             let alpha = *challenges_it
@@ -1338,7 +1338,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                             let mut contribution = lookup_beta;
 
                             let table_id = if let Some(table_id_poly) =
-                                vk.fixed_parameters.table_ids_column_idxes.get(0).copied()
+                                vk.fixed_parameters.table_ids_column_idxes.first().copied()
                             {
                                 vec![constant_poly_values[table_id_poly]]
                             } else {
@@ -1446,14 +1446,14 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                         assert_eq!(
                             lookup_witness_encoding_polys_values.len(),
                             variables_columns_for_lookup
-                                .chunks_exact(column_elements_per_subargument as usize)
+                                .chunks_exact(column_elements_per_subargument)
                                 .len()
                         );
 
                         for (a_poly, witness_columns) in
                             lookup_witness_encoding_polys_values.iter().zip(
                                 variables_columns_for_lookup
-                                    .chunks_exact(column_elements_per_subargument as usize),
+                                    .chunks_exact(column_elements_per_subargument),
                             )
                         {
                             let alpha = *challenges_it
@@ -1462,7 +1462,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                             let mut contribution = lookup_beta;
 
                             let table_id = if let Some(table_id_poly) =
-                                vk.fixed_parameters.table_ids_column_idxes.get(0).copied()
+                                vk.fixed_parameters.table_ids_column_idxes.first().copied()
                             {
                                 vec![constant_poly_values[table_id_poly]]
                             } else {
@@ -1660,8 +1660,8 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                     .iter()
                     .enumerate()
                 {
-                    if &evaluator.evaluator_type_id
-                        == &std::any::TypeId::of::<LookupGateMarkerFormalEvaluator>()
+                    if evaluator.evaluator_type_id
+                        == std::any::TypeId::of::<LookupGateMarkerFormalEvaluator>()
                     {
                         continue;
                     }
@@ -1719,7 +1719,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
 
             // then copy_permutation algorithm
 
-            let z_in_domain_size = z.pow_u64(vk.fixed_parameters.domain_size as u64);
+            let z_in_domain_size = z.pow_u64(vk.fixed_parameters.domain_size);
 
             let mut vanishing_at_z = z_in_domain_size;
             vanishing_at_z.sub_assign(&ExtensionField::<F, 2, EXT>::ONE);
@@ -1766,7 +1766,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                     // denominator is w + beta * sigma(x) + gamma
                     let mut subres = *sigma;
                     subres.mul_assign(&beta);
-                    subres.add_assign(&variable);
+                    subres.add_assign(variable);
                     subres.add_assign(&gamma);
                     lhs.mul_assign(&subres);
                 }
@@ -1776,16 +1776,16 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 for (non_res, variable) in non_residues.iter().zip(variables.iter()) {
                     // numerator is w + beta * non_res * x + gamma
                     let mut subres = x_poly_value;
-                    subres.mul_assign_by_base(&non_res);
+                    subres.mul_assign_by_base(non_res);
                     subres.mul_assign(&beta);
-                    subres.add_assign(&variable);
+                    subres.add_assign(variable);
                     subres.add_assign(&gamma);
                     rhs.mul_assign(&subres);
                 }
 
                 let mut contribution = lhs;
                 contribution.sub_assign(&rhs);
-                contribution.mul_assign(&alpha);
+                contribution.mul_assign(alpha);
 
                 t_accumulator.add_assign(&contribution);
             }
@@ -1896,7 +1896,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 log!("Cap is malformed");
                 return false;
             }
-            transcript.witness_merkle_tree_cap(&cap);
+            transcript.witness_merkle_tree_cap(cap);
 
             // get challenge
             let reduction_degree_log_2 = *interpolation_degree_log2;
@@ -2014,10 +2014,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
         // so we want to have exactly half of it, because separation by 4
         // is exactly -1, so we need [1, sqrt4(1), sqrt8(1), sqrt4(1)*sqrt8(1)]
 
-        let mut interpolation_steps = vec![F::ONE; 4]; // max size
-                                                       // for idx in [1, 3, 5, 7].into_iter() {
-                                                       //     interpolation_steps[idx].mul_assign(&precomputed_powers_inversed[1]);
-                                                       // }
+        let mut interpolation_steps = [F::ONE; 4]; // max size
         for idx in [1, 3].into_iter() {
             interpolation_steps[idx].mul_assign(&precomputed_powers_inversed[2]);
         }
@@ -2179,7 +2176,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                     .iter()
                     .skip(skip_highest_powers)
                     .zip(precomputed_powers_inversed[1..].iter())
-                    .skip(*interpolation_degree_log2 as usize)
+                    .skip(*interpolation_degree_log2)
                 {
                     if *a {
                         domain_element.mul_assign(b);
@@ -2286,7 +2283,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 quotening_operation(
                     &mut simulated_ext_element,
                     &sources,
-                    &values_at_z,
+                    values_at_z,
                     domain_element_for_quotiening,
                     z,
                     &challenges_for_fri_quotiening
@@ -2306,7 +2303,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 quotening_operation(
                     &mut simulated_ext_element,
                     &sources,
-                    &values_at_z_omega,
+                    values_at_z_omega,
                     domain_element_for_quotiening,
                     z_omega,
                     &challenges_for_fri_quotiening
@@ -2334,7 +2331,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                     quotening_operation(
                         &mut simulated_ext_element,
                         &sources,
-                        &values_at_0,
+                        values_at_0,
                         domain_element_for_quotiening,
                         ExtensionField::<F, 2, EXT>::ZERO,
                         &challenges_for_fri_quotiening
@@ -2349,7 +2346,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
             for (open_at, set) in public_input_opening_tuples.iter() {
                 let mut sources = Vec::with_capacity(set.len());
                 let mut values = Vec::with_capacity(set.len());
-                for (column, expected_value) in set.into_iter() {
+                for (column, expected_value) in set.iter() {
                     let el = ExtensionField::<F, 2, EXT>::from_coeff_in_base([
                         queries.witness_query.leaf_elements[*column],
                         F::ZERO,
@@ -2429,7 +2426,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 }
                 let is_included = MerkleTreeWithCap::<F, H, Global, Global>::verify_proof_over_cap(
                     &fri_query.proof,
-                    &cap,
+                    cap,
                     leaf_hash,
                     tree_idx as usize,
                 );
@@ -2467,7 +2464,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                         result.add_assign(b);
 
                         let mut diff = *a;
-                        diff.sub_assign(&b);
+                        diff.sub_assign(b);
                         diff.mul_assign(&challenge);
                         // divide by corresponding power
                         let mut pow = base_pow;
@@ -2547,7 +2544,7 @@ fn quotening_operation<F: SmallField, EXT: FieldExtension<2, BaseField = F>>(
     {
         // (f(x) - f(z))/(x - z)
         let mut tmp = *poly_value;
-        tmp.sub_assign(&value_at);
+        tmp.sub_assign(value_at);
 
         let mut as_ext = ExtensionField::<F, 2, EXT> {
             coeffs: [*c0, *c1],

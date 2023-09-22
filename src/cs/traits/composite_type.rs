@@ -35,7 +35,7 @@ impl<
         match self {
             Self::Placeholder => None,
             Self::Ready(value) => Some(value.clone()),
-            a @ _ => {
+            a => {
                 let this = std::mem::replace(a, Self::Placeholder);
 
                 let Self::Waiting { resolvable, .. } = this else {

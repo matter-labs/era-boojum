@@ -22,9 +22,7 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -80,7 +78,6 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = [P; 1];
@@ -187,11 +184,7 @@ impl<F: SmallField, const N: usize> Gate<F> for SimpleNonlinearityGate<F, N> {
                         &evaluator, &geometry,
                     );
 
-                    let keys: Vec<_> = tooling
-                        .keys()
-                        .into_iter()
-                        .map(|el| el.as_u64_reduced())
-                        .collect();
+                    let keys: Vec<_> = tooling.keys().map(|el| el.as_u64_reduced()).collect();
 
                     for el in keys.into_iter() {
                         let as_fe = F::from_u64_unchecked(el);
@@ -220,7 +213,7 @@ impl<F: SmallField, const N: usize> Gate<F> for SimpleNonlinearityGate<F, N> {
 
             let NonlinearityGateFinalizationHint { instances_to_add } = &finalization_hint;
 
-            if instances_to_add.len() > 0 {
+            if !instances_to_add.is_empty() {
                 let var = cs.alloc_single_variable_from_witness(F::ONE);
 
                 for (el, instances_to_add) in instances_to_add.iter() {
@@ -385,10 +378,8 @@ impl<F: SmallField, const N: usize> SimpleNonlinearityGate<F, N> {
 
 use crate::gadgets::traits::configuration::ConfigurationFunction;
 
-impl<F: SmallField, TImpl: CsBuilderImpl<F, TImpl>, const N: usize> ConfigurationFunction<F, TImpl>
-    for SimpleNonlinearityGate<F, N>
-{
-    fn configure(
+impl<F: SmallField, const N: usize> ConfigurationFunction<F> for SimpleNonlinearityGate<F, N> {
+    fn configure<TImpl: CsBuilderImpl<F, TImpl>>(
         builder: CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder>,
         placement_strategy: GatePlacementStrategy,
     ) -> CsBuilder<TImpl, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {

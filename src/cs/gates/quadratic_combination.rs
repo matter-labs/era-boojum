@@ -25,9 +25,7 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -80,7 +78,6 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = ();
@@ -94,7 +91,6 @@ impl<F: PrimeField, const N: usize> GateConstraintEvaluator<F>
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]

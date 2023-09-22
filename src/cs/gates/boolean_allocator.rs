@@ -30,9 +30,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BooleanConstraitEvaluator {
     }
 
     #[inline(always)]
-    fn unique_params(&self) -> Self::UniqueParameterizationParams {
-        ()
-    }
+    fn unique_params(&self) -> Self::UniqueParameterizationParams {}
 
     #[inline]
     fn type_name() -> std::borrow::Cow<'static, str> {
@@ -83,7 +81,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BooleanConstraitEvaluator {
         &self,
         _ctx: &mut P::Context,
     ) -> Self::GlobalConstants<P> {
-        ()
     }
 
     type RowSharedConstants<P: field::traits::field_like::PrimeFieldLike<Base = F>> = ();
@@ -97,7 +94,6 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BooleanConstraitEvaluator {
         _trace_source: &S,
         _ctx: &mut P::Context,
     ) -> Self::RowSharedConstants<P> {
-        ()
     }
 
     #[inline(always)]
@@ -125,7 +121,7 @@ impl<F: PrimeField> GateConstraintEvaluator<F> for BooleanConstraitEvaluator {
     }
 }
 
-const UNIQUE_IDENTIFIER: &'static str = "Boolean constraint gate";
+const UNIQUE_IDENTIFIER: &str = "Boolean constraint gate";
 const PRINCIPAL_WIDTH: usize = 1;
 
 impl<F: SmallField> Gate<F> for BooleanConstraintGate {

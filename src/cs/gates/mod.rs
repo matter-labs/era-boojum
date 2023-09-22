@@ -70,7 +70,7 @@ impl<F: SmallField, CS: ConstraintSystem<F>> ConstantAllocatableCS<F> for CS {
     }
 }
 
-pub const IS_ZERO_LOOKUP_TOOLING: &'static str = "Is zero lookup tooling";
+pub const IS_ZERO_LOOKUP_TOOLING: &str = "Is zero lookup tooling";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,14 +91,12 @@ impl<F: SmallField, CS: ConstraintSystem<F>> ZeroCheckMemoizableCS<F> for CS {
             .get_tool::<IsZeroToolingMarker, IsZeroLookupTooling>()
         {
             return static_tool.get(&var).copied();
+        } else if let Some(dynamic_tool) =
+            self.get_dynamic_tool::<IsZeroToolingMarker, IsZeroLookupTooling>()
+        {
+            return dynamic_tool.get(&var).copied();
         } else {
-            if let Some(dynamic_tool) =
-                self.get_dynamic_tool::<IsZeroToolingMarker, IsZeroLookupTooling>()
-            {
-                return dynamic_tool.get(&var).copied();
-            } else {
-                None
-            }
+            None
         }
     }
 
@@ -305,7 +303,7 @@ pub(crate) fn find_next_gate_without_params_readonly(
     }
 }
 
-pub(crate) type LookupTooling = (Vec<Option<(usize, usize)>>, usize);
+pub type LookupTooling = (Vec<Option<(usize, usize)>>, usize);
 
 #[inline]
 pub(crate) fn find_next_lookup_gate_specialized(
@@ -344,7 +342,7 @@ pub(crate) fn find_next_lookup_gate_specialized(
 
 #[inline(always)]
 pub(crate) fn find_next_lookup_gate_readonly(
-    tooling: &Vec<Option<(usize, usize)>>,
+    tooling: &[Option<(usize, usize)>],
     table_id: u32,
     _capacity_per_row: usize,
     offered_row_idx: usize,
