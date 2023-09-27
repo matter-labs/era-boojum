@@ -14,7 +14,7 @@ smallvec = { version = "*", features = ["const_generics", "const_new", "serde"] 
 crossbeam = "*"
 sha3 = "0.10"
 lazy_static = "*"
-arrayvec = "*"
+arrayvec = "0.7"
 const_format = "0.2"
 bincode = "*"
 ethereum-types = "=0.14.1"
