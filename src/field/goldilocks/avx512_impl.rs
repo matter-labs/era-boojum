@@ -61,8 +61,8 @@ impl MixedGL {
     pub const T: u64 = (Self::ORDER - 1) >> Self::TWO_ADICITY;
     pub const BARRETT: u128 = 18446744078004518912; // 0x10000000100000000
                                                     // pub const EPSILON: u64 = (1 << 32) - 1;
-    const FIELD_ORDER: __m512i = unsafe { transmute(Self([GoldilocksField::ORDER; 8])) };
-    const EPSILON: __m512i = unsafe { transmute(Self([GoldilocksField::ORDER.wrapping_neg(); 8])) };
+    const FIELD_ORDER: __m512i = unsafe { transmute(AlignedArray([GoldilocksField::ORDER; 8])) };
+    const EPSILON: __m512i = unsafe { transmute(AlignedArray([GoldilocksField::ORDER.wrapping_neg(); 8])) };
     const EPSILON_SCALAR: u64 = (1 << 32) - 1;
     const LO_32_BITS_MASK: __mmask16 = unsafe { transmute(0b0101010101010101u16) };
 
@@ -318,7 +318,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    unsafe fn add_no_double_overflow_64_64(x: __m512i, y: __m512i) -> __m512i {
+    pub(crate) unsafe fn add_no_double_overflow_64_64(x: __m512i, y: __m512i) -> __m512i {
         let res_wrapped = _mm512_add_epi64(x, y);
         let mask = _mm512_cmplt_epu64_mask(res_wrapped, y); // mask set if add overflowed
         let res = _mm512_mask_sub_epi64(res_wrapped, mask, res_wrapped, Self::FIELD_ORDER);
@@ -326,7 +326,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    unsafe fn sub_no_double_overflow_64_64(x: __m512i, y: __m512i) -> __m512i {
+    pub(crate) unsafe fn sub_no_double_overflow_64_64(x: __m512i, y: __m512i) -> __m512i {
         let mask = _mm512_cmplt_epu64_mask(x, y); // mask set if sub will underflow (x < y)
         let res_wrapped = _mm512_sub_epi64(x, y);
         let res = _mm512_mask_add_epi64(res_wrapped, mask, res_wrapped, Self::FIELD_ORDER);
@@ -334,13 +334,13 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    unsafe fn canonicalize(x: __m512i) -> __m512i {
+    pub(crate) unsafe fn canonicalize(x: __m512i) -> __m512i {
         let mask = _mm512_cmpge_epu64_mask(x, Self::FIELD_ORDER);
         _mm512_mask_sub_epi64(x, mask, x, Self::FIELD_ORDER)
     }
 
     #[inline(always)]
-    unsafe fn mul64_64(x: __m512i, y: __m512i) -> (__m512i, __m512i) {
+    pub(crate) unsafe fn mul64_64(x: __m512i, y: __m512i) -> (__m512i, __m512i) {
         // We want to move the high 32 bits to the low position. The multiplication instruction ignores
         // the high 32 bits, so it's ok to just duplicate it into the low position. This duplication can
         // be done on port 5; bitshifts run on port 0, competing with multiplication.
@@ -380,7 +380,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    unsafe fn reduce128(x: (__m512i, __m512i)) -> __m512i {
+    pub(crate) unsafe fn reduce128(x: (__m512i, __m512i)) -> __m512i {
         let (hi0, lo0) = x;
         let hi_hi0 = _mm512_srli_epi64::<32>(hi0);
         let lo1 = Self::sub_no_double_overflow_64_64(lo0, hi_hi0);
