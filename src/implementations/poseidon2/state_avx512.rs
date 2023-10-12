@@ -272,7 +272,7 @@ impl State {
 
             // [0r0, 0r1, 0r2, 0r3, 1r0, 1r1, 1r2, 1r3]
             // [0w0, 0w1, 0w2, 0w3, 1w0, 1w1, 1w2, 1w3]
-            let ix_w_0_7 = x86_64::_mm512_load_epi64(Aligned([0, 8, 1, 9, 2, 10, 3, 11]).as_u64_ptr());
+            let ix_w_0_7 = x86_64::_mm512_load_epi64(Aligned([1, 8, 0, 9, 3, 10, 2, 11]).as_u64_ptr());
             let w_0w_1w = x86_64::_mm512_permutex2var_epi64(w02, ix_w_0_7, w13);
             let __0r_1r = avx512_impl::MixedGL::add_no_double_overflow_64_64(w_0w_1w, q_0q_1q);
             let __0r_1r = avx512_impl::MixedGL::canonicalize(__0r_1r);
@@ -281,7 +281,7 @@ impl State {
             // [2r0, 2r1, 2r2, 2r3] [01r0, 01r1, 01r2, 01r3]
             // [2w0, 2w1, 2w2, 2w3] [1r0, 1r1, 1r2, 1r3]
             // [2q0, 2q1, 2q2, 2q3] [0r0, 0r1, 0r2, 0r3]
-            let ix_2w_l = x86_64::_mm512_load_epi64(Aligned([4, 12, 5, 13, 0, 0, 0, 0]).as_u64_ptr());
+            let ix_2w_l = x86_64::_mm512_load_epi64(Aligned([5, 12, 4, 13, 0, 0, 0, 0]).as_u64_ptr());
             let __2w_l = x86_64::_mm512_permutex2var_epi64(w02, ix_2w_l, w13);
             let __2w_l = x86_64::_mm512_mask_blend_epi64(0b11110000, __2w_l, __0r_1r);
             let ix_2w_r = x86_64::_mm512_load_epi64(Aligned([0, 1, 2, 3, 8, 9, 10, 11]).as_u64_ptr());
@@ -492,8 +492,24 @@ mod test {
         let mut rng = rand::thread_rng();
         let mut state = [GoldilocksField::ONE; 12];
 
+        // state = [
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        //     GoldilocksField(10),
+        //     GoldilocksField(0),
+        //     GoldilocksField(0),
+        // ];
+
         for i in 0..state.len() {
             // state[i] = GoldilocksField(1);// rand_from_rng(&mut rng);
+            state[i] = rand_from_rng(&mut rng);
             state[i] = GoldilocksField(i as u64 + 1);// rand_from_rng(&mut rng);
         }
         dbg!(state);
