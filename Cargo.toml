@@ -12,7 +12,7 @@ num_cpus = "1"
 rayon = "1"
 smallvec = { version = "*", features = ["const_generics", "const_new", "serde"] }
 crossbeam = "*"
-sha3 = "0.10"
+sha3 = { git = "https://github.com/RustCrypto/hashes.git", rev = "7a187e934c1f6c68e4b4e5cf37541b7a0d64d303" }
 lazy_static = "*"
 arrayvec = "0.7"
 const_format = "0.2"
