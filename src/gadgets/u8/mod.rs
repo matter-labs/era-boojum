@@ -117,7 +117,7 @@ fn uint8_into_4bit_chunks_unchecked<F: SmallField, CS: ConstraintSystem<F>>(
     chunks
 }
 
-#[derive(Derivative)]
+#[derive(Derivative, serde::Serialize, serde::Deserialize)]
 #[derivative(Clone, Copy, Debug, Hash)]
 pub struct UInt8<F: SmallField> {
     pub(crate) variable: Variable,
