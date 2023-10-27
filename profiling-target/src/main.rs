@@ -29,6 +29,8 @@ fn main() {
         ("fft_packed", fft_packed as fn()),
         ("pos2_mds_mul_scalar", poseidon2::pos2_mds_mul_scalar as fn()),
         ("pos2_mds_mul_packed", poseidon2::pos2_mds_mul_packed as fn()),
+        ("poseidon2_scalar", poseidon2::poseidon2_scalar as fn()),
+        ("poseidon2_packed", poseidon2::poseidon2_packed as fn()),
     ].into_iter().collect();
     
     println!("features:");
