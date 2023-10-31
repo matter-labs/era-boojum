@@ -1,11 +1,11 @@
 //! A vectorized implementation of the poseidon2 state.
-use crate::field::Field;
 use crate::field::goldilocks::avx512_impl;
-use std::usize;
-use unroll::unroll_for_loops;
-use std::arch::x86_64::{ self, __m512i };
 use crate::field::goldilocks::GoldilocksField;
 use crate::field::traits::representation::U64Representable;
+use crate::field::Field;
+use std::arch::x86_64::{self, __m512i};
+use std::usize;
+use unroll::unroll_for_loops;
 
 use super::poseidon_goldilocks_params;
 
@@ -45,15 +45,16 @@ impl State {
     pub const STATE_WIDTH: usize = poseidon_goldilocks_params::STATE_WIDTH;
     pub const TOTAL_NUM_ROUNDS: usize = poseidon_goldilocks_params::TOTAL_NUM_ROUNDS;
     pub const ALL_ROUND_CONSTANTS: [Self; Self::TOTAL_NUM_ROUNDS] = const {
-        let mut constants_array = [Self([GoldilocksField::ZERO; Self::STATE_WIDTH]); Self::TOTAL_NUM_ROUNDS];
+        let mut constants_array =
+            [Self([GoldilocksField::ZERO; Self::STATE_WIDTH]); Self::TOTAL_NUM_ROUNDS];
         let mut i = 0;
         while i < Self::TOTAL_NUM_ROUNDS {
             let mut t = [GoldilocksField::ZERO; 12];
             let mut j = 0;
             while j < 12 {
-                t[j] = 
-                    GoldilocksField::from_nonreduced_u64(
-                    poseidon_goldilocks_params::ALL_ROUND_CONSTANTS[i * Self::STATE_WIDTH + j]);
+                t[j] = GoldilocksField::from_nonreduced_u64(
+                    poseidon_goldilocks_params::ALL_ROUND_CONSTANTS[i * Self::STATE_WIDTH + j],
+                );
                 j += 1;
             }
             constants_array[i] = Self(t);
@@ -78,8 +79,7 @@ impl State {
         unsafe { std::mem::transmute(Self::ALL_INNER_ROUND_CONSTANTS) }
     };
 
-    pub const M_I_DIAGONAL_ELEMENTS_MINUS_ONE: [Aligned; 2] = 
-    [
+    pub const M_I_DIAGONAL_ELEMENTS_MINUS_ONE: [Aligned; 2] = [
         Aligned([
             1 << 4,
             1 << 14,
@@ -90,33 +90,13 @@ impl State {
             1 << 2,
             1 << 9,
         ]),
-        Aligned([
-            1 << 13,
-            1 << 6,
-            1 << 3,
-            1 << 12,
-            0,
-            0,
-            0,
-            0
-        ])
+        Aligned([1 << 13, 1 << 6, 1 << 3, 1 << 12, 0, 0, 0, 0]),
     ];
 
     #[inline(always)]
     pub fn new() -> Self {
         Self([GoldilocksField::ZERO; 12])
     }
-
-    // #[inline(always)]
-    // #[unroll_for_loops]
-    // fn mul_assign_impl_without_prereduction(&mut self, other: &Self) -> &mut Self {
-    //     for i in 0..12 {
-    //         let c = self.0[i] * other.0[i];
-    //         self.0[i] = c;
-    //     }
-    //
-    //     self
-    // }
 
     #[inline(always)]
     pub fn from_field_array(input: [GoldilocksField; 12]) -> Self {
@@ -290,7 +270,7 @@ impl State {
             let __2f_lo = x86_64::_mm512_maskz_add_epi64(0b00001111, __r_r_lo, __2r_01r_lo);
             let __2f_hi = x86_64::_mm512_maskz_add_epi64(0b00001111, __r_r_hi, __2r_01r_hi);
 
-            let __0f_1f_hi_lo = x86_64::_mm512_slli_epi64::<32>(__0f_1f_hi);           
+            let __0f_1f_hi_lo = x86_64::_mm512_slli_epi64::<32>(__0f_1f_hi);
             let __0f_1f_c_lo = x86_64::_mm512_add_epi64(__0f_1f_hi_lo, __0f_1f_lo);
             let mask = x86_64::_mm512_cmplt_epu64_mask(__0f_1f_c_lo, __0f_1f_lo);
             let carry = x86_64::_mm512_maskz_set1_epi64(mask, 1);
@@ -299,7 +279,7 @@ impl State {
 
             let __0f_1f = avx512_impl::MixedGL::reduce128((__0f_1f_c_hi, __0f_1f_c_lo));
 
-            let __2f_hi_lo = x86_64::_mm512_slli_epi64::<32>(__2f_hi);           
+            let __2f_hi_lo = x86_64::_mm512_slli_epi64::<32>(__2f_hi);
             let __2f_c_lo = x86_64::_mm512_add_epi64(__2f_hi_lo, __2f_lo);
             let mask = x86_64::_mm512_cmplt_epu64_mask(__2f_c_lo, __2f_lo);
             let carry = x86_64::_mm512_maskz_set1_epi64(mask, 1);
@@ -318,8 +298,8 @@ impl State {
         unsafe {
             let const_current = Self::ALL_ROUND_CONSTANTS[round];
             let (x_0_7, x_8_11) = x;
-            let const_0_7 = x86_64::_mm512_load_epi64(&const_current.0[0] as * const _ as *const _);
-            let const_8_11 = x86_64::_mm512_load_epi64(&const_current.0[8] as * const _ as *const _);
+            let const_0_7 = x86_64::_mm512_load_epi64(&const_current.0[0] as *const _ as *const _);
+            let const_8_11 = x86_64::_mm512_load_epi64(&const_current.0[8] as *const _ as *const _);
 
             let x_0_7 = avx512_impl::MixedGL::add_no_double_overflow_64_64(x_0_7, const_0_7);
             let x_8_11 = avx512_impl::MixedGL::add_no_double_overflow_64_64(x_8_11, const_8_11);
@@ -336,21 +316,25 @@ impl State {
             let x_0_7 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::square64(t_0_7));
             let x_8_11 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::square64(t_8_11));
 
-            let t_0_7 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(t_0_7, x_0_7));
-            let t_8_11 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(t_8_11, x_8_11));
+            let t_0_7 =
+                avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(t_0_7, x_0_7));
+            let t_8_11 =
+                avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(t_8_11, x_8_11));
 
             let x_0_7 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::square64(x_0_7));
             let x_8_11 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::square64(x_8_11));
 
-            let x_0_7 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(x_0_7, t_0_7));
-            let x_8_11 = avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(x_8_11, t_8_11));
+            let x_0_7 =
+                avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(x_0_7, t_0_7));
+            let x_8_11 =
+                avx512_impl::MixedGL::reduce128(avx512_impl::MixedGL::mul64_64(x_8_11, t_8_11));
 
             (x_0_7, x_8_11)
         }
     }
 
     #[inline(always)]
-    fn full_round(x : (__m512i, __m512i), round_counter: &mut usize) -> (__m512i, __m512i) {
+    fn full_round(x: (__m512i, __m512i), round_counter: &mut usize) -> (__m512i, __m512i) {
         let (x_0_7, x_8_11) = x;
         // add constants
         let (x_0_7, x_8_11) = State::apply_round_constants((x_0_7, x_8_11), *round_counter);
@@ -383,8 +367,10 @@ impl State {
             let x_sum = x_sum_lo + x_sum_hi;
             let x_sum = GoldilocksField::from_u128_with_reduction(x_sum);
 
-            let m_0_7 = x86_64::_mm512_load_epi64(State::M_I_DIAGONAL_ELEMENTS_MINUS_ONE[0].as_u64_ptr());
-            let m_8_11 = x86_64::_mm512_load_epi64(State::M_I_DIAGONAL_ELEMENTS_MINUS_ONE[1].as_u64_ptr());
+            let m_0_7 =
+                x86_64::_mm512_load_epi64(State::M_I_DIAGONAL_ELEMENTS_MINUS_ONE[0].as_u64_ptr());
+            let m_8_11 =
+                x86_64::_mm512_load_epi64(State::M_I_DIAGONAL_ELEMENTS_MINUS_ONE[1].as_u64_ptr());
 
             let xm_0_7 = avx512_impl::MixedGL::mul64_64(x_0_7, m_0_7);
             let xm_0_7 = avx512_impl::MixedGL::reduce128(xm_0_7);
@@ -394,14 +380,19 @@ impl State {
             let x_sum = x86_64::_mm512_set1_epi64(x_sum.as_u64() as i64);
 
             let r_0_7 = avx512_impl::MixedGL::add_no_double_overflow_64_64(xm_0_7, x_sum);
-            let r_8_11 = avx512_impl::MixedGL::add_no_double_overflow_64_64_maskz(0b00001111, xm_8_11, x_sum);
+            let r_8_11 = avx512_impl::MixedGL::add_no_double_overflow_64_64_maskz(
+                0b00001111, xm_8_11, x_sum,
+            );
 
             (r_0_7, r_8_11)
         }
     }
 
     #[inline(always)]
-    fn partial_round_poseidon2(x: (__m512i, __m512i), round_counter: &mut usize) -> (__m512i, __m512i) {
+    fn partial_round_poseidon2(
+        x: (__m512i, __m512i),
+        round_counter: &mut usize,
+    ) -> (__m512i, __m512i) {
         // add constant
         let (x_0_7, x_8_11) = x;
         let s = unsafe { *(&x_0_7 as *const _ as *const u64) };
@@ -431,7 +422,8 @@ impl State {
     pub fn poseidon2_permutation(&mut self) {
         unsafe {
             let mut x_0_7 = x86_64::_mm512_load_epi64(&self.0[0] as *const _ as *const _);
-            let mut x_8_11 = x86_64::_mm512_maskz_load_epi64(0b00001111, &self.0[8] as *const _ as *const _);
+            let mut x_8_11 =
+                x86_64::_mm512_maskz_load_epi64(0b00001111, &self.0[8] as *const _ as *const _);
 
             (x_0_7, x_8_11) = Self::suggested_mds_mul((x_0_7, x_8_11));
 
@@ -441,7 +433,8 @@ impl State {
             }
 
             for _i in 0..22 {
-                (x_0_7, x_8_11) = Self::partial_round_poseidon2((x_0_7, x_8_11), &mut round_counter);
+                (x_0_7, x_8_11) =
+                    Self::partial_round_poseidon2((x_0_7, x_8_11), &mut round_counter);
             }
 
             for _i in 0..4 {
@@ -473,7 +466,7 @@ mod test {
 
     use crate::field::rand_from_rng;
     use crate::field::{goldilocks::GoldilocksField, Field};
-    use crate::implementations::poseidon2::{State, state_generic_impl};
+    use crate::implementations::poseidon2::{state_generic_impl, State};
     use crate::implementations::poseidon_goldilocks_naive;
     use crate::implementations::suggested_mds;
 
@@ -494,10 +487,17 @@ mod test {
         let mut state_vec = State::from_field_array(state);
         unsafe {
             let x_0_7 = x86_64::_mm512_load_epi64(&state_vec.0[0] as *const _ as *const _);
-            let x_8_11 = x86_64::_mm512_maskz_load_epi64(0b00001111, &state_vec.0[8] as *const _ as *const _);
+            let x_8_11 = x86_64::_mm512_maskz_load_epi64(
+                0b00001111,
+                &state_vec.0[8] as *const _ as *const _,
+            );
             let (x_0_7, x_8_11) = State::apply_round_constants((x_0_7, x_8_11), 0);
             x86_64::_mm512_store_epi64(&mut state_vec.0[0] as *mut _ as *mut _, x_0_7);
-            x86_64::_mm512_mask_store_epi64(&mut state_vec.0[8] as *mut _ as *mut _, 0b00001111, x_8_11);
+            x86_64::_mm512_mask_store_epi64(
+                &mut state_vec.0[8] as *mut _ as *mut _,
+                0b00001111,
+                x_8_11,
+            );
         }
 
         // dbg!(&state_vec);
@@ -524,10 +524,17 @@ mod test {
         let mut state_vec = State::from_field_array(state);
         unsafe {
             let x_0_7 = x86_64::_mm512_load_epi64(&state_vec.0[0] as *const _ as *const _);
-            let x_8_11 = x86_64::_mm512_maskz_load_epi64(0b00001111, &state_vec.0[8] as *const _ as *const _);
+            let x_8_11 = x86_64::_mm512_maskz_load_epi64(
+                0b00001111,
+                &state_vec.0[8] as *const _ as *const _,
+            );
             let (x_0_7, x_8_11) = State::apply_non_linearity((x_0_7, x_8_11));
             x86_64::_mm512_store_epi64(&mut state_vec.0[0] as *mut _ as *mut _, x_0_7);
-            x86_64::_mm512_mask_store_epi64(&mut state_vec.0[8] as *mut _ as *mut _, 0b00001111, x_8_11);
+            x86_64::_mm512_mask_store_epi64(
+                &mut state_vec.0[8] as *mut _ as *mut _,
+                0b00001111,
+                x_8_11,
+            );
         }
 
         // dbg!(&state_vec);
@@ -554,10 +561,17 @@ mod test {
         let mut state_vec = State::from_field_array(state);
         unsafe {
             let x_0_7 = x86_64::_mm512_load_epi64(&state_vec.0[0] as *const _ as *const _);
-            let x_8_11 = x86_64::_mm512_maskz_load_epi64(0b00001111, &state_vec.0[8] as *const _ as *const _);
+            let x_8_11 = x86_64::_mm512_maskz_load_epi64(
+                0b00001111,
+                &state_vec.0[8] as *const _ as *const _,
+            );
             let (x_0_7, x_8_11) = State::partial_round_poseidon2((x_0_7, x_8_11), &mut 1);
             x86_64::_mm512_store_epi64(&mut state_vec.0[0] as *mut _ as *mut _, x_0_7);
-            x86_64::_mm512_mask_store_epi64(&mut state_vec.0[8] as *mut _ as *mut _, 0b00001111, x_8_11);
+            x86_64::_mm512_mask_store_epi64(
+                &mut state_vec.0[8] as *mut _ as *mut _,
+                0b00001111,
+                x_8_11,
+            );
         }
 
         // dbg!(&state_vec);
@@ -582,10 +596,17 @@ mod test {
         let mut state_vec = State::from_field_array(state);
         unsafe {
             let x_0_7 = x86_64::_mm512_load_epi64(&state_vec.0[0] as *const _ as *const _);
-            let x_8_11 = x86_64::_mm512_maskz_load_epi64(0b00001111, &state_vec.0[8] as *const _ as *const _);
+            let x_8_11 = x86_64::_mm512_maskz_load_epi64(
+                0b00001111,
+                &state_vec.0[8] as *const _ as *const _,
+            );
             let (x_0_7, x_8_11) = State::suggested_mds_mul((x_0_7, x_8_11));
             x86_64::_mm512_store_epi64(&mut state_vec.0[0] as *mut _ as *mut _, x_0_7);
-            x86_64::_mm512_mask_store_epi64(&mut state_vec.0[8] as *mut _ as *mut _, 0b00001111, x_8_11);
+            x86_64::_mm512_mask_store_epi64(
+                &mut state_vec.0[8] as *mut _ as *mut _,
+                0b00001111,
+                x_8_11,
+            );
         }
 
         // dbg!(&state_vec);
@@ -595,7 +616,6 @@ mod test {
 
     #[test]
     fn test_i_m_mul() {
-
         let mut rng = rand::thread_rng();
         let mut state = [GoldilocksField::ONE; 12];
 
@@ -613,16 +633,22 @@ mod test {
         let mut state_vec = State::from_field_array(state);
         unsafe {
             let x_0_7 = x86_64::_mm512_load_epi64(&state_vec.0[0] as *const _ as *const _);
-            let x_8_11 = x86_64::_mm512_maskz_load_epi64(0b00001111, &state_vec.0[8] as *const _ as *const _);
+            let x_8_11 = x86_64::_mm512_maskz_load_epi64(
+                0b00001111,
+                &state_vec.0[8] as *const _ as *const _,
+            );
             let (x_0_7, x_8_11) = State::m_i_mul((x_0_7, x_8_11));
             x86_64::_mm512_store_epi64(&mut state_vec.0[0] as *mut _ as *mut _, x_0_7);
-            x86_64::_mm512_mask_store_epi64(&mut state_vec.0[8] as *mut _ as *mut _, 0b00001111, x_8_11);
+            x86_64::_mm512_mask_store_epi64(
+                &mut state_vec.0[8] as *mut _ as *mut _,
+                0b00001111,
+                x_8_11,
+            );
         }
 
         // dbg!(&state_vec);
 
         assert_eq!(state_ref.as_field_array(), state_vec.as_field_array());
-
     }
 
     //test for poseidon2_permutation
@@ -647,6 +673,17 @@ mod test {
         let mut state_vec = State::from_field_array(state);
         state_vec.poseidon2_permutation();
 
-        assert_eq!(state_ref.as_field_array().iter().map(|x| x.to_reduced_u64()).collect_vec(), state_vec.as_field_array().iter().map(|x| x.to_reduced_u64()).collect_vec());
+        assert_eq!(
+            state_ref
+                .as_field_array()
+                .iter()
+                .map(|x| x.to_reduced_u64())
+                .collect_vec(),
+            state_vec
+                .as_field_array()
+                .iter()
+                .map(|x| x.to_reduced_u64())
+                .collect_vec()
+        );
     }
 }

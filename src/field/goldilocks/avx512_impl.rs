@@ -9,7 +9,6 @@ use std::usize;
 
 use super::GoldilocksField;
 
-use std::arch::x86_64::{_mm512_cmpeq_epu64_mask as op_eq, _mm512_slli_epi64, _mm512_maskz_add_epi64};
 use std::arch::x86_64::_mm512_cmplt_epu64_mask;
 use std::arch::x86_64::_mm512_load_epi64 as load_aligned;
 use std::arch::x86_64::_mm512_loadu_epi64 as load_unaligned;
@@ -23,6 +22,9 @@ use std::arch::x86_64::{
     _mm512_mask_sub_epi64, _mm512_movehdup_ps, _mm512_moveldup_ps, _mm512_mul_epu32,
     _mm512_permutex2var_epi64, _mm512_permutexvar_epi64, _mm512_shuffle_i64x2, _mm512_srli_epi64,
     _mm512_unpackhi_epi64, _mm512_unpacklo_epi64,
+};
+use std::arch::x86_64::{
+    _mm512_cmpeq_epu64_mask as op_eq, _mm512_maskz_add_epi64, _mm512_slli_epi64,
 };
 
 use std::arch::x86_64::_mm512_set1_epi64 as op_set1;
@@ -62,7 +64,8 @@ impl MixedGL {
     pub const BARRETT: u128 = 18446744078004518912; // 0x10000000100000000
                                                     // pub const EPSILON: u64 = (1 << 32) - 1;
     const FIELD_ORDER: __m512i = unsafe { transmute(AlignedArray([GoldilocksField::ORDER; 8])) };
-    const EPSILON: __m512i = unsafe { transmute(AlignedArray([GoldilocksField::ORDER.wrapping_neg(); 8])) };
+    const EPSILON: __m512i =
+        unsafe { transmute(AlignedArray([GoldilocksField::ORDER.wrapping_neg(); 8])) };
     const EPSILON_SCALAR: u64 = (1 << 32) - 1;
     const LO_32_BITS_MASK: __mmask16 = unsafe { transmute(0b0101010101010101u16) };
 
@@ -325,7 +328,11 @@ impl MixedGL {
         res
     }
 
-    pub(crate) unsafe fn add_no_double_overflow_64_64_maskz(mask: u8, x: __m512i, y: __m512i) -> __m512i {
+    pub(crate) unsafe fn add_no_double_overflow_64_64_maskz(
+        mask: u8,
+        x: __m512i,
+        y: __m512i,
+    ) -> __m512i {
         let res_wrapped = _mm512_maskz_add_epi64(mask, x, y);
         let mask = _mm512_cmplt_epu64_mask(res_wrapped, y) & mask; // mask set if add overflowed
         let res = _mm512_mask_sub_epi64(res_wrapped, mask, res_wrapped, Self::FIELD_ORDER);
