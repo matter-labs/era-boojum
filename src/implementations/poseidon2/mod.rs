@@ -4,13 +4,58 @@ use crate::field::goldilocks::GoldilocksField;
 pub mod params;
 
 pub mod state_generic_impl;
-#[cfg(any(target_feature = "neon", target_feature = "avx2"))]
+#[cfg(not(any(
+    target_feature = "neon",
+    target_feature = "avx2",
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+)))]
+pub use state_generic_impl::*;
+
+#[cfg(all(
+    any(target_feature = "neon", target_feature = "avx2"),
+    not(any(
+        target_feature = "avx512bw",
+        target_feature = "avx512cd",
+        target_feature = "avx512dq",
+        target_feature = "avx512f",
+        target_feature = "avx512vl"
+    ))
+))]
 pub mod state_vectorized_double;
 
-#[cfg(not(any(target_feature = "neon", target_feature = "avx2")))]
-pub use state_generic_impl::*;
-#[cfg(any(target_feature = "neon", target_feature = "avx2"))]
+#[cfg(all(
+    any(target_feature = "neon", target_feature = "avx2"),
+    not(any(
+        target_feature = "avx512bw",
+        target_feature = "avx512cd",
+        target_feature = "avx512dq",
+        target_feature = "avx512f",
+        target_feature = "avx512vl"
+    ))
+))]
 pub use state_vectorized_double::*;
+
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+pub mod state_avx512;
+
+#[cfg(all(
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+pub use state_avx512::*;
 
 use crate::algebraic_props::round_function::*;
 use crate::field::traits::field::Field;

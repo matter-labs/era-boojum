@@ -15,13 +15,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "benchmarks"
-version = "0.1.0"
-dependencies = [
- "boojum",
-]
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -79,14 +72,13 @@ dependencies = [
  "lazy_static",
  "num-modular",
  "num_cpus",
- "packed_simd_2",
+ "packed_simd",
  "pairing_ce",
  "rand 0.8.5",
  "rayon",
  "serde",
  "sha2",
  "sha3",
- "simd_aligned",
  "smallvec",
  "unroll",
 ]
@@ -494,9 +486,9 @@ checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 
 [[package]]
 name = "libm"
-version = "0.1.4"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
+checksum = "f7012b1bbb0719e1097c47611d3898568c546d597c2e74d66f6087edd5233ff4"
 
 [[package]]
 name = "memchr"
@@ -551,6 +543,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f30b0abd723be7e2ffca1272140fac1a2f084c77ec3e123c192b66af1ee9e6c2"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -570,13 +563,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
-name = "packed_simd_2"
-version = "0.3.8"
+name = "packed_simd"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
+checksum = "1f9f08af0c877571712e2e3e686ad79efad9657dbf0f7c3c8ba943ff6c38932d"
 dependencies = [
  "cfg-if",
- "libm",
+ "num-traits",
 ]
 
 [[package]]
@@ -677,6 +670,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "profiling-target"
+version = "0.1.0"
+dependencies = [
+ "boojum",
 ]
 
 [[package]]
@@ -844,14 +844,6 @@ checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
 dependencies = [
  "digest",
  "keccak",
-]
-
-[[package]]
-name = "simd_aligned"
-version = "0.2.1"
-source = "git+https://github.com/dstrub18/simd_aligned_rust.git?branch=master#85034c25fe2520657fc7659b62978a7150a11bdd"
-dependencies = [
- "packed_simd_2",
 ]
 
 [[package]]

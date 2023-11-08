@@ -5,6 +5,7 @@ use std::{env, collections::HashMap, time::Instant};
 use boojum::{field::{traits::field_like::{PrimeFieldLike, PrimeFieldLikeVectorized}, goldilocks::{MixedGL, GoldilocksField}}, worker::Worker};
 
 mod init;
+mod poseidon2;
 
 const REPETITIONS_ADD: u64 = 4000;
 const REPETITIONS_FFT: u64 = 100;
@@ -26,7 +27,24 @@ fn main() {
         ("fft", fft as fn()),
         ("fft_scalar", fft_scalar as fn()),
         ("fft_packed", fft_packed as fn()),
+        ("pos2_mds_mul_scalar", poseidon2::pos2_mds_mul_scalar as fn()),
+        ("pos2_mds_mul_packed", poseidon2::pos2_mds_mul_packed as fn()),
+        ("poseidon2_scalar", poseidon2::poseidon2_scalar as fn()),
+        ("poseidon2_packed", poseidon2::poseidon2_packed as fn()),
     ].into_iter().collect();
+    
+    println!("features:");
+    let mut features = Vec::new();
+    if cfg!(target_feature = "avx2") { features.push("Using avx2"); }
+    if cfg!(target_feature = "avx512bw") { features.push("Using avx512bw"); }
+    if cfg!(target_feature = "avx512cd") { features.push("Using avx512cd"); }
+    if cfg!(target_feature = "avx512dq") { features.push("Using avx512dq"); }
+    if cfg!(target_feature = "avx512f") { features.push("Using avx512f"); }
+    if cfg!(target_feature = "avx512vl") { features.push("Using avx512vl"); }
+    for s in features {
+        println!("{s}");
+    }
+    println!("---");
 
     match args.len() {
         0 | 1 => {
@@ -37,16 +55,6 @@ fn main() {
             }
         },
         _ => {
-            let mut features = Vec::new();
-            if cfg!(target_feature = "avx2") { features.push("Using avx2"); }
-            if cfg!(target_feature = "avx512bw") { features.push("Using avx512bw"); }
-            if cfg!(target_feature = "avx512cd") { features.push("Using avx512cd"); }
-            if cfg!(target_feature = "avx512dq") { features.push("Using avx512dq"); }
-            if cfg!(target_feature = "avx512f") { features.push("Using avx512f"); }
-            if cfg!(target_feature = "avx512vl") { features.push("Using avx512vl"); }
-            for s in features {
-                println!("{s}");
-            }
             map[args[1].as_str()]();
         }
     }
