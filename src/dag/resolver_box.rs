@@ -8,9 +8,9 @@ use crate::{
 
 use super::resolver::ResolverIx;
 
-pub(crate) trait ResolutionFn<V> = FnOnce(&[V], &mut DstBuffer<V>) + Send + Sync;
+pub trait ResolutionFn<V> = FnOnce(&[V], &mut DstBuffer<V>) + Send + Sync;
 
-pub(crate) struct ResolverBox<V> {
+pub struct ResolverBox<V> {
     // I assume that reallocations should not matter that much, in comparison
     // to increased complexity of enabling non reallocated growth. Even with
     // 1Gb copy we're talking about hundreds of milliseconds. As the size is
@@ -333,7 +333,7 @@ struct ResolverHeader {
 /// ```ignore
 /// [ inputs(Place) ][ outputs(Place) ][ resolve_fn(*) ]
 /// ```
-pub(crate) struct Resolver {
+pub struct Resolver {
     header: ResolverHeader,
     payload: [u8],
 }

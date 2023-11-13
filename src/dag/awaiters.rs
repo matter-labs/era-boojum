@@ -16,7 +16,7 @@ pub(crate) struct AwaiterStats {
 }
 
 /// The broker provides awaiters, which are used to wait for a particular resolution.
-pub(crate) struct AwaitersBroker {
+pub struct AwaitersBroker {
     /// Tracks the maximum resolved location.
     max_resolved: AtomicU64,
     pub(crate) stats: UnsafeCell<AwaiterStats>,

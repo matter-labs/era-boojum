@@ -34,7 +34,7 @@ use crate::{
 
 use super::{
     guide::OrderInfo,
-    resolver::{OrderIx, ResolverCommonData, ResolverIx},
+    resolver::{OrderIx, ResolverCommonData, ResolverIx, ResolverComms},
     resolver_box::Resolver,
 };
 
@@ -68,6 +68,7 @@ pub(crate) struct ResolutionWindow<V> {
     pool: Vec<JoinHandle<()>>,
     stats: ResolutionWindowStats,
 
+    comms: Arc<ResolverComms>,
     common: Arc<ResolverCommonData<V>>,
 
     // Debugging
@@ -85,6 +86,7 @@ unsafe impl<V> Send for ResolutionWindow<V> {}
 
 impl<V: SmallField + 'static> ResolutionWindow<V> {
     pub(crate) fn run(
+        comms: Arc<ResolverComms>,
         common: Arc<ResolverCommonData<V>>,
         debug_track: &[Place],
         threads: u32,
@@ -136,6 +138,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             stats: ResolutionWindowStats::default(),
 
             common,
+            comms,
 
             track_list: Vec::new(),
             execution_list: if cfg!(cr_paranoia_mode) { 1 << 26 } else { 0 }
@@ -221,8 +224,8 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             // Check if worker has paniced, mark the window as panicked and
             // end the resolution.
             if let Some(panic) = self.channel.get_panic() {
-                self.common.comms.rw_panic.set(Some(panic));
-                self.common
+                self.comms.rw_panic.set(Some(panic));
+                self
                     .comms
                     .rw_panicked
                     .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -347,7 +350,6 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             self.stats.total_control_iterations += 1;
 
             let registration_complete = self
-                .common
                 .comms
                 .registration_complete
                 .load(std::sync::atomic::Ordering::Relaxed);
@@ -416,7 +418,6 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             // added cause the registration thread waits for some future or
             // already failed resolution.
             if self
-                .common
                 .comms
                 .rw_panicked
                 .load(std::sync::atomic::Ordering::Relaxed)
