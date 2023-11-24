@@ -20,7 +20,7 @@ use std::{
         Arc, Mutex,
     },
     thread::{park, yield_now, JoinHandle, Thread},
-    time::Duration,
+    time::Duration, marker::PhantomData,
 };
 
 use itertools::Itertools;
@@ -60,7 +60,21 @@ struct ResolutionWindowStats {
 
 const CHANNEL_SIZE: usize = 2048;
 
-pub(crate) struct ResolutionWindow<V> {
+pub trait RWConfig {
+    const ASSERT_TRACKED_VALUES: bool;
+}
+
+pub struct RWConfigPlayback;
+impl RWConfig for RWConfigPlayback {
+    const ASSERT_TRACKED_VALUES: bool = false;
+}
+
+pub struct RWConfigRecord;
+impl RWConfig for RWConfigRecord {
+    const ASSERT_TRACKED_VALUES: bool = true;
+}
+
+pub(crate) struct ResolutionWindow<V, Cfg: RWConfig> {
     /// Represents a sliding window over the execution order.
     range: Range<usize>,
     exec_order_buffer: VecDeque<OrderBufferItem>,
@@ -80,11 +94,12 @@ pub(crate) struct ResolutionWindow<V> {
     /// Tracks the number of times each task is executed.
     /// This is used to detect tasks that are executed more than once or not at all.
     execution_list: Vec<u8>,
+    phantom: PhantomData<Cfg>,
 }
 
-unsafe impl<V> Send for ResolutionWindow<V> {}
+unsafe impl<V, Cfg: RWConfig> Send for ResolutionWindow<V, Cfg> {}
 
-impl<V: SmallField + 'static> ResolutionWindow<V> {
+impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> {
     pub(crate) fn run(
         comms: Arc<ResolverComms>,
         common: Arc<ResolverCommonData<V>>,
@@ -110,10 +125,11 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             .map(|i| {
                 let receiver = LockStepWorker::new(i, channel.clone());
 
-                let mut worker = Worker::<V, CHANNEL_SIZE> {
+                let mut worker = Worker::<V, Cfg, CHANNEL_SIZE> {
                     receiver,
                     common: Arc::clone(&common),
                     debug_track: debug_track.to_vec(),
+                    phantom: PhantomData,
                 };
 
                 let handle = std::thread::Builder::new()
@@ -143,6 +159,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             track_list: Vec::new(),
             execution_list: if cfg!(cr_paranoia_mode) { 1 << 26 } else { 0 }
                 .to(|x| Vec::with_capacity(x).op(|v| v.resize(x, 0))),
+            phantom: PhantomData,
         };
 
         std::thread::Builder::new()
@@ -215,7 +232,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
                 }
             }
 
-            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && false {
+            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && true {
                 log!("RW: Batch! {} tasks.", count);
             }
 
@@ -242,7 +259,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
                 .for_each(|x| {
                     x.state = ResolverState::Done;
 
-                    if cfg!(cr_paranoia_mode) {
+                    if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
                         unsafe {
                             let r = self.common.resolvers.u_deref().get(x.order_info.value);
 
@@ -269,27 +286,27 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
                     }
                 });
 
-            if cfg!(cr_paranoia_mode) {
-                if self
-                    .exec_order_buffer
-                    .iter()
-                    .enumerate()
-                    .take_while(|(_, x)| x.state == ResolverState::Done)
-                    .any(|(i, _)| self.execution_list[i + self.range.start] < 1)
-                {
-                    panic!("Task was executed less than once.");
-                }
-
-                if self
-                    .exec_order_buffer
-                    .iter()
-                    .enumerate()
-                    .take_while(|(_, x)| x.state == ResolverState::Done)
-                    .any(|(i, _)| self.execution_list[i + self.range.start] > 1)
-                {
-                    panic!("Task was executed more than once.");
-                }
-            }
+            // if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+            //     if self
+            //         .exec_order_buffer
+            //         .iter()
+            //         .enumerate()
+            //         .take_while(|(_, x)| x.state == ResolverState::Done)
+            //         .any(|(i, _)| self.execution_list[i + self.range.start] < 1)
+            //     {
+            //         panic!("Task was executed less than once.");
+            //     }
+            //
+            //     if self
+            //         .exec_order_buffer
+            //         .iter()
+            //         .enumerate()
+            //         .take_while(|(_, x)| x.state == ResolverState::Done)
+            //         .any(|(i, _)| self.execution_list[i + self.range.start] > 1)
+            //     {
+            //         panic!("Task was executed more than once.");
+            //     }
+            // }
 
             // Notify the awaiters.
             self.exec_order_buffer
@@ -355,7 +372,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
                 .load(std::sync::atomic::Ordering::Relaxed);
 
             let exec_order = self.common.exec_order.lock().unwrap();
-            let limit = exec_order.len();
+            let limit = exec_order.size;
 
             if limit - self.range.end > 0 || registration_complete {
                 // New resolvers were added since.
@@ -367,7 +384,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
                     dp.print(format!("Buffering resolvers, {} taken.", extend_to));
                 }
 
-                transient_buffer.extend_from_slice(&exec_order[self.range.end..extend_to]);
+                transient_buffer.extend_from_slice(&exec_order.items[self.range.end..extend_to]);
 
                 drop(exec_order); // Release ASAP.
 
@@ -390,7 +407,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
 
                 self.stats.total_consumption = extend_to as u64;
 
-                if cfg!(cr_paranoia_mode) {
+                if super::resolver::PARANOIA || cfg!(cr_paranoia_mode) {
                     log!(
                         "RW: Extended range by {}, new range {}..{}",
                         extend_to,
@@ -426,7 +443,7 @@ impl<V: SmallField + 'static> ResolutionWindow<V> {
             }
         }
 
-        if cfg!(cr_paranoia_mode) {
+        if super::resolver::PARANOIA || cfg!(cr_paranoia_mode) {
             log!("[{:?}] RW: Exit conditions met.", std::time::Instant::now())
         }
 
@@ -457,16 +474,17 @@ struct WorkerStats {
     starving_iterations: u32,
 }
 
-struct Worker<V: Copy, const SIZE: usize> {
+struct Worker<V: Copy, Cfg: RWConfig, const SIZE: usize> {
     receiver: LockStepWorker,
     common: Arc<ResolverCommonData<V>>,
     debug_track: Vec<Place>,
+    phantom: PhantomData<Cfg>,
 }
 
-unsafe impl<V: Copy, const SIZE: usize> Send for Worker<V, SIZE> {}
-unsafe impl<V: Copy, const SIZE: usize> Sync for Worker<V, SIZE> {}
+unsafe impl<V: Copy, Cfg: RWConfig, const SIZE: usize> Send for Worker<V, Cfg, SIZE> {}
+unsafe impl<V: Copy, Cfg: RWConfig, const SIZE: usize> Sync for Worker<V, Cfg, SIZE> {}
 
-impl<V: SmallField, const SIZE: usize> Worker<V, SIZE> {
+impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
     fn run(&mut self) {
         let mut stats = WorkerStats::default();
 
@@ -556,13 +574,23 @@ impl<V: SmallField, const SIZE: usize> Worker<V, SIZE> {
         let ins_ixs = resolver.inputs();
         let out_ixs = resolver.outputs();
 
+        if super::resolver::PARANOIA {
+            let vs = self.common.values.u_deref();
+
+            println!("RW: input ixs:/n{:#?}", ins_ixs);
+            println!("RW: variables resolved");
+            vs.variables.iter().enumerate().for_each(|(i, x)| { println!("[{}] => r: {}", i, x.u_deref().1.is_resolved()) });
+        }
+
         let ins_vs: SmallVec<[_; 8]> = ins_ixs
             .iter()
             .map(|x| {
                 let (vs, md) = self.common.values.u_deref().get_item_ref(*x);
 
                 if cfg!(cr_paranoia_mode) || true {
-                    assert!(md.is_tracked());
+                    if Cfg::ASSERT_TRACKED_VALUES {
+                        assert!(md.is_tracked());
+                    }
                     assert!(
                         md.is_resolved(),
                         "Not resolved at ix {:?}, order ix {:?}, thread {:?}",

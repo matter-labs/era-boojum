@@ -45,7 +45,7 @@ pub struct CSReferenceImplementation<
     // NOTE: it's a storage, it knows nothing about GateTool trait to avoid code to go from Box<dyn GateTool> into Box<dyn Any>
     pub(crate) dynamic_tools:
         HashMap<TypeId, (TypeId, Box<dyn std::any::Any + Send + Sync + 'static>)>,
-    pub(crate) variables_storage: RwLock<CircuitResolver<F, CFG::ResolverConfig>>,
+    pub(crate) variables_storage: RwLock<CircuitResolver<F, dag::sorter_runtime::RuntimeResolverSorter<F, CFG::ResolverConfig>>>,
 
     /// Gate layout hints - we create our CS with only "general purpose" columns,
     /// and then if the gate is added in the specialized columns we should extend our
@@ -89,7 +89,7 @@ pub struct CSReferenceAssembly<
     pub lookup_tables: Vec<std::sync::Arc<LookupTableWrapper<F>>>,
     pub lookup_multiplicities: Vec<std::sync::Arc<Vec<AtomicU32>>>, // per each subarbument (index 0) we have vector of multiplicities for every table
 
-    pub variables_storage: RwLock<CircuitResolver<F, CFG::ResolverConfig>>,
+    pub variables_storage: RwLock<CircuitResolver<F, dag::sorter_runtime::RuntimeResolverSorter<F, CFG::ResolverConfig>>>,
 
     pub evaluation_data_over_general_purpose_columns: EvaluationDataOverGeneralPurposeColumns<F, P>,
     pub evaluation_data_over_specialized_columns: EvaluationDataOverSpecializedColumns<F, P>,

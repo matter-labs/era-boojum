@@ -6,7 +6,7 @@ use crate::{
     utils::PipeOp,
 };
 
-use super::resolver::ResolverIx;
+use super::{resolver::ResolverIx, guide::RegistrationNum};
 
 pub trait ResolutionFn<V> = FnOnce(&[V], &mut DstBuffer<V>) + Send + Sync;
 
@@ -41,6 +41,7 @@ impl<V> ResolverBox<V> {
         &mut self,
         inputs: &[Place],
         outputs: &[Place],
+        registration_num: RegistrationNum,
         resolve_fn: F,
         bind_fn_ref: fn(&Resolver, &[V], &mut [&mut V], bool),
     ) -> ResolverIx
@@ -54,6 +55,7 @@ impl<V> ResolverBox<V> {
         let ctor = ResolverDstCtor {
             inputs,
             outputs,
+            registration_num,
             resolve_fn,
             bind_fn_ref,
         };
@@ -201,6 +203,7 @@ where
 {
     inputs: &'a [Place],
     outputs: &'a [Place],
+    registration_num: RegistrationNum,
     resolve_fn: F,
     bind_fn_ref: fn(&Resolver, &[V], &mut [&mut V], bool),
 }
@@ -268,6 +271,7 @@ where
         ResolverHeader {
             input_count: self.inputs.len() as u16,
             output_count: self.outputs.len() as u16,
+            registration_num: self.registration_num,
             resolve_fn_size: size_of::<F>() as u16,
             bind_fn_ref: self.bind_fn_ref as *const (),
         }
@@ -326,6 +330,9 @@ struct ResolverHeader {
     input_count: u16,
     output_count: u16,
     resolve_fn_size: u16,
+    /// This is the registration at which the resolver was added. This is going to be used in
+    /// replay mode to map to the order index.
+    registration_num: RegistrationNum,
     bind_fn_ref: *const (),
 }
 
@@ -353,6 +360,8 @@ impl Resolver {
 
         &*ptr
     }
+
+    pub fn added_at(&self) -> RegistrationNum { self.header.registration_num }
 
     pub fn inputs(&self) -> &[Place] {
         // Safety: Ensured by ctor.
@@ -405,7 +414,7 @@ mod test {
 
     use crate::{
         cs::{traits::cs::DstBuffer, Place, Variable},
-        dag::{resolution_window::invocation_binder, resolver_box::ResolverHeader},
+        dag::{resolution_window::invocation_binder, resolver_box::ResolverHeader, guide::RegistrationNum},
         field::{goldilocks::GoldilocksField, Field},
         log,
     };
@@ -429,6 +438,7 @@ mod test {
         let header = ResolverHeader {
             input_count: 0,
             output_count: 0,
+            registration_num: 0,
             resolve_fn_size: 0,
             bind_fn_ref: binder as *const (),
         };
@@ -452,13 +462,14 @@ mod test {
             &header.bind_fn_ref as *const _ as usize - base_addr
         );
 
-        assert_eq!(size_of::<ResolverHeader>(), 16);
+        assert_eq!(size_of::<ResolverHeader>(), 24);
         assert_eq!(align_of::<ResolverHeader>(), 8);
     }
 
     fn run_invariant_asserts<Fn>(
         ins: &[Place],
         out: &[Place],
+        registration_num: RegistrationNum,
         res_fn: &Fn,
         bind_fn: fn(&Resolver, &[F], &mut [&mut F], bool),
         value: &Resolver,
@@ -481,6 +492,8 @@ mod test {
 
         assert_eq!(ins.len(), { value.inputs().len() });
         assert_eq!(out.len(), { value.outputs().len() });
+
+        assert_eq!(registration_num, value.header.registration_num);
 
         assert!(ins.iter().zip(value.inputs()).all(|(x, y)| { x == y }));
         assert!(out.iter().zip(value.outputs()).all(|(x, y)| { x == y }));
@@ -518,11 +531,11 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let ix = rbox.push(&ins, &out, resolution_fn, binder);
+        let ix = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
 
         let value = unsafe { rbox.get(ix) };
 
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value);
+        run_invariant_asserts(&ins, &out, 1<< 7, &resolution_fn, binder, value);
     }
 
     #[test]
@@ -555,11 +568,11 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let ix = rbox.push(&ins, &out, resolution_fn, binder);
+        let ix = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
 
         let value = unsafe { rbox.get(ix) };
 
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value);
+        run_invariant_asserts(&ins, &out, 1 << 7, &resolution_fn, binder, value);
     }
 
     #[test]
@@ -589,14 +602,14 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let _ = rbox.push(&ins, &out, resolution_fn, binder);
-        let ix = rbox.push(&ins, &out, resolution_fn, binder);
+        let _ = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
+        let ix = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
 
         assert_eq!(expected_move, ix.normalized());
 
         let value = unsafe { rbox.get(ix) };
 
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value)
+        run_invariant_asserts(&ins, &out, 1 << 7, &resolution_fn, binder, value)
     }
 
     #[test]
@@ -624,12 +637,12 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let ix = rbox.push(&ins, &out, resolution_fn, binder);
-        let _ = rbox.push(&ins, &out, resolution_fn, binder);
+        let ix = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
+        let _ = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
 
         let value = unsafe { rbox.get(ix) };
 
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value)
+        run_invariant_asserts(&ins, &out, 1 << 7, &resolution_fn, binder, value)
     }
 
     #[test]
@@ -651,8 +664,8 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let _ = rbox.push(&ins, &out, resolution_fn, binder);
-        let _ = rbox.push(&ins, &out, resolution_fn, binder);
+        let _ = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
+        let _ = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
     }
 
     #[test]
@@ -674,14 +687,14 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let ix1 = rbox.push(&ins, &out, resolution_fn, binder);
-        let ix2 = rbox.push(&ins, &out, resolution_fn, binder);
+        let ix1 = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
+        let ix2 = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
 
         let value = unsafe { rbox.get(ix1) };
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value);
+        run_invariant_asserts(&ins, &out, 1 << 7, &resolution_fn, binder, value);
 
         let value = unsafe { rbox.get(ix2) };
-        run_invariant_asserts(&ins, &out, &resolution_fn, binder, value);
+        run_invariant_asserts(&ins, &out, 1 << 7, &resolution_fn, binder, value);
     }
 
     #[test]
@@ -724,7 +737,7 @@ mod test {
 
         let binder = get_binder(&resolution_fn);
 
-        let _ = rbox.push(&ins, &out, resolution_fn, binder);
+        let _ = rbox.push(&ins, &out, 1 << 7, resolution_fn, binder);
 
         assert_eq!(0, drop_invoked);
     }

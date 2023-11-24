@@ -33,7 +33,7 @@ impl<
     > ConstraintSystem<F> for CSReferenceImplementation<F, P, CFG, GC, T>
 {
     type Config = CFG;
-    type WitnessSource = CircuitResolver<F, CFG::ResolverConfig>;
+    type WitnessSource = CircuitResolver<F, crate::dag::sorter_runtime::RuntimeResolverSorter<F, CFG::ResolverConfig>>;
     type GatesConfig = GC;
     type StaticToolbox = T;
 
