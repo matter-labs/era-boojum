@@ -232,7 +232,7 @@ impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> 
                 }
             }
 
-            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && true {
+            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && false {
                 log!("RW: Batch! {} tasks.", count);
             }
 
@@ -574,7 +574,7 @@ impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
         let ins_ixs = resolver.inputs();
         let out_ixs = resolver.outputs();
 
-        if super::resolver::PARANOIA {
+        if super::resolver::PARANOIA && false {
             let vs = self.common.values.u_deref();
 
             println!("RW: input ixs:/n{:#?}", ins_ixs);

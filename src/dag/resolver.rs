@@ -129,7 +129,7 @@ unsafe impl<V: SmallField, RS: ResolverSorter<V>> Sync for CircuitResolver<V, RS
 // TODO: try to eliminate this constraint to something more general, preferably defatult.
 impl<V: SmallField, RS: ResolverSorter<V>> CircuitResolver<V, RS> {
     pub fn new(opts: RS::Arg) -> Self {
-        let threads = 3;
+        let threads = 1;
 
         let debug_track = vec![];
 
@@ -940,7 +940,7 @@ mod test {
     }
 
     #[test]
-    fn awaiter_returns_for_resolved_value() {
+    fn awaiter_returns_for_resolved_value_record_mode() {
         let limit = 1 << 13;
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
@@ -948,9 +948,46 @@ mod test {
                 desired_parallelism: 2048,
             });
 
-        // let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
-        //     outs.push(ins[0]);
-        // };
+        populate(&mut storage, limit);
+
+        // Ensure 4'th element is done.
+        while storage
+            .try_get_value(Place::from_variable(Variable::from_variable_index(4)))
+            .is_none()
+        {
+            spin_loop();
+        }
+
+        storage
+            .get_awaiter([Place::from_variable(Variable::from_variable_index(4))])
+            .wait();
+
+        assert_eq!(
+            F::from_u64_with_reduction(0x12),
+            storage.get_value_unchecked(Place::from_variable(Variable::from_variable_index(4)))
+        );
+    }
+
+    #[test]
+    fn awaiter_returns_for_resolved_value_playback_mode() {
+        let limit = 1 << 13;
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: limit * 5,
+                desired_parallelism: 2048,
+            });
+
+        populate(&mut storage, limit);
+
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
 
         populate(&mut storage, limit);
 
@@ -1353,7 +1390,7 @@ mod test {
         }
     }
 
-    fn populate(storage: &mut CircuitResolver<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>, limit: usize) {
+    fn populate<RS: ResolverSorter<F>>(storage: &mut CircuitResolver<F, RS>, limit: usize) {
 
         let mut var_idx = 0u64;
         for _ in 0..limit {

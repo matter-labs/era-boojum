@@ -22,6 +22,10 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Playbac
         exec_order.items[order_len .. order_len + self.exec_order_buffer.len()]
             .copy_from_slice(&self.exec_order_buffer);
 
+        if super::resolver::PARANOIA {
+            println!("RS_P: buffer written, {} item", self.exec_order_buffer.len());
+        }
+
         match size_override {
             None => exec_order.size = self.record.items[self.registrations_added - 1].order_len,
             Some(x) => exec_order.size = x
