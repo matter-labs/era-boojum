@@ -1,9 +1,12 @@
 use std::cell::UnsafeCell;
+use std::fmt::Debug;
 use std::hint::spin_loop;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+
+use bincode::Config;
 
 use crate::config::CSResolverConfig;
 use crate::cs::traits::cs::DstBuffer;
@@ -140,11 +143,16 @@ impl ResolutionRecord {
     }
 }
 
-pub trait ResolverSorter<F: SmallField>: Sized {
-    type Arg;
-    type Config: resolution_window::RWConfig + 'static;
+pub trait TrackId: From<u64> + Into<u64> + Into<usize> + Eq + Ord + Debug + Default + Clone + Copy {}
 
-    fn new(opts: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F>>);
+pub trait ResolverSorter<F: SmallField>: Sized
+{
+    type Arg;
+    type Config: resolution_window::RWConfig<Self::TrackId> + 'static;
+    type TrackId: TrackId + 'static;
+    
+
+    fn new(opts: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>);
     fn set_value(&mut self, key: Place, value: F);
     fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
     where

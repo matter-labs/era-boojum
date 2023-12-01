@@ -33,9 +33,9 @@ use crate::{
 };
 
 use super::{
-    guide::OrderInfo,
+    guide::{OrderInfo, GuideLoc},
     resolver::{OrderIx, ResolverCommonData, ResolverIx, ResolverComms},
-    resolver_box::Resolver,
+    resolver_box::Resolver, TrackId,
 };
 
 #[derive(PartialEq, Eq, Debug)]
@@ -60,21 +60,36 @@ struct ResolutionWindowStats {
 
 const CHANNEL_SIZE: usize = 2048;
 
-pub trait RWConfig {
+pub trait RWConfig<T: TrackId> {
+    type TrackId: TrackId = T;
     const ASSERT_TRACKED_VALUES: bool;
 }
 
-pub struct RWConfigPlayback;
-impl RWConfig for RWConfigPlayback {
+// pub struct RWConfigPlayback<T>(PhantomData<T>);
+// impl<T: TrackId> RWConfig for RWConfigPlayback<T> {
+//     type TrackId = OrderIx;
+//     const ASSERT_TRACKED_VALUES: bool = false;
+// }
+//
+// pub struct RWConfigRecord<T>(PhantomData<T>);
+// impl<T: TrackId> RWConfig for RWConfigRecord<T> {
+//     type TrackId = GuideLoc;
+//     const ASSERT_TRACKED_VALUES: bool = true;
+// }
+
+pub struct RWConfigPlayback<T>(PhantomData<T>);
+impl RWConfig<OrderIx> for RWConfigPlayback<OrderIx> {
+    type TrackId = OrderIx;
     const ASSERT_TRACKED_VALUES: bool = false;
 }
 
-pub struct RWConfigRecord;
-impl RWConfig for RWConfigRecord {
+pub struct RWConfigRecord<T>(PhantomData<T>);
+impl RWConfig<GuideLoc> for RWConfigRecord<GuideLoc> {
+    type TrackId = GuideLoc;
     const ASSERT_TRACKED_VALUES: bool = true;
 }
 
-pub(crate) struct ResolutionWindow<V, Cfg: RWConfig> {
+pub(crate) struct ResolutionWindow<V, T: TrackId, Cfg: RWConfig<T>> {
     /// Represents a sliding window over the execution order.
     range: Range<usize>,
     exec_order_buffer: VecDeque<OrderBufferItem>,
@@ -83,7 +98,7 @@ pub(crate) struct ResolutionWindow<V, Cfg: RWConfig> {
     stats: ResolutionWindowStats,
 
     comms: Arc<ResolverComms>,
-    common: Arc<ResolverCommonData<V>>,
+    common: Arc<ResolverCommonData<V, T>>,
 
     // Debugging
     /// Tracks tasks being sent and received by the control thread. Those are
@@ -97,12 +112,12 @@ pub(crate) struct ResolutionWindow<V, Cfg: RWConfig> {
     phantom: PhantomData<Cfg>,
 }
 
-unsafe impl<V, Cfg: RWConfig> Send for ResolutionWindow<V, Cfg> {}
+unsafe impl<V, T: TrackId, Cfg: RWConfig<T>> Send for ResolutionWindow<V, T, Cfg> {}
 
-impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> {
+impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> ResolutionWindow<V, T, Cfg> {
     pub(crate) fn run(
         comms: Arc<ResolverComms>,
-        common: Arc<ResolverCommonData<V>>,
+        common: Arc<ResolverCommonData<V, T>>,
         debug_track: &[Place],
         threads: u32,
     ) -> JoinHandle<()> {
@@ -125,7 +140,7 @@ impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> 
             .map(|i| {
                 let receiver = LockStepWorker::new(i, channel.clone());
 
-                let mut worker = Worker::<V, Cfg, CHANNEL_SIZE> {
+                let mut worker = Worker::<V, T, Cfg, CHANNEL_SIZE> {
                     receiver,
                     common: Arc::clone(&common),
                     debug_track: debug_track.to_vec(),
@@ -199,7 +214,7 @@ impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> 
 
                 task.state = ResolverState::Enqueued;
 
-                data[data_ix].push(order_ix as u32, task.order_info.value);
+                data[data_ix].push(order_ix.into(), task.order_info.value);
 
                 if cfg!(cr_paranoia_mode) {
                     self.execution_list[order_ix] += 1;
@@ -232,7 +247,7 @@ impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> 
                 }
             }
 
-            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && false {
+            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && true {
                 log!("RW: Batch! {} tasks.", count);
             }
 
@@ -334,7 +349,7 @@ impl<V: SmallField + 'static, Cfg: RWConfig + 'static> ResolutionWindow<V, Cfg> 
                                 .outputs()
                         })
                         .map(|x| unsafe {
-                            self.common.values.u_deref().get_item_ref(*x).1.guide_loc
+                            self.common.values.u_deref().get_item_ref(*x).1.tracker.clone()
                         })
                         .for_each(|x| awaiters.notify(x));
 
@@ -474,17 +489,17 @@ struct WorkerStats {
     starving_iterations: u32,
 }
 
-struct Worker<V: Copy, Cfg: RWConfig, const SIZE: usize> {
+struct Worker<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> {
     receiver: LockStepWorker,
-    common: Arc<ResolverCommonData<V>>,
+    common: Arc<ResolverCommonData<V, T>>,
     debug_track: Vec<Place>,
     phantom: PhantomData<Cfg>,
 }
 
-unsafe impl<V: Copy, Cfg: RWConfig, const SIZE: usize> Send for Worker<V, Cfg, SIZE> {}
-unsafe impl<V: Copy, Cfg: RWConfig, const SIZE: usize> Sync for Worker<V, Cfg, SIZE> {}
+unsafe impl<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> Send for Worker<V, T, Cfg, SIZE> {}
+unsafe impl<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> Sync for Worker<V, T, Cfg, SIZE> {}
 
-impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
+impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> Worker<V, T, Cfg, SIZE> {
     fn run(&mut self) {
         let mut stats = WorkerStats::default();
 
@@ -525,7 +540,7 @@ impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
                                     let inputs = resolver.inputs();
 
                                     panic!(
-                                        "Panic in resolution invocation. Order {}, resolver index {:?}', \
+                                        "Panic in resolution invocation. Order {:?}, resolver index {:?}', \
                                          input count {}, input ixs {:?}\nWorker stats:\n{:?}\n", 
                                         order_ix,
                                         resolver_ix,
@@ -577,7 +592,7 @@ impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
         if super::resolver::PARANOIA && false {
             let vs = self.common.values.u_deref();
 
-            println!("RW: input ixs:/n{:#?}", ins_ixs);
+            println!("RW: input ixs: {:#?}", ins_ixs);
             println!("RW: variables resolved");
             vs.variables.iter().enumerate().for_each(|(i, x)| { println!("[{}] => r: {}", i, x.u_deref().1.is_resolved()) });
         }
@@ -642,7 +657,7 @@ impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
                 .iter()
                 .find(|x| resolver.inputs().contains(x))
             {
-                log!("RW: invoking at ix {} with tracked input {:?}", order_ix, x);
+                log!("RW: invoking at ix {:?} with tracked input {:?}", order_ix, x);
 
                 track = true;
             }
@@ -653,7 +668,7 @@ impl<V: SmallField, Cfg: RWConfig, const SIZE: usize> Worker<V, Cfg, SIZE> {
                 .find(|x| resolver.outputs().contains(x))
             {
                 log!(
-                    "RW: invoking at ix {} with with tracked output {:?}",
+                    "RW: invoking at ix {:?} with with tracked output {:?}",
                     order_ix,
                     x
                 );
@@ -708,7 +723,7 @@ impl LockStepElement {
     fn new() -> Self {
         Self {
             count: 0,
-            items: [(0, ResolverIx::new_resolver(0)); LOCK_STEP_ELEM_SIZE],
+            items: [(0u32.into(), ResolverIx::new_resolver(0)); LOCK_STEP_ELEM_SIZE],
             done: false,
         }
     }

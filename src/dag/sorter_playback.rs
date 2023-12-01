@@ -4,9 +4,14 @@ use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolv
 
 use super::{sorter_runtime::RuntimeResolverSorter, ResolverSorter, ResolutionRecordStorage, resolver::{CircuitResolverOpts, ResolverCommonData}, ResolutionRecord, resolution_window::invocation_binder, guide::RegistrationNum};
 
+struct OrderBufferItem {
+    resolver_ix: ResolverIx,
+    record_item: ResolutionRecordItem
+}
+
 pub struct PlaybackResolverSorter<F, Rrs: ResolutionRecordStorage, Cfg> {
-    common: Arc<ResolverCommonData<F>>,
-    exec_order_buffer: Vec<OrderInfo<ResolverIx>>,
+    common: Arc<ResolverCommonData<F, OrderIx>>,
+    exec_order_buffer: Vec<OrderBufferItem>,
     record: Rc<ResolutionRecord>,
     registrations_added: usize,
     phantom: PhantomData<(Cfg, Rrs)>,
@@ -17,21 +22,27 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Playbac
     fn write_buffer(&mut self, size_override: Option<usize>) {
         let mut exec_order = self.common.exec_order.lock().unwrap();
 
-        let order_len = exec_order.size;
-
-        exec_order.items[order_len .. order_len + self.exec_order_buffer.len()]
-            .copy_from_slice(&self.exec_order_buffer);
-
-        if super::resolver::PARANOIA {
-            println!("RS_P: buffer written, {} item", self.exec_order_buffer.len());
+        for i in &self.exec_order_buffer {
+            exec_order.items[usize::from(i.record_item.order_ix)] = OrderInfo::new(
+                i.resolver_ix,
+                GuideMetadata::new(i.record_item.parallelism, 0, 0))
         }
 
-        match size_override {
-            None => exec_order.size = self.record.items[self.registrations_added - 1].order_len,
-            Some(x) => exec_order.size = x
-        };
+
+        exec_order.size = match size_override {
+            None => 
+                match self.registrations_added == self.record.registrations_count {
+                    false => self.record.items[self.registrations_added - 1].order_len,
+                    true => self.record.registrations_count
+                },
+            Some(x) => x
+        };;
 
         self.exec_order_buffer.clear();
+
+        if super::resolver::PARANOIA {
+            println!("RS_P: buffer written, {} item, size: {}", self.exec_order_buffer.len(), exec_order.size);
+        }
     }
 }
 
@@ -39,9 +50,10 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
     for PlaybackResolverSorter<F, Rrs, Cfg> 
 {
     type Arg = (Rrs, Rrs::Id);
-    type Config = super::resolution_window::RWConfigPlayback;
+    type Config = super::resolution_window::RWConfigPlayback<OrderIx>;
+    type TrackId = OrderIx;
 
-    fn new(arg: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F>>) {
+    fn new(arg: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
             let mut values = Vec::with_capacity(size);
@@ -58,7 +70,9 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
             variables: new_values(record.values_count, || {
                 UnsafeCell::new((F::from_u64_unchecked(0), Metadata::default()))
             }),
-            max_tracked: -1,
+            // We know that all values are ultimately tracked, since otherwise
+            // the record wouldn't've been created.
+            max_tracked: record.values_count as i64 - 1,
         };
 
         let exec_order = ExecOrder {
@@ -83,7 +97,7 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
         let s = Self {
             common,
             record,
-            exec_order_buffer: Vec::with_capacity(1 << 12),
+            exec_order_buffer: Vec::with_capacity(1),
             registrations_added: 0,
             phantom: PhantomData,
         };
@@ -125,14 +139,17 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
         };
 
         // TODO: Change OrderInfo such that unrelated data is not stored along.
-        self.exec_order_buffer.push(OrderInfo::new(resolver_ix, GuideMetadata::new(record.parallelism, 0, 0)));
+        self.exec_order_buffer.push(OrderBufferItem { resolver_ix: resolver_ix, record_item: record.clone() });
+
+        debug_assert!(self.exec_order_buffer.capacity() == 1);
+
+        self.registrations_added += 1;
 
         // TODO: Check if branch hints are needed.
         if self.exec_order_buffer.len() == self.exec_order_buffer.capacity() {
             self.write_buffer(None);
         }
 
-        self.registrations_added += 1;
     }
 
     unsafe fn internalize(

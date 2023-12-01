@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 use crate::{config::*, utils::PipeOp};
 
-use super::resolver::OrderIx;
+use super::{resolver::OrderIx, TrackId};
 
 use std::fmt::Debug;
 
@@ -44,6 +44,26 @@ impl GuideLoc {
         (self.id.0 as u64) << 32 | (self.pos as u64)
     }
 }
+
+impl From<u64> for GuideLoc {
+    fn from(value: u64) -> Self {
+        GuideLoc::from_u64(value)
+    }
+}
+
+impl From<GuideLoc> for u64 {
+    fn from(value: GuideLoc) -> Self {
+        value.to_u64()
+    }
+}
+
+impl From<GuideLoc> for usize {
+    fn from(value: GuideLoc) -> Self {
+        value.to_u64() as usize
+    }
+}
+
+impl TrackId for GuideLoc {}
 
 // region: guide trait
 
@@ -119,9 +139,9 @@ impl<F: SmallField, Cfg: CSResolverConfig> SpansGuide<F, Cfg> {
         Self {
             parallelism,
             spans: std::array::from_fn(|x| {
-                Span::new(Pointer::new_at((x * parallelism) as OrderIx))
+                Span::new(Pointer::new_at((x * parallelism).into()))
             }),
-            end: 0,
+            end: 0u64.into(),
             phantom: PhantomData,
         }
     }
@@ -224,8 +244,8 @@ impl<F: SmallField, Cfg: CSResolverConfig> SpansGuide<F, Cfg> {
             let span_loc = &mut guide.spans[GUIDE_SIZE - 1];
             let new_origin =
                 // The last element still contains a residual copy of the last span.
-                span_loc.origin.index as usize + guide.parallelism;
-            *span_loc = Span::new(Pointer::new_at(new_origin as u32));
+                span_loc.origin.index + guide.parallelism;
+            *span_loc = Span::new(Pointer::new_at(new_origin.into()));
         }
 
         r
@@ -359,7 +379,7 @@ impl<'a, T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> GuideOrder<'a, T
         }
 
         let start = self.guide.next_target.index;
-        let mut pos = self.guide.next_target.index as usize;
+        let mut pos = self.guide.next_target.index.into();
 
         for span in &self.guide.spans[0..self.released_spans as usize] {
             target[pos..pos + span.buffer.len()].copy_from_slice(&span.buffer);
@@ -375,7 +395,7 @@ impl<'a, T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> GuideOrder<'a, T
             );
         }
 
-        start..pos as OrderIx
+        start..pos.into()
     }
 }
 
@@ -412,7 +432,7 @@ impl<'a, T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> GuideOrder<'a, T
         // Not using the pointer cause after this no modifications are
         // allowed anyway, so we don't care about preserving invariants.
         let start = self.guide.next_target.index;
-        let mut pos = start as usize;
+        let mut pos = start.into();
 
         for span in &self.guide.spans {
             target[pos..pos + span.buffer.len()].copy_from_slice(&span.buffer);
@@ -420,7 +440,7 @@ impl<'a, T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> GuideOrder<'a, T
             pos += span.buffer.len();
         }
 
-        start..pos as OrderIx
+        start..pos.into()
     }
 }
 
@@ -529,7 +549,7 @@ impl<T: Debug, F: SmallField, Cfg: CSResolverConfig> BufferGuide<T, F, Cfg> {
                     parallelism + 1,
                 )
             }),
-            next_target: Pointer::new_at(0),
+            next_target: Pointer::new_at(0u32.into()),
             carrying_over: None,
             tracing: false,
             stats: GuideStats::new(),
@@ -864,12 +884,13 @@ impl Pointer {
     }
 
     pub(crate) fn jump_to(&mut self, ix: u32) {
-        assert!(self.index <= ix);
-        self.index = ix;
+        assert!(self.index <= ix.into());
+        self.index = ix.into();
     }
 
     fn distance(&self, from: OrderIx) -> isize {
-        self.index as isize - from as isize // TODO: u_ to i_ conversion.
+        let (a, b): (isize, isize) = (self.index.into(), from.into());
+        a - b
     }
 }
 
@@ -923,7 +944,7 @@ mod general_tests {
 #[cfg(test)]
 mod spans_guide_tests {
     use super::SpansGuide;
-    use crate::{config::{DoPerformRuntimeAsserts, Resolver}, field::goldilocks::GoldilocksField};
+    use crate::{config::{DoPerformRuntimeAsserts, Resolver}, field::goldilocks::GoldilocksField, utils::PipeOp};
 
     #[test]
     fn acquire_after_none_gives_incremented_indicies() {
@@ -934,10 +955,10 @@ mod spans_guide_tests {
         let (i3, _) = guide.acquire_position(None);
         let (i4, _) = guide.acquire_position(None); // Up to parallelism.
 
-        assert_eq!(0, i1);
-        assert_eq!(1, i2);
-        assert_eq!(2, i3);
-        assert_eq!(3, i4);
+        assert_eq!(0, u32::from(i1));
+        assert_eq!(1, u32::from(i2));
+        assert_eq!(2, u32::from(i3));
+        assert_eq!(3, u32::from(i4));
     }
 
     #[test]
@@ -953,10 +974,10 @@ mod spans_guide_tests {
         let (i3, _) = guide.acquire_position(None);
         let (i4, _) = guide.acquire_position(None); // Up to parallelism.
 
-        assert_eq!(4, i1);
-        assert_eq!(5, i2);
-        assert_eq!(6, i3);
-        assert_eq!(7, i4);
+        assert_eq!(4, u32::from(i1));
+        assert_eq!(5, u32::from(i2));
+        assert_eq!(6, u32::from(i3));
+        assert_eq!(7, u32::from(i4));
     }
 
     #[test]
@@ -969,7 +990,7 @@ mod spans_guide_tests {
         let (i2, _) = guide.acquire_position(Some(i1));
         let (i3, _) = guide.acquire_position(Some(i2));
 
-        assert_eq!(0, i1);
+        assert_eq!(0, u32::from(i1));
         assert_eq!(i1 + p, i2);
         assert_eq!(i2 + p, i3);
     }
@@ -985,9 +1006,9 @@ mod spans_guide_tests {
         let (i5, _) = guide.acquire_position(None);
         let (i6, _) = guide.acquire_position(None); // Until span fill.
 
-        assert_eq!(1, i4);
-        assert_eq!(2, i5);
-        assert_eq!(3, i6);
+        assert_eq!(1, u32::from(i4));
+        assert_eq!(2, u32::from(i5));
+        assert_eq!(3, u32::from(i6));
     }
 
     #[test]
@@ -1005,10 +1026,10 @@ mod spans_guide_tests {
         let (i6, _) = guide.acquire_position(None); // Second span filled.
         let (i7, _) = guide.acquire_position(None);
 
-        assert_eq!(5, i4);
-        assert_eq!(6, i5);
-        assert_eq!(7, i6);
-        assert_eq!(9, i7);
+        assert_eq!(5, u32::from(i4));
+        assert_eq!(6, u32::from(i5));
+        assert_eq!(7, u32::from(i6));
+        assert_eq!(9, u32::from(i7));
     }
 
     #[test]
@@ -1020,9 +1041,9 @@ mod spans_guide_tests {
 
         let scs = guide.finalize();
 
-        assert_eq!((1, 4), scs[0]);
+        assert_eq!((1, 4), scs[0].to(|(a, b)| (u32::from(a), u32::from(b))));
         assert_eq!(1, scs.len());
-        assert_eq!(5, guide.end);
+        assert_eq!(5, u32::from(guide.end));
     }
 
     #[test]
@@ -1038,7 +1059,7 @@ mod spans_guide_tests {
         let scs = guide.finalize();
 
         assert_eq!(0, scs.len());
-        assert_eq!(5, guide.end);
+        assert_eq!(5, u32::from(guide.end));
     }
 }
 

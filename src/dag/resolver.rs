@@ -2,10 +2,11 @@
 #![allow(clippy::overly_complex_bool_expr)]
 #![allow(clippy::nonminimal_bool)]
 
-use super::{ResolverSorter, ResolutionRecord};
+use super::{ResolverSorter, ResolutionRecord, TrackId};
 use crate::log;
 use std::any::Any;
 use std::cell::{Cell, UnsafeCell};
+use std::fmt::{Display, Debug};
 
 use super::resolution_window::ResolutionWindow;
 use super::{registrar::Registrar, WitnessSource, WitnessSourceAwaitable};
@@ -19,16 +20,15 @@ use crate::dag::{awaiters, guide::*};
 use crate::field::SmallField;
 use crate::utils::{PipeOp, UnsafeCellEx};
 use itertools::Itertools;
-use std::ops::{AddAssign, Sub};
+use std::ops::{Add, Sub, AddAssign};
 use std::panic::resume_unwind;
 use std::sync::atomic::{fence, AtomicBool};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-pub type OrderIx = u32;
 pub(crate) type Mutarc<T> = Arc<Mutex<T>>;
 
-pub const PARANOIA: bool = true;
+pub const PARANOIA: bool = false;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitResolverOpts {
@@ -36,6 +36,105 @@ pub struct CircuitResolverOpts {
     //pub witness_columns: usize,
     //pub max_trace_len: usize,
     pub desired_parallelism: u32,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Default, Clone, Copy)]
+pub struct OrderIx(u32);
+
+
+impl From<u32> for OrderIx {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<u64> for OrderIx {
+    fn from(value: u64) -> Self {
+        // This trait will not fail under normal circumstances.
+        debug_assert!(value < u32::MAX as u64);
+        Self(value as u32)
+    }
+}
+
+impl From<usize> for OrderIx {
+    fn from(value: usize) -> Self {
+        // This trait will not fail under normal circumstances.
+        debug_assert!(value < u32::MAX as usize);
+        Self(value as u32)
+    }
+}
+
+impl From<OrderIx> for u32 {
+    fn from(value: OrderIx) -> Self {
+        value.0
+    }
+}
+
+impl From<OrderIx> for u64 {
+    fn from(value: OrderIx) -> Self {
+        value.0 as u64
+    }
+}
+
+impl From<OrderIx> for usize {
+    fn from(value: OrderIx) -> Self {
+        value.0 as usize
+    }
+}
+
+impl From<OrderIx> for isize {
+    fn from(value: OrderIx) -> Self {
+        value.0 as isize
+    }
+}
+
+impl TrackId for OrderIx { }
+
+impl Add<i32> for OrderIx {
+    type Output = Self;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        debug_assert!(rhs >= 0);
+        OrderIx(self.0 + rhs as u32)
+    }
+}
+
+impl AddAssign<i32> for OrderIx {
+    fn add_assign(&mut self, rhs: i32) {
+        *self = *self + rhs;
+    }
+}
+
+impl Add<u32> for OrderIx {
+    type Output = Self;
+
+    fn add(self, rhs: u32) -> Self::Output {
+        OrderIx(self.0 + rhs as u32)
+    }
+}
+
+impl AddAssign<u32> for OrderIx {
+        fn add_assign(&mut self, rhs: u32) {
+        *self = *self + rhs;
+    }
+}
+
+
+impl Add<usize> for OrderIx {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        debug_assert!(rhs < u32::MAX as usize);
+        OrderIx(self.0 + rhs as u32)
+    }
+}
+
+impl Sub for OrderIx {
+    type Output = u32;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.0 - rhs.0
+    }
 }
 
 pub struct ExecOrder {
@@ -48,20 +147,20 @@ pub struct ExecOrder {
 }
 
 /// Shared between the resolver, awaiters and the resolution window.
-pub struct ResolverCommonData<V> {
+pub struct ResolverCommonData<V, T: Default> {
     // The following two are meant to have an asynchronized access. The access
     // correctness is provided by the `exec_order` mutex. Once an item is
     // added to the `exec_order`, it's guaranteed that the corresponding
     // values are present in resolvers and values.
     pub resolvers: UnsafeCell<ResolverBox<V>>,
-    pub values: UnsafeCell<Values<V>>,
+    pub values: UnsafeCell<Values<V, T>>,
 
     /// Resolutions happen in this order. Holds index of the resolver in `resolver`.
     /// This index follows pointer semantics and is unsafe to operate on.
     /// The order can have gaps, so it's size should be somewhat larger than the total
     /// amount of resolvers.
     pub exec_order: Mutex<ExecOrder>,
-    pub awaiters_broker: AwaitersBroker,
+    pub awaiters_broker: AwaitersBroker<T>,
 }
 
 /// Used to send notifications and data between the resolver, resolution window
@@ -110,7 +209,7 @@ pub struct CircuitResolver<V: SmallField, RS: ResolverSorter<V>> {
 
     sorter: RS,
 
-    pub(crate) common: Arc<ResolverCommonData<V>>,
+    pub(crate) common: Arc<ResolverCommonData<V, RS::TrackId>>,
     // pub(crate) options: CircuitResolverOpts,
     
     comms: Arc<ResolverComms>,
@@ -153,7 +252,7 @@ impl<V: SmallField, RS: ResolverSorter<V>> CircuitResolver<V, RS> {
             // registrar: Registrar::new(),
             comms: comms.clone(),
 
-            resolution_window_handle: ResolutionWindow::<V, RS::Config>::run(
+            resolution_window_handle: ResolutionWindow::<V, RS::TrackId, RS::Config>::run(
                 comms.clone(),
                 common.clone(),
                 &debug_track,
@@ -284,9 +383,9 @@ impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSource<V> for Circui
 impl<V: SmallField, RS: ResolverSorter<V> + 'static> CSWitnessSource<V> for CircuitResolver<V, RS> {}
 
 impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSourceAwaitable<V> for CircuitResolver<V, RS> {
-    type Awaiter<'a> = awaiters::Awaiter<'a>;
+    type Awaiter<'a> = awaiters::Awaiter<'a, RS::TrackId>;
 
-    fn get_awaiter<const N: usize>(&mut self, vars: [Place; N]) -> awaiters::Awaiter {
+    fn get_awaiter<const N: usize>(&mut self, vars: [Place; N]) -> awaiters::Awaiter<RS::TrackId> {
         // Safety: We're only getting the metadata address for an item, which is
         // immutable and the max_tracked value, which isn't but read only once
         // for the duration of the reference.
@@ -300,7 +399,7 @@ impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSourceAwaitable<V> f
         let md = vars
             .into_iter()
             .map(|x| &values.get_item_ref(x).1)
-            .max_by_key(|x| x.guide_loc)
+            .max_by_key(|x| x.tracker)
             .unwrap();
 
         let r = awaiters::AwaitersBroker::register(
@@ -390,17 +489,17 @@ impl AddAssign<u32> for ResolverIx {
 
 // region: Values
 
-pub struct Values<V> {
-    pub(crate) variables: Box<[UnsafeCell<(V, Metadata)>]>,
+pub struct Values<V, T: Default> {
+    pub(crate) variables: Box<[UnsafeCell<(V, Metadata<T>)>]>,
     pub(crate) max_tracked: i64, // Be sure to not overflow.
 }
 
-impl<V> Values<V> {
-    pub(crate) fn resolve_type(&self, _key: Place) -> &[UnsafeCell<(V, Metadata)>] {
+impl<V, T: Default + Copy> Values<V, T> {
+    pub(crate) fn resolve_type(&self, _key: Place) -> &[UnsafeCell<(V, Metadata<T>)>] {
         &self.variables
     }
 
-    pub(crate) fn get_item_ref(&self, key: Place) -> &(V, Metadata) {
+    pub(crate) fn get_item_ref(&self, key: Place) -> &(V, Metadata<T>) {
         let vs = self.resolve_type(key);
         unsafe { &(*vs[key.raw_ix()].get()) }
 
@@ -408,7 +507,7 @@ impl<V> Values<V> {
     }
 
     // Safety: No other mutable references to the same item are allowed.
-    pub(crate) unsafe fn get_item_ref_mut(&self, key: Place) -> &mut (V, Metadata) {
+    pub(crate) unsafe fn get_item_ref_mut(&self, key: Place) -> &mut (V, Metadata<T>) {
         let vs = self.resolve_type(key);
         &mut (*vs[key.raw_ix()].get())
 
@@ -417,7 +516,7 @@ impl<V> Values<V> {
 
     /// Marks values as tracked and stores the resolution order that those values
     /// are resolved in.
-    pub(crate) fn track_values(&mut self, keys: &[Place], loc: GuideLoc) {
+    pub(crate) fn track_values(&mut self, keys: &[Place], loc: T) {
         for key in keys {
             let nmd = Metadata::new(loc);
 
@@ -486,32 +585,32 @@ impl<V> Values<V> {
 
 // region: metadata
 
-type Mdi = u16;
+type MDD = u16;
 
 #[derive(Default)]
 // Used by the resolver for internal tracking purposes.
-pub(crate) struct Metadata {
-    data: Mdi,
-    pub guide_loc: GuideLoc,
+pub(crate) struct Metadata<T: Default> {
+    data: MDD,
+    pub tracker: T,
 }
 
-impl Metadata {
+impl<T: Default> Metadata<T> {
     // Means this element was introduced to the resolver
-    const TRACKED_MASK: Mdi = 0b1000_0000_0000_0000;
+    const TRACKED_MASK: MDD = 0b1000_0000_0000_0000;
     // Means this element was resolved and it's value is set.
-    const RESOLVED_MASK: Mdi = 0b0100_0000_0000_0000;
+    const RESOLVED_MASK: MDD = 0b0100_0000_0000_0000;
 
-    fn new(loc: GuideLoc) -> Self {
+    fn new(tracker: T) -> Self {
         Self {
             data: Self::TRACKED_MASK,
-            guide_loc: loc,
+            tracker,
         }
     }
 
     fn new_resolved() -> Self {
         Self {
             data: Self::TRACKED_MASK | Self::RESOLVED_MASK,
-            guide_loc: GuideLoc::default(),
+            tracker: T::default(),
         }
     }
 
@@ -525,6 +624,31 @@ impl Metadata {
 
     pub fn mark_resolved(&mut self) {
         self.data |= Self::RESOLVED_MASK;
+    }
+}
+
+#[derive(Debug)]
+struct MetadataDebugHelper {
+    is_tracked: bool,
+    is_resolved: bool,
+}
+
+impl<T: Default> Debug for Metadata<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::mem::size_of;
+        use std::mem::transmute_copy;
+
+        let mdh = MetadataDebugHelper {
+            is_resolved: self.is_resolved(),
+            is_tracked: self.is_tracked(),
+        };
+        let tracker: u64;
+        unsafe {
+            if      size_of::<T>() == size_of::<u64>() { tracker = transmute_copy::<_, u64>(&self.tracker) }
+            else if size_of::<T>() == size_of::<u32>() { tracker = transmute_copy::<_, u32>(&self.tracker) as u64 }
+            else { tracker = 0 }
+        };
+        f.debug_struct("Metadata").field("data", &mdh).field("tracker", &tracker).finish()
     }
 }
 
@@ -827,6 +951,7 @@ mod test {
     }
     
     #[test]
+    // #[ignore = "temp"]
     fn resolves_descendants_playback_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
@@ -970,11 +1095,21 @@ mod test {
 
     #[test]
     fn awaiter_returns_for_resolved_value_playback_mode() {
-        let limit = 1 << 13;
+
+        awaiter_returns_for_resolved_value_playback_mode_impl(2, 2);
+        awaiter_returns_for_resolved_value_playback_mode_impl(2, 20);
+        awaiter_returns_for_resolved_value_playback_mode_impl(2, 2048);
+        awaiter_returns_for_resolved_value_playback_mode_impl(10, 2);
+        awaiter_returns_for_resolved_value_playback_mode_impl(10, 20);
+        awaiter_returns_for_resolved_value_playback_mode_impl(10, 2048);
+    }
+
+    fn awaiter_returns_for_resolved_value_playback_mode_impl(limit: usize, desired_parallelism: u32) {
+        let limit = 1 << limit;
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
-                desired_parallelism: 2048,
+                desired_parallelism,
             });
 
         populate(&mut storage, limit);

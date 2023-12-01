@@ -24,7 +24,7 @@ pub trait CSSetupConfig: 'static + Send + Sync + Clone + Copy + std::fmt::Debug 
 
 pub trait CSResolverConfig: 'static + Send + Sync + Clone + Copy + std::fmt::Debug {
     type DebugConfig: CSDebugConfig;
-    type Sorter<F: SmallField>: ResolverSorter<F>;
+    // type Sorter<F: SmallField>: ResolverSorter<F>;
 }
 
 pub trait CSConfig: 'static + Send + Sync + Clone + Copy + std::fmt::Debug {
@@ -89,7 +89,7 @@ pub struct Resolver<Dbg: CSDebugConfig>(PhantomData<Dbg>);
 impl<Dbg: CSDebugConfig> CSResolverConfig for Resolver<Dbg> {
     type DebugConfig = Dbg;
 
-    type Sorter<F: SmallField> = crate::dag::sorter_runtime::RuntimeResolverSorter<F, Self>;
+    // type Sorter<F: SmallField> = crate::dag::sorter_runtime::RuntimeResolverSorter<F, Self>;
 }
 
 #[derive(Derivative)]

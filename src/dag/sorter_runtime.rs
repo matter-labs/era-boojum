@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{config::CSResolverConfig, field::SmallField, cs::{VariableType, Variable, Place, traits::cs::DstBuffer}, log, dag::{resolver::Metadata, resolution_window::invocation_binder, ResolutionRecordItem}, utils::{PipeOp, UnsafeCellEx}};
 
-use super::{ResolverSorter, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum}, resolver::{ResolverIx, CircuitResolverOpts, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord};
+use super::{ResolverSorter, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, CircuitResolverOpts, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord};
 
 #[derive(Debug)]
 struct Stats {
@@ -42,7 +42,7 @@ pub struct RuntimeResolverSorter<F:SmallField, Cfg: CSResolverConfig> {
     stats: Stats,
     options: CircuitResolverOpts,
     debug_track: Vec<Place>,
-    pub(crate) common: Arc<ResolverCommonData<F>>,
+    pub(crate) common: Arc<ResolverCommonData<F, GuideLoc>>,
     pub(crate) registrar: Registrar,
     pub(crate) guide: BufferGuide<ResolverIx, F, Cfg>,
     record: ResolutionRecord,
@@ -53,12 +53,12 @@ pub struct RuntimeResolverSorter<F:SmallField, Cfg: CSResolverConfig> {
 
 impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
 
-    fn write_order<'a, T: GuideOrder<'a, ResolverIx>>(
+    fn write_order<'a, GO: GuideOrder<'a, ResolverIx>>(
         tgt: &Mutex<ExecOrder>,
         record: &mut ResolutionRecord,
         tgt_len: &mut usize,
         resolvers: &UnsafeCell<ResolverBox<F>>,
-        order: &T,
+        order: &GO,
     ) {
         if order.size() > 0 {
             let mut exec_order = tgt.lock().unwrap();
@@ -76,7 +76,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
 
                 ri.added_at = nfo.metadata.added_at();
                 ri.accepted_at = nfo.metadata.accepted_at();
-                ri.order_ix = (i + len) as OrderIx;
+                ri.order_ix = (i + len).into();
                 ri.parallelism = nfo.metadata.parallelism() as u16;
             }
 
@@ -136,9 +136,10 @@ impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
 
 impl<F: SmallField, Cfg: CSResolverConfig> ResolverSorter<F> for RuntimeResolverSorter<F, Cfg> {
     type Arg = CircuitResolverOpts;
-    type Config = super::resolution_window::RWConfigRecord;
+    type Config = super::resolution_window::RWConfigRecord<GuideLoc>;
+    type TrackId = GuideLoc;
 
-    fn new(opts: CircuitResolverOpts, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F>>) {
+    fn new(opts: CircuitResolverOpts, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
 
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
@@ -416,7 +417,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSorter<F> for RuntimeResolver
             .guide
             .push(
                 resolver_ix,
-                deps.map(|x| x.guide_loc).reduce(std::cmp::max),
+                deps.map(|x| x.tracker).reduce(std::cmp::max),
                 // This stat represents the registration in which this registration
                 // had all its dependencies tracked and safe to use. Thus, once we
                 // reach this registration in playback, the resolution window can
