@@ -38,11 +38,14 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Playbac
             Some(x) => x
         };;
 
-        self.exec_order_buffer.clear();
-
         if super::resolver::PARANOIA {
-            println!("RS_P: buffer written, {} item, size: {}", self.exec_order_buffer.len(), exec_order.size);
+            println!(
+                "RS_P: buffer written, {} item, size: {}",
+                self.exec_order_buffer.len(),
+                exec_order.size);
         }
+
+        self.exec_order_buffer.clear();
     }
 }
 
@@ -72,7 +75,8 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
             }),
             // We know that all values are ultimately tracked, since otherwise
             // the record wouldn't've been created.
-            max_tracked: record.values_count as i64 - 1,
+            // max_tracked: record.values_count as i64 - 1,
+            max_tracked: -1,
         };
 
         let exec_order = ExecOrder {
@@ -122,6 +126,8 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
         Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync {
 
         let record = &self.record.items[self.registrations_added];
+        
+        let values = unsafe { self.common.values.u_deref_mut() };
 
         // Safety: This thread is the only one to use `push` on the resolvers
         // and is the only thread to do so. `push` is the only mutable function
@@ -140,6 +146,8 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Resolve
 
         // TODO: Change OrderInfo such that unrelated data is not stored along.
         self.exec_order_buffer.push(OrderBufferItem { resolver_ix: resolver_ix, record_item: record.clone() });
+
+        values.track_values(outputs, record.order_ix);
 
         debug_assert!(self.exec_order_buffer.capacity() == 1);
 

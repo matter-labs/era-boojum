@@ -451,6 +451,8 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSorter<F> for RuntimeResolver
         Self::write_order(&self.common.exec_order, &mut self.record, &mut self.order_len, &self.common.resolvers, &order);
 
         drop(order);
+
+        self.record.items[self.stats.registrations_added as usize - 1].order_len = self.order_len;
     }
 
     fn final_flush(&mut self) {

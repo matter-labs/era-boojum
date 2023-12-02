@@ -28,7 +28,7 @@ use std::thread::JoinHandle;
 
 pub(crate) type Mutarc<T> = Arc<Mutex<T>>;
 
-pub const PARANOIA: bool = false;
+pub const PARANOIA: bool = true;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitResolverOpts {
@@ -1145,7 +1145,7 @@ mod test {
     }
 
     #[test]
-    fn awaiter_returns_after_finish() {
+    fn awaiter_returns_after_finish_record_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: 100,
@@ -1158,6 +1158,49 @@ mod test {
 
         let init_var = Place::from_variable(Variable::from_variable_index(0));
         let dep_var = Place::from_variable(Variable::from_variable_index(1));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+
+        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+
+        storage.wait_till_resolved();
+
+        storage.get_awaiter([dep_var]).wait();
+
+        assert_eq!(
+            F::from_u64_with_reduction(123),
+            storage.get_value_unchecked(dep_var)
+        );
+    }
+
+    #[test]
+    fn awaiter_returns_after_finish_playback_mode() {
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: 100,
+                desired_parallelism: 16,
+            });
+
+        let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
+            outs.push(ins[0]);
+        };
+
+        let init_var = Place::from_variable(Variable::from_variable_index(0));
+        let dep_var = Place::from_variable(Variable::from_variable_index(1));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+
+        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
 
@@ -1230,7 +1273,7 @@ mod test {
     }
 
     #[test]
-    fn resolution_after_awaiter_is_supported() {
+    fn resolution_after_awaiter_is_supported_record_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: 100,
@@ -1255,6 +1298,54 @@ mod test {
         storage.wait_till_resolved();
 
         let v = storage.get_value_unchecked(dep_var_2);
+
+        assert_eq!(F::from_u64_with_reduction(123), v);
+    }
+
+    #[test]
+    fn resolution_after_awaiter_is_supported_playback_mode() {
+        let init_var = Place::from_variable(Variable::from_variable_index(0));
+        let dep_var_1 = Place::from_variable(Variable::from_variable_index(1));
+        let dep_var_2 = Place::from_variable(Variable::from_variable_index(2));
+        let dep_var_3 = Place::from_variable(Variable::from_variable_index(3));
+
+        let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
+            outs.push(ins[0]);
+        };
+
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: 100,
+                desired_parallelism: 16,
+        });
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
+        storage.add_resolution(&[dep_var_1], &[dep_var_2], res_fn);
+        storage.get_awaiter([dep_var_2]).wait();
+        storage.add_resolution(&[dep_var_2], &[dep_var_3], res_fn);
+
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
+        storage.add_resolution(&[dep_var_1], &[dep_var_2], res_fn);
+
+        storage.get_awaiter([dep_var_2]).wait();
+
+        storage.add_resolution(&[dep_var_2], &[dep_var_3], res_fn);
+
+        storage.wait_till_resolved();
+
+        let v = storage.get_value_unchecked(dep_var_3);
 
         assert_eq!(F::from_u64_with_reduction(123), v);
     }
