@@ -28,7 +28,7 @@ use std::thread::JoinHandle;
 
 pub(crate) type Mutarc<T> = Arc<Mutex<T>>;
 
-pub const PARANOIA: bool = true;
+pub const PARANOIA: bool = false;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitResolverOpts {
@@ -339,6 +339,7 @@ impl<V: SmallField, RS: ResolverSorter<V>> CircuitResolver<V, RS> {
     }
 
     pub fn retrieve_sequence(&mut self) -> &ResolutionRecord {
+        assert!(self.comms.registration_complete.load(std::sync::atomic::Ordering::Relaxed));
         self.sorter.retrieve_sequence()
     }
 
@@ -401,6 +402,8 @@ impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSourceAwaitable<V> f
             .map(|x| &values.get_item_ref(x).1)
             .max_by_key(|x| x.tracker)
             .unwrap();
+
+        assert_ne!(0, <RS::TrackId as Into<u64>>::into(md.tracker.into()), "Supporting this just isn't worth it.");
 
         let r = awaiters::AwaitersBroker::register(
             &self.common.awaiters_broker,
@@ -741,6 +744,7 @@ mod test {
                 });
 
         tracks_values_populate(&mut storage, limit);
+        storage.wait_till_resolved();
 
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
@@ -1186,11 +1190,13 @@ mod test {
         };
 
         let init_var = Place::from_variable(Variable::from_variable_index(0));
-        let dep_var = Place::from_variable(Variable::from_variable_index(1));
+        let dep_var_1 = Place::from_variable(Variable::from_variable_index(1));
+        let dep_var_2 = Place::from_variable(Variable::from_variable_index(2));
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
 
-        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+        storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
+        storage.add_resolution(&[dep_var_1], &[dep_var_2], res_fn);
 
         storage.wait_till_resolved();
 
@@ -1204,15 +1210,16 @@ mod test {
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
 
-        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+        storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
+        storage.add_resolution(&[dep_var_1], &[dep_var_2], res_fn);
 
         storage.wait_till_resolved();
 
-        storage.get_awaiter([dep_var]).wait();
+        storage.get_awaiter([dep_var_2]).wait();
 
         assert_eq!(
             F::from_u64_with_reduction(123),
-            storage.get_value_unchecked(dep_var)
+            storage.get_value_unchecked(dep_var_2)
         );
     }
 
@@ -1351,7 +1358,7 @@ mod test {
     }
 
     #[test]
-    fn try_get_value_returns_none_before_resolve() {
+    fn try_get_value_returns_none_before_resolve_record_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: 100,
@@ -1375,7 +1382,43 @@ mod test {
     }
 
     #[test]
-    fn try_get_value_returns_some_after_resolve() {
+    fn try_get_value_returns_none_before_resolve_playback_mode() {
+
+        let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
+            outs.push(ins[0]);
+        };
+
+        let init_var = Place::from_variable(Variable::from_variable_index(0));
+        let dep_var = Place::from_variable(Variable::from_variable_index(1));
+
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: 100,
+                desired_parallelism: 16,
+            });
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+        storage.try_get_value(dep_var);
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+        let result = storage.try_get_value(dep_var);
+
+        assert_eq!(None, result);
+    }
+
+    #[test]
+    fn try_get_value_returns_some_after_resolve_record_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: 100,
@@ -1401,7 +1444,43 @@ mod test {
     }
 
     #[test]
-    fn try_get_value_returns_some_after_wait() {
+    fn try_get_value_returns_some_after_resolve_playback_mode() {
+        let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
+            outs.push(ins[0]);
+        };
+
+        let init_var = Place::from_variable(Variable::from_variable_index(0));
+        let dep_var = Place::from_variable(Variable::from_variable_index(1));
+
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: 100,
+                desired_parallelism: 16,
+        });
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var], res_fn);
+        storage.wait_till_resolved();
+
+        let result = storage.try_get_value(dep_var);
+
+        assert_eq!(Some(F::from_u64_with_reduction(123)), result);
+    }
+
+    #[test]
+    fn try_get_value_returns_some_after_wait_record_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: 100,
@@ -1422,6 +1501,46 @@ mod test {
         storage.get_awaiter([dep_var]).wait();
 
         let result = storage.try_get_value(dep_var);
+
+        assert_eq!(Some(F::from_u64_with_reduction(123)), result);
+    }
+
+    #[test]
+    fn try_get_value_returns_some_after_wait_playback_mode() {
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: 100,
+                desired_parallelism: 16,
+            });
+
+        let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
+            outs.push(ins[0]);
+        };
+
+        let init_var = Place::from_variable(Variable::from_variable_index(0));
+        let dep_var_1 = Place::from_variable(Variable::from_variable_index(1));
+        let dep_var_2 = Place::from_variable(Variable::from_variable_index(2));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
+        storage.add_resolution(&[dep_var_1], &[dep_var_2], res_fn);
+        storage.get_awaiter([dep_var_2]).wait();
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
+
+        storage.set_value(init_var, F::from_u64_with_reduction(123));
+        storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
+        storage.add_resolution(&[dep_var_1], &[dep_var_2], res_fn);
+        storage.get_awaiter([dep_var_2]).wait();
+
+        let result = storage.try_get_value(dep_var_2);
 
         assert_eq!(Some(F::from_u64_with_reduction(123)), result);
     }
@@ -1501,7 +1620,7 @@ mod test {
     }
 
     #[test]
-    fn non_chronological_resolution() {
+    fn non_chronological_resolution_record_mode() {
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
                 max_variables: 100,
@@ -1537,15 +1656,59 @@ mod test {
     }
 
     #[test]
-    fn correctness_simple_linear() {
-        let limit = 1 << 10;
+    fn non_chronological_resolution_playback_mode() {
+
+        let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
+            let mut r = ins[0];
+            r.mul_assign(&ins[1]);
+
+            outs.push(r);
+        };
+
+        let var_1 = Place::from_variable(Variable::from_variable_index(0));
+        let var_2 = Place::from_variable(Variable::from_variable_index(1));
+        let var_3 = Place::from_variable(Variable::from_variable_index(2));
+        let var_4 = Place::from_variable(Variable::from_variable_index(3));
+        let var_5 = Place::from_variable(Variable::from_variable_index(4));
 
         let mut storage =
             CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
-                max_variables: limit * 5,
-                desired_parallelism: 32,
+                max_variables: 100,
+                desired_parallelism: 16,
             });
 
+        storage.set_value(var_4, F::from_u64_with_reduction(7));
+        storage.add_resolution(&[var_3, var_4], &[var_5], res_fn);
+        storage.add_resolution(&[var_1, var_2], &[var_3], res_fn);
+        storage.set_value(var_2, F::from_u64_with_reduction(5));
+        storage.set_value(var_1, F::from_u64_with_reduction(3));
+
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
+
+        storage.set_value(var_4, F::from_u64_with_reduction(7));
+        storage.add_resolution(&[var_3, var_4], &[var_5], res_fn);
+        storage.add_resolution(&[var_1, var_2], &[var_3], res_fn);
+        storage.set_value(var_2, F::from_u64_with_reduction(5));
+        storage.set_value(var_1, F::from_u64_with_reduction(3));
+
+        storage.wait_till_resolved();
+
+        let result = storage.try_get_value(var_5);
+
+        assert_eq!(Some(F::from_u64_with_reduction(105)), result);
+    }
+
+    fn correctness_simple_linear_populate<F: SmallField, RS: ResolverSorter<F>>(
+        resolver: &mut CircuitResolver<F, RS>, limit: usize)
+    {
         let mut var_idx = 0;
 
         let mut pa = Place::from_variable(Variable::from_variable_index(var_idx));
@@ -1553,8 +1716,8 @@ mod test {
         let mut pb = Place::from_variable(Variable::from_variable_index(var_idx));
         var_idx += 1;
 
-        storage.set_value(pa, F::from_u64_with_reduction(1));
-        storage.set_value(pb, F::from_u64_with_reduction(2));
+        resolver.set_value(pa, F::from_u64_with_reduction(1));
+        resolver.set_value(pb, F::from_u64_with_reduction(2));
 
         for _ in 1..limit {
             let a = Place::from_variable(Variable::from_variable_index(var_idx));
@@ -1575,15 +1738,26 @@ mod test {
                 }
             };
 
-            storage.add_resolution(&[pa], &[a], f);
+            resolver.add_resolution(&[pa], &[a], f);
             pa = a;
-            storage.add_resolution(&[pb], &[b], f);
+            resolver.add_resolution(&[pb], &[b], f);
             pb = b;
         }
+    }
+
+    #[test]
+    fn correctness_simple_linear_record_mode() {
+        let limit = 1 << 10;
+
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: limit * 5,
+                desired_parallelism: 32,
+            });
+
+        correctness_simple_linear_populate(&mut storage, limit);
 
         storage.wait_till_resolved();
-
-        let record = storage.retrieve_sequence();
 
         if cfg!(cr_paranoia_mode) {
             log!("Test: total value result: \n   - {}", unsafe {
@@ -1615,6 +1789,63 @@ mod test {
             }
         }
     }
+
+    #[test]
+    fn correctness_simple_linear_playback_mode() {
+        let limit = 1 << 10;
+
+        let mut storage =
+            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+                max_variables: limit * 5,
+                desired_parallelism: 32,
+            });
+
+        correctness_simple_linear_populate(&mut storage, limit);
+        storage.wait_till_resolved();
+
+        let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
+
+        let mut storage =
+            CircuitResolver::<
+                F, 
+                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+            ::new((rs, ()));
+
+        correctness_simple_linear_populate(&mut storage, limit);
+
+        storage.wait_till_resolved();
+
+        if cfg!(cr_paranoia_mode) {
+            log!("Test: total value result: \n   - {}", unsafe {
+                (*storage.common.values.get())
+                    .variables
+                    .iter()
+                    .take(limit * 2 + 2)
+                    .enumerate()
+                    .map(|(i, x)| format!("[{}] - {}", i, (*x.get()).0))
+                    .collect::<Vec<_>>()
+                    .join("\n   - ")
+            });
+        }
+
+        for i in 0..limit {
+            for j in 0..2 {
+                let ix = i * 2 + j;
+                let val = i + j + 1;
+
+                let exp = F::from_u64_with_reduction(val as u64);
+                let act = Place::from_variable(Variable::from_variable_index(ix as u64))
+                    .to(|x| storage.get_value_unchecked(x));
+
+                if cfg!(cr_paranoia_mode) {
+                    log!("Test: per item value: ix {}, value {}", ix, act);
+                }
+
+                assert_eq!(exp, act, "Ix {}", ix);
+            }
+        }
+    }
+
 
     fn populate<RS: ResolverSorter<F>>(storage: &mut CircuitResolver<F, RS>, limit: usize) {
 
