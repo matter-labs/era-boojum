@@ -5,6 +5,8 @@ use crate::cs::Variable;
 use crate::gadgets::u8::UInt8;
 use std::mem::MaybeUninit;
 
+type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+
 pub mod round_function;
 
 pub const LANE_WIDTH: usize = 5;
@@ -120,7 +122,7 @@ mod test {
             and8::{create_and8_table, And8Table},
             byte_split::{create_byte_split_table, ByteSplitTable},
             xor8::{create_xor8_table, Xor8Table},
-        },
+        }, dag::{sorter_runtime::RuntimeResolverSorter, resolver::CircuitResolverOpts},
     };
     use sha3::Digest;
     type F = GoldilocksField;
@@ -175,7 +177,7 @@ mod test {
 
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 1 << 20, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -200,7 +202,7 @@ mod test {
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         // add tables
         let table = create_xor8_table();

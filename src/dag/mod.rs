@@ -114,6 +114,10 @@ pub trait ResolutionRecordStorage {
     fn get(&self, id: Self::Id) -> Rc<ResolutionRecord>;
 }
 
+pub trait Blank {
+    fn blank() -> Self;
+}
+
 #[derive(Default, Clone)]
 pub struct ResolutionRecordItem { 
     added_at: RegistrationNum,
@@ -145,7 +149,7 @@ impl ResolutionRecord {
 
 pub trait TrackId: From<u64> + Into<u64> + Into<usize> + Eq + Ord + Debug + Default + Clone + Copy {}
 
-pub trait ResolverSorter<F: SmallField>: Sized
+pub trait ResolverSortingMode<F: SmallField>: Sized
 {
     type Arg;
     type Config: resolution_window::RWConfig<Self::TrackId> + 'static;

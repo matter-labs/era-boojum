@@ -124,7 +124,7 @@ mod test {
             maj4::{create_maj4_table, Maj4Table},
             trixor4::{create_tri_xor_table, TriXor4Table},
         },
-        log,
+        log, dag::{sorter_runtime::RuntimeResolverSorter, resolver::CircuitResolverOpts}, config::CSConfig,
     };
     use blake2::Digest;
     type F = GoldilocksField;
@@ -178,9 +178,10 @@ mod test {
         };
 
         use crate::config::DevCSConfig;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 1 << 20, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -207,7 +208,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         // add tables
         let table = create_tri_xor_table();
@@ -372,8 +373,10 @@ mod test {
         {
             // satisfiability check
             use crate::config::DevCSConfig;
+            type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
-            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(
+            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig,
+            RuntimeResolverSorter<F, RCfg>>::new(
                 geometry,
                 max_variables,
                 max_trace_len,
@@ -381,7 +384,7 @@ mod test {
             let builder = new_builder::<_, F>(builder_impl);
 
             let builder = configure(builder);
-            let mut owned_cs = builder.build(());
+            let mut owned_cs = builder.build(CircuitResolverOpts::new(max_variables));
 
             // add tables
             let table = create_tri_xor_table();
@@ -418,7 +421,10 @@ mod test {
         use crate::cs::cs_builder_reference::*;
         use crate::cs::cs_builder_verifier::*;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, SetupCSConfig>::new(
+        type RCfgS = <SetupCSConfig as CSConfig>::ResolverConfig;
+
+        let builder_impl = CsReferenceImplementationBuilder::<F, P, SetupCSConfig,
+        RuntimeResolverSorter<F, RCfgS>>::new(
             geometry,
             max_variables,
             max_trace_len,
@@ -426,7 +432,7 @@ mod test {
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         // add tables
         let table = create_tri_xor_table();
@@ -463,8 +469,10 @@ mod test {
             owned_cs.get_full_setup::<T>(&worker, quotient_lde_degree, cap_size);
 
         use crate::config::ProvingCSConfig;
+        type RCfgP = <ProvingCSConfig as CSConfig>::ResolverConfig;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
+        let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig,
+        RuntimeResolverSorter<F, RCfgP>>::new(
             geometry,
             max_variables,
             max_trace_len,
@@ -472,7 +480,7 @@ mod test {
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         // add tables
         let table = create_tri_xor_table();

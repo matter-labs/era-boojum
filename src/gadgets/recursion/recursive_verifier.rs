@@ -2196,7 +2196,7 @@ mod test {
     use super::*;
     use crate::algebraic_props::round_function::AbsorptionModeOverwrite;
     use crate::algebraic_props::sponge::GoldilocksPoseidon2Sponge;
-    use crate::config::DevCSConfig;
+    use crate::config::{DevCSConfig, CSConfig};
     use crate::cs::cs_builder::new_builder;
     use crate::cs::cs_builder_reference::CsReferenceImplementationBuilder;
     use crate::cs::cs_builder_verifier::CsVerifierBuilder;
@@ -2204,6 +2204,8 @@ mod test {
     use crate::cs::gates::*;
     use crate::cs::implementations::pow::NoPow;
     use crate::cs::implementations::transcript::*;
+    use crate::dag::resolver::CircuitResolverOpts;
+    use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::goldilocks::{GoldilocksExt2, GoldilocksField};
     use crate::gadgets::recursion::recursive_verifier_builder::CsRecursiveVerifierBuilder;
     use crate::gadgets::traits::witnessable::WitnessHookable;
@@ -2220,6 +2222,7 @@ mod test {
         type H = GoldilocksPoseidon2Sponge<AbsorptionModeOverwrite>;
         type RH = CircuitGoldilocksPoseidon2Sponge;
         // type P = MixedGL;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
         let geometry = CSGeometry {
             num_columns_under_copy_permutation: 132,
@@ -2230,7 +2233,8 @@ mod test {
         let max_trace_len = 1 << 16;
         let num_vars = 1 << 22;
 
-        let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, DevCSConfig>::new(
+        let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, DevCSConfig,
+            RuntimeResolverSorter<F, RCfg>>::new(
             geometry,
             num_vars,
             max_trace_len,
@@ -2275,7 +2279,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut cs = builder.build(());
+        let mut cs = builder.build(CircuitResolverOpts::new(num_vars));
 
         let mut vk_file = std::fs::File::open("vk.json").unwrap();
         let mut proof_file = std::fs::File::open("proof.json").unwrap();

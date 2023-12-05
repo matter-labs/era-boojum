@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{config::CSResolverConfig, field::SmallField, cs::{VariableType, Variable, Place, traits::cs::DstBuffer}, log, dag::{resolver::Metadata, resolution_window::invocation_binder, ResolutionRecordItem}, utils::{PipeOp, UnsafeCellEx}};
 
-use super::{ResolverSorter, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, CircuitResolverOpts, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord};
+use super::{ResolverSortingMode, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, CircuitResolverOpts, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord};
 
 #[derive(Debug)]
 struct Stats {
@@ -134,7 +134,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
     }
 }
 
-impl<F: SmallField, Cfg: CSResolverConfig> ResolverSorter<F> for RuntimeResolverSorter<F, Cfg> {
+impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeResolverSorter<F, Cfg> {
     type Arg = CircuitResolverOpts;
     type Config = super::resolution_window::RWConfigRecord<GuideLoc>;
     type TrackId = GuideLoc;
@@ -452,6 +452,8 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSorter<F> for RuntimeResolver
 
         drop(order);
 
+        // `max` is here cause some tests aren't registering any resolvers.
+        // Since flushing is an extremely rare operation, we just fix it here.
         self.record.items[std::cmp::max(1, self.stats.registrations_added) as usize - 1].order_len = self.order_len;
     }
 

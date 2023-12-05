@@ -13,6 +13,7 @@ use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
 use crate::cs::oracle::TreeHasher;
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::toolboxes::static_toolbox::StaticToolboxHolder;
+use crate::dag::ResolverSortingMode;
 use crate::utils::*;
 use std::alloc::Global;
 use std::collections::HashSet;
@@ -90,7 +91,8 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-    > CSReferenceImplementation<F, P, CFG, GC, T>
+        RSM: ResolverSortingMode<F> + 'static,
+    > CSReferenceImplementation<F, P, CFG, GC, T, RSM>
 {
     pub fn pad_and_shrink(&mut self) -> (usize, FinalizationHintsForProver) {
         // first we pad-cleanup all the gates
@@ -391,7 +393,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        RSM: ResolverSortingMode<F>,
+    > CSReferenceAssembly<F, P, CFG, RSM>
 {
     pub fn create_permutation_polys(
         &self,

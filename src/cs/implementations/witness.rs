@@ -1,4 +1,5 @@
 use crate::cs::implementations::fast_serialization::MemcopySerializable;
+use crate::dag::ResolverSortingMode;
 use crate::dag::WitnessSource;
 use std::alloc::Global;
 use std::sync::atomic::AtomicU32;
@@ -95,7 +96,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        RSM: ResolverSortingMode<F> + 'static
+    > CSReferenceAssembly<F, P, CFG, RSM>
 {
     pub fn wait_for_witness(&mut self) {
         assert!(

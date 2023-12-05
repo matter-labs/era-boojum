@@ -5,6 +5,7 @@ use crate::config::*;
 use crate::cs::gates::lookup_marker::LookupFormalGate;
 use crate::cs::gates::LookupTooling;
 use crate::cs::implementations::reference_cs::INITIAL_LOOKUP_TABLE_ID_VALUE;
+use crate::dag::ResolverSortingMode;
 use crate::dag::resolver::CircuitResolverOpts;
 use crate::{
     config::CSConfig,
@@ -29,8 +30,9 @@ pub struct CsReferenceImplementationBuilder<
     F: SmallField,
     P: PrimeFieldLikeVectorized<Base = F>,
     CFG: CSConfig,
+    RSM: ResolverSortingMode<F>
 > {
-    phantom: std::marker::PhantomData<(P, CFG)>,
+    phantom: std::marker::PhantomData<(P, CFG, RSM)>,
 
     parameters: CSGeometry,
     lookup_parameters: LookupParameters,
@@ -42,8 +44,12 @@ pub struct CsReferenceImplementationBuilder<
     evaluation_data_over_specialized_columns: EvaluationDataOverSpecializedColumns<F, P>,
 }
 
-impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
-    CsReferenceImplementationBuilder<F, P, CFG>
+impl<
+    F: SmallField,
+    P: PrimeFieldLikeVectorized<Base = F>,
+    CFG: CSConfig, RSM: ResolverSortingMode<F>
+    >
+    CsReferenceImplementationBuilder<F, P, CFG, RSM>
 {
     pub fn new(geometry: CSGeometry, max_variables: usize, max_trace_len: usize) -> Self {
         Self {
@@ -98,17 +104,22 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
     }
 }
 
-impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
-    CsBuilderImpl<F, CsReferenceImplementationBuilder<F, P, CFG>>
-    for CsReferenceImplementationBuilder<F, P, CFG>
+impl<
+    F: SmallField,
+    P: PrimeFieldLikeVectorized<Base = F>,
+    CFG: CSConfig,
+    RSM: ResolverSortingMode<F> + 'static
+    >
+    CsBuilderImpl<F, CsReferenceImplementationBuilder<F, P, CFG, RSM>>
+    for CsReferenceImplementationBuilder<F, P, CFG, RSM>
 {
     type Final<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder> =
-        CSReferenceImplementation<F, P, CFG, GC, TB>;
+        CSReferenceImplementation<F, P, CFG, GC, TB, RSM>;
 
-    type BuildParams<'a> = ();
+    type BuildParams<'a> = RSM::Arg;
 
     fn parameters<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
-        builder: &CsBuilder<CsReferenceImplementationBuilder<F, P, CFG>, F, GC, TB>,
+        builder: &CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, RSM>, F, GC, TB>,
     ) -> CSGeometry {
         builder.implementation.parameters
     }
@@ -173,7 +184,7 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
         M: 'static + Send + Sync + Clone,
         T: 'static + Send + Sync,
     >(
-        builder: CsBuilder<CsReferenceImplementationBuilder<F, P, CFG>, F, GC, TB>,
+        builder: CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, RSM>, F, GC, TB>,
         tool: T,
         // ) -> CsBuilder<CsReferenceImplementationBuilder<F, P, CFG>, F, GC, TB::DescendantHolder<M, T>>
     ) -> CsBuilder<Self, F, GC, (Tool<M, T>, TB)> {
@@ -189,9 +200,9 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
     // GC::DescendantHolder<LookupFormalGate, LookupTooling>;
 
     fn allow_lookup<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
-        mut builder: CsBuilder<CsReferenceImplementationBuilder<F, P, CFG>, F, GC, TB>,
+        mut builder: CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, RSM>, F, GC, TB>,
         lookup_parameters: super::LookupParameters,
-    ) -> CsBuilder<CsReferenceImplementationBuilder<F, P, CFG>, F, Self::GcWithLookup<GC>, TB> {
+    ) -> CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, RSM>, F, Self::GcWithLookup<GC>, TB> {
         assert_eq!(
             builder.implementation.lookup_parameters,
             LookupParameters::NoLookup,
@@ -322,7 +333,7 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
 
     fn build<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
         builder: CsBuilder<Self, F, GC, TB>,
-        _params: Self::BuildParams<'_>,
+        params: Self::BuildParams<'_>,
     ) -> Self::Final<GC, TB> {
         let CsReferenceImplementationBuilder {
             parameters,
@@ -350,22 +361,24 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
         let mut row_cleanups = Vec::with_capacity(16);
         builder
             .gates_config
-            .gather_row_finalization_functions::<CSReferenceImplementation<F, P, CFG, GC, TB>>(
+            .gather_row_finalization_functions::<CSReferenceImplementation<F, P, CFG, GC, TB, RSM>>(
                 &mut row_cleanups,
             );
 
         let mut columns_cleanups = Vec::with_capacity(16);
         builder
             .gates_config
-            .gather_columns_finalization_functions::<CSReferenceImplementation<F, P, CFG, GC, TB>>(
+            .gather_columns_finalization_functions::<CSReferenceImplementation<F, P, CFG, GC, TB,
+            RSM>>(
                 &mut columns_cleanups,
             );
 
-        let variables_storage = RwLock::new(CircuitResolver::new(CircuitResolverOpts {
-            max_variables,
-            desired_parallelism: 1 << 12,
-            // desired_parallelism: (1 << 15) + 1,
-        }));
+        let variables_storage = RwLock::new(CircuitResolver::new(params));
+        // let variables_storage = RwLock::new(CircuitResolver::new(CircuitResolverOpts {
+        //     max_variables,
+        //     desired_parallelism: 1 << 12,
+        //     // desired_parallelism: (1 << 15) + 1,
+        // }));
 
         let mut evaluation_data_over_general_purpose_columns =
             evaluation_data_over_general_purpose_columns;
@@ -434,7 +447,7 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
             vec![vec![]]
         };
 
-        CSReferenceImplementation::<F, P, CFG, GC, TB> {
+        CSReferenceImplementation::<F, P, CFG, GC, TB, RSM> {
             gates_configuration: builder.gates_config,
             dynamic_tools: HashMap::with_capacity(16),
             variables_storage,

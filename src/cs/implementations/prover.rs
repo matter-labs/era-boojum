@@ -28,6 +28,7 @@ use crate::cs::implementations::buffering_source::*;
 use crate::cs::implementations::proof::SingleRoundQueries;
 use crate::cs::implementations::transcript::BoolsBuffer;
 use crate::cs::traits::gate::GatePlacementStrategy;
+use crate::dag::ResolverSortingMode;
 use crate::dag::WitnessSource;
 use crate::field::traits::field_like::mul_assign_vectorized_in_extension;
 use std::sync::Arc;
@@ -77,7 +78,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        RSM: ResolverSortingMode<F> + 'static,
+    > CSReferenceAssembly<F, P, CFG, RSM>
 {
     pub fn take_witness(&mut self, worker: &Worker) -> WitnessSet<F> {
         self.wait_for_witness();

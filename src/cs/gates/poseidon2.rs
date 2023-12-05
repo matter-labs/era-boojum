@@ -884,11 +884,14 @@ where
 #[cfg(test)]
 mod test {
     use crate::cs::gates::testing_tools::test_evaluator;
+    use crate::dag::resolver::CircuitResolverOpts;
+    use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::Field;
 
     use super::*;
     use crate::worker::Worker;
     type F = crate::field::goldilocks::GoldilocksField;
+    type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
     use crate::implementations::poseidon2::Poseidon2Goldilocks;
 
     type Poseidon2Gate = Poseidon2FlattenedGate<F, 8, 12, 4, Poseidon2Goldilocks>;
@@ -904,7 +907,7 @@ mod test {
         };
 
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 128, 8);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 128, 8);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = Poseidon2Gate::configure_builder(
@@ -918,7 +921,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(128));
 
         let cs = &mut owned_cs;
 

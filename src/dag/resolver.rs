@@ -2,7 +2,7 @@
 #![allow(clippy::overly_complex_bool_expr)]
 #![allow(clippy::nonminimal_bool)]
 
-use super::{ResolverSorter, ResolutionRecord, TrackId};
+use super::{ResolverSortingMode, ResolutionRecord, TrackId};
 use crate::log;
 use std::any::Any;
 use std::cell::{Cell, UnsafeCell};
@@ -37,6 +37,17 @@ pub struct CircuitResolverOpts {
     //pub max_trace_len: usize,
     pub desired_parallelism: u32,
 }
+
+impl CircuitResolverOpts {
+    pub fn new(max_variables: usize) -> Self {
+        Self {
+            max_variables,
+            desired_parallelism: 1 << 12,
+        }
+    }
+}
+
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Default, Clone, Copy)]
 pub struct OrderIx(u32);
@@ -204,7 +215,7 @@ impl Stats {
 ///    Those indicies are not monotonic and act akin to pointers, and thus are
 ///    Unsafe to work with.
 
-pub struct CircuitResolver<V: SmallField, RS: ResolverSorter<V>> {
+pub struct CircuitResolver<V: SmallField, RS: ResolverSortingMode<V>> {
     // registrar: Registrar,
 
     sorter: RS,
@@ -222,11 +233,11 @@ pub struct CircuitResolver<V: SmallField, RS: ResolverSorter<V>> {
     debug_track: Vec<Place>,
 }
 
-unsafe impl<V: SmallField, RS: ResolverSorter<V>> Send for CircuitResolver<V, RS> where V: Send {}
-unsafe impl<V: SmallField, RS: ResolverSorter<V>> Sync for CircuitResolver<V, RS> where V: Send {}
+unsafe impl<V: SmallField, RS: ResolverSortingMode<V>> Send for CircuitResolver<V, RS> where V: Send {}
+unsafe impl<V: SmallField, RS: ResolverSortingMode<V>> Sync for CircuitResolver<V, RS> where V: Send {}
 
 // TODO: try to eliminate this constraint to something more general, preferably defatult.
-impl<V: SmallField, RS: ResolverSorter<V>> CircuitResolver<V, RS> {
+impl<V: SmallField, RS: ResolverSortingMode<V>> CircuitResolver<V, RS> {
     pub fn new(opts: RS::Arg) -> Self {
         let threads = 1;
 
@@ -348,7 +359,7 @@ impl<V: SmallField, RS: ResolverSorter<V>> CircuitResolver<V, RS> {
     }
 }
 
-impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSource<V> for CircuitResolver<V, RS> {
+impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> WitnessSource<V> for CircuitResolver<V, RS> {
     const PRODUCES_VALUES: bool = true;
 
     fn try_get_value(&self, variable: Place) -> Option<V> {
@@ -381,9 +392,9 @@ impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSource<V> for Circui
     }
 }
 
-impl<V: SmallField, RS: ResolverSorter<V> + 'static> CSWitnessSource<V> for CircuitResolver<V, RS> {}
+impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> CSWitnessSource<V> for CircuitResolver<V, RS> {}
 
-impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSourceAwaitable<V> for CircuitResolver<V, RS> {
+impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> WitnessSourceAwaitable<V> for CircuitResolver<V, RS> {
     type Awaiter<'a> = awaiters::Awaiter<'a, RS::TrackId>;
 
     fn get_awaiter<const N: usize>(&mut self, vars: [Place; N]) -> awaiters::Awaiter<RS::TrackId> {
@@ -419,7 +430,7 @@ impl<V: SmallField, RS: ResolverSorter<V> + 'static> WitnessSourceAwaitable<V> f
 
 // impl Drop for CircuitResolver
 
-impl<V: SmallField, RS: ResolverSorter<V>> Drop for CircuitResolver<V, RS> {
+impl<V: SmallField, RS: ResolverSortingMode<V>> Drop for CircuitResolver<V, RS> {
     fn drop(&mut self) {
         if cfg!(test) || cfg!(debug_assertions) {
             print!("Starting drop of CircuitResolver (If this hangs, it's bad)...");
@@ -701,7 +712,7 @@ mod test {
         assert_eq!(4, v.len());
     }
 
-    fn tracks_values_populate<F: SmallField, RS: ResolverSorter<F>>(
+    fn tracks_values_populate<F: SmallField, RS: ResolverSortingMode<F>>(
         resolver: &mut CircuitResolver<F, RS>, limit: u64)
     {
         for i in 0..limit {
@@ -764,7 +775,7 @@ mod test {
         }
     }
 
-    fn resolves_populate<F: SmallField, RS: ResolverSorter<F>>(
+    fn resolves_populate<F: SmallField, RS: ResolverSortingMode<F>>(
         resolver: &mut CircuitResolver<F, RS>) -> (Place, Place)
     {
 
@@ -832,7 +843,7 @@ mod test {
         );
     }
 
-    fn resolves_siblings_populate<F: SmallField, RS: ResolverSorter<F>>(
+    fn resolves_siblings_populate<F: SmallField, RS: ResolverSortingMode<F>>(
         resolver: &mut CircuitResolver<F, RS>) -> ((Place, Place), (Place, Place))
     {
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
@@ -913,7 +924,7 @@ mod test {
         );
     }
 
-    fn resolves_descendants_populate<F: SmallField, RS: ResolverSorter<F>>(
+    fn resolves_descendants_populate<F: SmallField, RS: ResolverSortingMode<F>>(
         resolver: &mut CircuitResolver<F, RS>) -> Place
     {
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
@@ -1706,7 +1717,7 @@ mod test {
         assert_eq!(Some(F::from_u64_with_reduction(105)), result);
     }
 
-    fn correctness_simple_linear_populate<F: SmallField, RS: ResolverSorter<F>>(
+    fn correctness_simple_linear_populate<F: SmallField, RS: ResolverSortingMode<F>>(
         resolver: &mut CircuitResolver<F, RS>, limit: usize)
     {
         let mut var_idx = 0;
@@ -1847,7 +1858,7 @@ mod test {
     }
 
 
-    fn populate<RS: ResolverSorter<F>>(storage: &mut CircuitResolver<F, RS>, limit: usize) {
+    fn populate<RS: ResolverSortingMode<F>>(storage: &mut CircuitResolver<F, RS>, limit: usize) {
 
         let mut var_idx = 0u64;
         for _ in 0..limit {

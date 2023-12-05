@@ -2,7 +2,7 @@ use std::{marker::PhantomData, sync::{Arc, Mutex}, cell::UnsafeCell, rc::Rc };
 
 use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolver::{Values, Metadata, ExecOrder, OrderIx, ResolverIx}, resolver_box::ResolverBox, awaiters::AwaitersBroker, ResolutionRecordItem, guide::{OrderInfo, GuideMetadata}}, utils::{PipeOp, UnsafeCellEx}};
 
-use super::{sorter_runtime::RuntimeResolverSorter, ResolverSorter, ResolutionRecordStorage, resolver::{CircuitResolverOpts, ResolverCommonData}, ResolutionRecord, resolution_window::invocation_binder, guide::RegistrationNum};
+use super::{sorter_runtime::RuntimeResolverSorter, ResolverSortingMode, ResolutionRecordStorage, resolver::{CircuitResolverOpts, ResolverCommonData}, ResolutionRecord, resolution_window::invocation_binder, guide::RegistrationNum};
 
 struct OrderBufferItem {
     resolver_ix: ResolverIx,
@@ -49,7 +49,7 @@ impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> Playbac
     }
 }
 
-impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> ResolverSorter<F> 
+impl<F: SmallField, Rrs: ResolutionRecordStorage, Cfg: CSResolverConfig> ResolverSortingMode<F> 
     for PlaybackResolverSorter<F, Rrs, Cfg> 
 {
     type Arg = (Rrs, Rrs::Id);
