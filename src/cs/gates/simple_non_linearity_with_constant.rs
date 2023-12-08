@@ -203,10 +203,12 @@ impl<F: SmallField, const N: usize> Gate<F> for SimpleNonlinearityGate<F, N> {
                         hint.as_ref()
                             .expect("should be present if setup information is not available"),
                     )
-                    .expect(&format!(
-                        "should have properly encoded padding hint for gate {}",
-                        std::any::type_name::<Self>()
-                    ));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "should have properly encoded padding hint for gate {}",
+                            std::any::type_name::<Self>()
+                        )
+                    });
 
                     hint
                 };

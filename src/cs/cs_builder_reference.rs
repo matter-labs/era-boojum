@@ -135,7 +135,7 @@ impl<F: SmallField, P: PrimeFieldLikeVectorized<Base = F>, CFG: CSConfig>
                 .add_gate::<G, _>(placement_strategy, params.clone(), aux_data);
 
         if GC::CAN_POSTPONE_DATA_CAPTURE == false {
-            let evaluator = G::Evaluator::new_from_parameters(params.clone());
+            let evaluator = G::Evaluator::new_from_parameters(params);
 
             // depending on the configuration we should place it into corresponding set,
             // and create some extra staff

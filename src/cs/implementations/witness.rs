@@ -67,25 +67,15 @@ impl<F: SmallField> WitnessSet<F> {
         // assert_eq!(self.public_inputs_values, other.public_inputs_values);
         // assert_eq!(self.public_inputs_with_locations, other.public_inputs_with_locations);
         log!("Comparing variables");
-        for (_idx, (a, b)) in self
-            .variables
-            .iter()
-            .zip(other.variables.iter())
-            .enumerate()
-        {
+        for (a, b) in self.variables.iter().zip(other.variables.iter()) {
             a.pretty_compare(b);
         }
         log!("Comparing witnesses");
-        for (_idx, (a, b)) in self.witness.iter().zip(other.witness.iter()).enumerate() {
+        for (a, b) in self.witness.iter().zip(other.witness.iter()) {
             a.pretty_compare(b);
         }
         log!("Comparing multiplicities");
-        for (_idx, (a, b)) in self
-            .multiplicities
-            .iter()
-            .zip(other.multiplicities.iter())
-            .enumerate()
-        {
+        for (a, b) in self.multiplicities.iter().zip(other.multiplicities.iter()) {
             a.pretty_compare(b);
         }
     }

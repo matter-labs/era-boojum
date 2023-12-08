@@ -226,8 +226,8 @@ pub fn do_fri<
         // now interpolate as described above
 
         let (c0, c1) = interpolate_independent_cosets::<F, P, EXT, A, B>(
-            rs_code_word_c0.clone(),
-            rs_code_word_c1.clone(),
+            rs_code_word_c0,
+            rs_code_word_c1,
             reduction_degree_log_2,
             &roots,
             challenge_powers,

@@ -320,10 +320,8 @@ impl<'cr, V: SmallField, Cfg: CSResolverConfig> CircuitResolver<V, Cfg> {
 
             let new_resolvers = self.internalize_one(resolver_ix, inputs, outputs);
 
-            if PARANOIA {
-                if new_resolvers.iter().any(|x| x.0 == 0) {
-                    println!("CR: internalize_one returned resolver with ix 0");
-                }
+            if PARANOIA && new_resolvers.iter().any(|x| x.0 == 0) {
+                println!("CR: internalize_one returned resolver with ix 0");
             }
 
             self.registrar.stats.secondary_resolutions += new_resolvers.len();

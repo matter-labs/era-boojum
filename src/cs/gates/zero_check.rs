@@ -245,10 +245,12 @@ impl<F: SmallField> Gate<F> for ZeroCheckGate {
                         hint.as_ref()
                             .expect("should be present if setup information is not available"),
                     )
-                    .expect(&format!(
-                        "should have properly encoded padding hint for gate {}",
-                        std::any::type_name::<Self>()
-                    ));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "should have properly encoded padding hint for gate {}",
+                            std::any::type_name::<Self>()
+                        )
+                    });
 
                     hint
                 };
@@ -357,10 +359,12 @@ impl<F: SmallField> Gate<F> for ZeroCheckGate {
                             hint.as_ref()
                                 .expect("should be present if setup information is not available"),
                         )
-                        .expect(&format!(
-                            "should have properly encoded padding hint for gate {}",
-                            std::any::type_name::<Self>()
-                        ));
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "should have properly encoded padding hint for gate {}",
+                                std::any::type_name::<Self>()
+                            )
+                        });
 
                         hint
                     };

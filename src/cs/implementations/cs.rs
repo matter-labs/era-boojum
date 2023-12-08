@@ -253,11 +253,13 @@ impl<
             }
         }
         as_any_ref.map(|el| {
-            el.downcast_ref().expect(&format!(
-                "must downcast to proper tool type for type ID {:?} and marker {}",
-                type_id,
-                std::any::type_name::<M>(),
-            ))
+            el.downcast_ref().unwrap_or_else(|| {
+                panic!(
+                    "must downcast to proper tool type for type ID {:?} and marker {}",
+                    type_id,
+                    std::any::type_name::<M>()
+                )
+            })
         })
     }
     #[inline]
@@ -278,11 +280,13 @@ impl<
             }
         }
         as_any_ref.map(|el| {
-            el.downcast_mut().expect(&format!(
-                "must downcast to proper tool type for type ID {:?} and marker {}",
-                type_id,
-                std::any::type_name::<M>(),
-            ))
+            el.downcast_mut().unwrap_or_else(|| {
+                panic!(
+                    "must downcast to proper tool type for type ID {:?} and marker {}",
+                    type_id,
+                    std::any::type_name::<M>()
+                )
+            })
         })
     }
     #[inline]
@@ -300,11 +304,13 @@ impl<
         }
         as_any
             .map(|el| {
-                el.downcast().expect(&format!(
-                    "must downcast to proper tool type for type ID {:?} and marker {}",
-                    type_id,
-                    std::any::type_name::<M>(),
-                ))
+                el.downcast().unwrap_or_else(|_| {
+                    panic!(
+                        "must downcast to proper tool type for type ID {:?} and marker {}",
+                        type_id,
+                        std::any::type_name::<M>()
+                    )
+                })
             })
             .map(|el| *el)
     }
