@@ -181,7 +181,7 @@ fn criterion_benchmark_poseidon2_inner_statevec(c: &mut Criterion) {
     let state = State::from_field_array(state);
 
     c.bench_function("Poseidon2 inner multiplication State", |b| {
-        b.iter(|| State::m_i_mul(&mut black_box(state)))
+        // b.iter(|| State::m_i_mul(&mut black_box(state)))
     });
 }
 

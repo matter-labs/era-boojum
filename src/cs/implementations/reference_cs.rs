@@ -5,13 +5,16 @@ use crate::cs::implementations::setup::FinalizationHintsForProver;
 use crate::cs::traits::gate::GateColumnsCleanupFunction;
 use crate::cs::traits::gate::GatePlacementStrategy;
 use crate::cs::traits::gate::GateRowCleanupFunction;
+use crate::dag::ResolverSortingMode;
 use crate::dag::resolver::CircuitResolver;
+use crate::dag::sorter_runtime::RuntimeResolverSorter;
 use std::any::TypeId;
+use std::marker::PhantomData;
 use std::sync::atomic::AtomicU32;
 use std::sync::RwLock;
 
-pub type CSDevelopmentAssembly<F, GC, T> = CSReferenceImplementation<F, F, DevCSConfig, GC, T>;
-pub type CSSetupAssembly<F, GC, T> = CSReferenceImplementation<F, F, SetupCSConfig, GC, T>;
+pub type CSDevelopmentAssembly<F, GC, T, RSM> = CSReferenceImplementation<F, F, DevCSConfig, GC, T, RSM>;
+pub type CSSetupAssembly<F, GC, T, RSM> = CSReferenceImplementation<F, F, SetupCSConfig, GC, T, RSM>;
 
 pub const PADDING_LOOKUP_TABLE_ID_VALUE: u32 = 0;
 pub const INITIAL_LOOKUP_TABLE_ID_VALUE: u32 = 1;
@@ -22,6 +25,7 @@ pub struct CSReferenceImplementation<
     CFG: CSConfig,
     GC: GateConfigurationHolder<F>,
     T: StaticToolboxHolder,
+    RSM: ResolverSortingMode<F>,
 > {
     pub(crate) parameters: CSGeometry,
     pub(crate) lookup_parameters: LookupParameters,
@@ -45,7 +49,8 @@ pub struct CSReferenceImplementation<
     // NOTE: it's a storage, it knows nothing about GateTool trait to avoid code to go from Box<dyn GateTool> into Box<dyn Any>
     pub(crate) dynamic_tools:
         HashMap<TypeId, (TypeId, Box<dyn std::any::Any + Send + Sync + 'static>)>,
-    pub(crate) variables_storage: RwLock<CircuitResolver<F, CFG::ResolverConfig>>,
+    // pub(crate) variables_storage: RwLock<CircuitResolver<F, dag::sorter_runtime::RuntimeResolverSorter<F, CFG::ResolverConfig>>>,
+    pub(crate) variables_storage: RwLock<CircuitResolver<F, RSM>>,
 
     /// Gate layout hints - we create our CS with only "general purpose" columns,
     /// and then if the gate is added in the specialized columns we should extend our
@@ -72,7 +77,9 @@ pub struct CSReferenceAssembly<
     F: SmallField, // over which we define a circuit
     P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>, // over whatever we evaluate gates. It can be vectorized type, or circuit variables
     CFG: CSConfig,
+    RSM: ResolverSortingMode<F>,
 > {
+    phantom: PhantomData<CFG>,
     pub parameters: CSGeometry,
     pub lookup_parameters: LookupParameters,
 
@@ -89,7 +96,7 @@ pub struct CSReferenceAssembly<
     pub lookup_tables: Vec<std::sync::Arc<LookupTableWrapper<F>>>,
     pub lookup_multiplicities: Vec<std::sync::Arc<Vec<AtomicU32>>>, // per each subarbument (index 0) we have vector of multiplicities for every table
 
-    pub variables_storage: RwLock<CircuitResolver<F, CFG::ResolverConfig>>,
+    pub variables_storage: RwLock<CircuitResolver<F, RSM>>,
 
     pub evaluation_data_over_general_purpose_columns: EvaluationDataOverGeneralPurposeColumns<F, P>,
     pub evaluation_data_over_specialized_columns: EvaluationDataOverSpecializedColumns<F, P>,
@@ -107,7 +114,8 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-    > CSReferenceImplementation<F, P, CFG, GC, T>
+        RSM: ResolverSortingMode<F>
+    > CSReferenceImplementation<F, P, CFG, GC, T, RSM>
 {
     pub(crate) fn lookups_tables_total_len(&self) -> usize {
         self.lookup_tables.iter().map(|el| el.table_size()).sum()
@@ -125,7 +133,7 @@ impl<
             .num_multipicities_polys(self.lookups_tables_total_len(), self.max_trace_len)
     }
 
-    pub fn into_assembly(self) -> CSReferenceAssembly<F, P, CFG> {
+    pub fn into_assembly(self) -> CSReferenceAssembly<F, P, CFG, RSM> {
         let Self {
             parameters,
             lookup_parameters,
@@ -162,7 +170,8 @@ impl<
             placement_strategies.insert(*gate_type_id, placement_strategy);
         }
 
-        CSReferenceAssembly::<F, P, CFG> {
+        CSReferenceAssembly::<F, P, CFG, RSM> {
+            phantom: PhantomData,
             parameters,
             lookup_parameters,
             next_available_place_idx,
@@ -189,7 +198,7 @@ impl<
     pub fn into_assembly_for_repeated_proving(
         mut self,
         hint: &FinalizationHintsForProver,
-    ) -> CSReferenceAssembly<F, P, CFG> {
+    ) -> CSReferenceAssembly<F, P, CFG, RuntimeResolverSorter<F, CFG::ResolverConfig>> {
         assert_eq!(
             self.next_available_place_idx, 0,
             "it's not necessary to synthesize a circuit into this CS for proving"
@@ -235,13 +244,14 @@ impl<
 
         // we can also drop resolver to have no memory reserved by it
         // regardless of the initial settings
-        let opts = crate::dag::resolver::CircuitResolverOpts {
+        let opts = crate::dag::CircuitResolverOpts {
             max_variables: 1,
             desired_parallelism: 1,
         };
         let variables_storage = std::sync::RwLock::new(CircuitResolver::new(opts));
 
-        CSReferenceAssembly::<F, P, CFG> {
+        CSReferenceAssembly::<F, P, CFG, RuntimeResolverSorter<F, CFG::ResolverConfig>> {
+            phantom: PhantomData,
             parameters,
             lookup_parameters,
             next_available_place_idx,
@@ -267,7 +277,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        RSM: ResolverSortingMode<F>,
+    > CSReferenceAssembly<F, P, CFG, RSM>
 {
     pub(crate) fn lookups_tables_total_len(&self) -> usize {
         self.lookup_tables.iter().map(|el| el.table_size()).sum()

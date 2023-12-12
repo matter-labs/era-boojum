@@ -8,6 +8,7 @@ use super::verifier::VerificationKey;
 use super::witness::WitnessVec;
 use crate::cs::cs_builder_verifier::CsVerifierBuilder;
 use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
+use crate::dag::ResolverSortingMode;
 
 use super::transcript::Transcript;
 use crate::cs::traits::circuit::Circuit;
@@ -27,7 +28,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        RSM: ResolverSortingMode<F> + 'static
+    > CSReferenceAssembly<F, P, CFG, RSM>
 {
     pub fn prove_one_shot<
         EXT: FieldExtension<2, BaseField = F>,
