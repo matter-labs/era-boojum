@@ -385,6 +385,10 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                 .comms
                 .registration_complete
                 .load(std::sync::atomic::Ordering::Relaxed);
+            
+            use std::sync::atomic::Ordering::Relaxed;
+
+
 
             let exec_order = self.common.exec_order.lock().unwrap();
             let limit = exec_order.size;
@@ -432,8 +436,34 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                 }
             } else {
                 drop(exec_order);
+
+                let mut iters = 0;
+                loop {
+
+                    let hint = self.comms.exec_order_buffer_hint.compare_exchange(
+                        1, 0, Relaxed, Relaxed);
+
+                    match hint {
+                        Ok(_) => { 
+                            break;
+                        }
+                        _ => { 
+                            iters += 1;
+
+                            if iters > (1 << 10) 
+                            { 
+                                if self.comms.registration_complete.load(Relaxed) { break }
+
+                                iters = 0;
+                            }
+
+                            yield_now(); continue; 
+                        }
+                    }
+                }
                 // TODO: spinloop?
-                yield_now();
+                // yield_now();
+                // std::thread::sleep_ms(1);
                 continue;
             }
 

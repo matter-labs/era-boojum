@@ -1,10 +1,10 @@
-use std::{marker::PhantomData, sync::{Arc, Mutex, atomic::AtomicBool}, cell::{UnsafeCell, Cell}, thread::JoinHandle, panic::resume_unwind};
+use std::{marker::PhantomData, sync::{Arc, Mutex, atomic::{AtomicBool, AtomicUsize, AtomicIsize}}, cell::{UnsafeCell, Cell}, thread::JoinHandle, panic::resume_unwind};
 
 use itertools::Itertools;
 
 use crate::{config::CSResolverConfig, field::SmallField, cs::{VariableType, Variable, Place, traits::cs::DstBuffer}, log, dag::{resolver::Metadata, resolution_window::invocation_binder, ResolutionRecordItem}, utils::{PipeOp, UnsafeCellEx}};
 
-use super::{ResolverSortingMode, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, CircuitResolverOpts, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord};
+use super::{ResolverSortingMode, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder, ResolverComms}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord, CircuitResolverOpts, resolution_window::RWConfigRecord, ResolutionRecordStorage, NullRecordWriter, ResolutionRecordWriter};
 
 #[derive(Debug)]
 struct Stats {
@@ -34,24 +34,148 @@ pub(crate) struct Source;
 
 // impl ResolverSorterSource for Source {
 //     fn new<F: SmallField, Cfg: CSResolverConfig>(opts: CircuitResolverOpts) -> impl ResolverSorter<F> {
-//         RuntimeResolverSorter::<F, Cfg>::new(opts)
+//         ActiveRecordingResolverSorter::<F, Cfg>::new(opts)
 //     }
 // }
 
-pub struct RuntimeResolverSorter<F:SmallField, Cfg: CSResolverConfig> {
+// pub struct ActiveResolverSorter<F: SmallField, Cfg: CSResolverConfig>
+//     (ActiveRecordingResolverSorter<F, Cfg, NullRecordWriter>);
+//
+// impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for ActiveResolverSorter<F, Cfg> {
+//     type Arg = CircuitResolverOpts;
+//     type Config = RWConfigRecord<GuideLoc>;
+//     type TrackId = GuideLoc;
+//
+//     fn new(opts: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
+//         let (this, common) = ActiveRecordingResolverSorter::new(opts, debug_track);
+//
+//         (Self(this), common)
+//     }
+//
+//     fn set_value(&mut self, key: Place, value: F) {
+//         self.0.set_value(key, value)
+//     }
+//
+//     fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
+//     where
+//         Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync {
+//         self.0.add_resolution(inputs, outputs, f)
+//     }
+//
+//     unsafe fn internalize(
+//         &mut self, 
+//         resolver_ix: ResolverIx,
+//         inputs: &[Place], 
+//         outputs: &[Place],
+//         added_at: RegistrationNum) {
+//         self.0.internalize(resolver_ix, inputs, outputs, added_at)
+//     }
+//
+//     fn internalize_one(
+//         &mut self,
+//         resolver_ix: ResolverIx,
+//         inputs: &[Place],
+//         outputs: &[Place],
+//         added_at: RegistrationNum
+//     ) -> Vec<ResolverIx> {
+//         self.0.internalize_one(resolver_ix, inputs, outputs, added_at)
+//     }
+//
+//     fn flush(&mut self) {
+//         self.0.flush()
+//     }
+//
+//     fn final_flush(&mut self) {
+//         self.0.flush()
+//     }
+//
+//     fn retrieve_sequence(&mut self) -> &ResolutionRecord {
+//         self.0.retrieve_sequence()
+//     }
+// }
+
+
+pub struct RuntimeResolverSorter<F: SmallField, Cfg: CSResolverConfig>
+    (ActiveRecordingResolverSorter<F, Cfg, NullRecordWriter>);
+
+impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeResolverSorter<F, Cfg> {
+    type Arg = CircuitResolverOpts;
+    type Config = RWConfigRecord<GuideLoc>;
+    type TrackId = GuideLoc;
+
+    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
+        let (this, common) = ActiveRecordingResolverSorter::new((opts, NullRecordWriter()), comms, debug_track);
+
+        (Self(this), common)
+    }
+
+    fn set_value(&mut self, key: Place, value: F) {
+        self.0.set_value(key, value)
+    }
+
+    fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
+    where
+        Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync {
+        self.0.add_resolution(inputs, outputs, f)
+    }
+
+    unsafe fn internalize(
+        &mut self, 
+        resolver_ix: ResolverIx,
+        inputs: &[Place], 
+        outputs: &[Place],
+        added_at: RegistrationNum) {
+        self.0.internalize(resolver_ix, inputs, outputs, added_at)
+    }
+
+    fn internalize_one(
+        &mut self,
+        resolver_ix: ResolverIx,
+        inputs: &[Place],
+        outputs: &[Place],
+        added_at: RegistrationNum
+    ) -> Vec<ResolverIx> {
+        self.0.internalize_one(resolver_ix, inputs, outputs, added_at)
+    }
+
+    fn flush(&mut self) {
+        self.0.flush()
+    }
+
+    fn final_flush(&mut self) {
+        self.0.final_flush()
+    }
+
+    fn retrieve_sequence(&mut self) -> &ResolutionRecord {
+        self.0.retrieve_sequence()
+    }
+
+    fn write_sequence(&mut self) {
+        self.0.write_sequence()
+    }
+}
+
+pub struct ActiveRecordingResolverSorter<
+    F:SmallField,
+    Cfg: CSResolverConfig,
+    RW: ResolutionRecordWriter,
+> {
     stats: Stats,
+    comms: Arc<ResolverComms>,
     options: CircuitResolverOpts,
     debug_track: Vec<Place>,
     pub(crate) common: Arc<ResolverCommonData<F, GuideLoc>>,
     pub(crate) registrar: Registrar,
     pub(crate) guide: BufferGuide<ResolverIx, F, Cfg>,
     record: ResolutionRecord,
+    record_writer: RW,
     /// Tracks the size of the execution order written.
     order_len: usize,
     field: PhantomData<F>
 }
 
-impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
+impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
+    ActiveRecordingResolverSorter<F, Cfg, RW> {
 
     fn write_order<'a, GO: GuideOrder<'a, ResolverIx>>(
         tgt: &Mutex<ExecOrder>,
@@ -59,6 +183,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
         tgt_len: &mut usize,
         resolvers: &UnsafeCell<ResolverBox<F>>,
         order: &GO,
+        buffer_hint: &AtomicIsize,
     ) {
         if order.size() > 0 {
             let mut exec_order = tgt.lock().unwrap();
@@ -130,16 +255,22 @@ impl<F: SmallField, Cfg: CSResolverConfig> RuntimeResolverSorter<F, Cfg> {
             *tgt_len = tgt.len();
 
             exec_order.size = *tgt_len;
+            
+            drop(exec_order);
+
+            buffer_hint.store(1, std::sync::atomic::Ordering::Relaxed);
         }
     }
 }
 
-impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeResolverSorter<F, Cfg> {
-    type Arg = CircuitResolverOpts;
+impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverSortingMode<F> 
+    for ActiveRecordingResolverSorter<F, Cfg, RW> 
+{
+    type Arg = (CircuitResolverOpts, RW);
     type Config = super::resolution_window::RWConfigRecord<GuideLoc>;
     type TrackId = GuideLoc;
 
-    fn new(opts: CircuitResolverOpts, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
+    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
 
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
@@ -148,6 +279,8 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
             values.resize_with(size, default);
             values.into_boxed_slice()
         }
+
+        let (opts, rw) = arg;
 
         let values = Values {
             variables: new_values(opts.max_variables, || {
@@ -175,7 +308,9 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
             options: opts,
             debug_track: debug_track.clone(),
             common,
+            comms,
             record: ResolutionRecord::new(0, 0, opts.max_variables),
+            record_writer: rw,
             guide: BufferGuide::new(opts.desired_parallelism),
             registrar: Registrar::new(),
             field: PhantomData,
@@ -427,7 +562,14 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
                 added_at,
                 self.stats.registrations_added as RegistrationNum);
 
-        Self::write_order(&self.common.exec_order, &mut self.record, &mut self.order_len, &self.common.resolvers, &order);
+        Self::write_order(
+            &self.common.exec_order,
+            &mut self.record,
+            &mut self.order_len,
+            &self.common.resolvers,
+            &order,
+            &self.comms.exec_order_buffer_hint
+        );
 
         values.track_values(outputs, guide_loc);
 
@@ -448,7 +590,13 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
 
         let order = self.guide.flush();
 
-        Self::write_order(&self.common.exec_order, &mut self.record, &mut self.order_len, &self.common.resolvers, &order);
+        Self::write_order(&self.common.exec_order,
+            &mut self.record,
+            &mut self.order_len,
+            &self.common.resolvers,
+            &order,
+            &self.comms.exec_order_buffer_hint,
+        );
 
         drop(order);
 
@@ -477,6 +625,9 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
             //     item.order_len = i + 1;
             // }
         }
+        self.record.values_count = 1 + unsafe { self.common.values.u_deref().max_tracked } as usize;
+        self.record.registrations_count = self.stats.registrations_added as usize;
+
 
         if cfg!(cr_paranoia_mode) || PARANOIA {
             log!(
@@ -493,9 +644,12 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
         }
     }
 
+    // TODO: delete
     fn retrieve_sequence(&mut self) -> &ResolutionRecord {
-        self.record.values_count = 1 + unsafe { self.common.values.u_deref().max_tracked } as usize;
-        self.record.registrations_count = self.stats.registrations_added as usize;
         &self.record
+    }
+
+    fn write_sequence(&mut self) {
+        self.record_writer.store(&self.record)
     }
 }

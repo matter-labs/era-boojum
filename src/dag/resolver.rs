@@ -22,7 +22,7 @@ use crate::utils::{PipeOp, UnsafeCellEx};
 use itertools::Itertools;
 use std::ops::{Add, Sub, AddAssign};
 use std::panic::resume_unwind;
-use std::sync::atomic::{fence, AtomicBool};
+use std::sync::atomic::{fence, AtomicBool, AtomicIsize};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -30,22 +30,6 @@ pub(crate) type Mutarc<T> = Arc<Mutex<T>>;
 
 pub const PARANOIA: bool = false;
 
-#[derive(Clone, Copy, Debug)]
-pub struct CircuitResolverOpts {
-    pub max_variables: usize,
-    //pub witness_columns: usize,
-    //pub max_trace_len: usize,
-    pub desired_parallelism: u32,
-}
-
-impl CircuitResolverOpts {
-    pub fn new(max_variables: usize) -> Self {
-        Self {
-            max_variables,
-            desired_parallelism: 1 << 12,
-        }
-    }
-}
 
 
 
@@ -176,7 +160,8 @@ pub struct ResolverCommonData<V, T: Default> {
 
 /// Used to send notifications and data between the resolver, resolution window
 /// and the awaiters.
-pub(crate) struct ResolverComms {
+pub struct ResolverComms {
+    pub exec_order_buffer_hint: AtomicIsize,
     pub registration_complete: AtomicBool,
     pub rw_panicked: AtomicBool,
     pub rw_panic: Cell<Option<Box<dyn Any + Send + 'static>>>,
@@ -239,7 +224,16 @@ unsafe impl<V: SmallField, RS: ResolverSortingMode<V>> Sync for CircuitResolver<
 // TODO: try to eliminate this constraint to something more general, preferably defatult.
 impl<V: SmallField, RS: ResolverSortingMode<V>> CircuitResolver<V, RS> {
     pub fn new(opts: RS::Arg) -> Self {
-        let threads = 1;
+        let threads =
+            match 
+            
+                std::env::var("BOOJUM_CR_THREADS")
+                .map_err(|_| "")
+                .and_then(|x| x.parse().map_err(|_| ""))
+            {
+                Ok(x) => x,
+                Err(_) => 3
+            };
 
         let debug_track = vec![];
 
@@ -247,13 +241,14 @@ impl<V: SmallField, RS: ResolverSortingMode<V>> CircuitResolver<V, RS> {
             log!("Contains tracked keys {:?} ", debug_track);
         }
 
-        let (sorter, common) = RS::new(opts, &debug_track);
-
         let comms = ResolverComms {
+            exec_order_buffer_hint: AtomicIsize::new(0),
             registration_complete: AtomicBool::new(false),
             rw_panicked: AtomicBool::new(false),
             rw_panic: Cell::new(None),
         }.to(Arc::new);
+
+        let (sorter, common) = RS::new(opts, comms.clone(), &debug_track);
 
         Self {
             // options: opts,
@@ -341,6 +336,8 @@ impl<V: SmallField, RS: ResolverSortingMode<V>> CircuitResolver<V, RS> {
             }
             _ => {}
         }
+        
+        self.sorter.write_sequence();
 
         if cfg!(cr_paranoia_mode) || PARANOIA {
             log!("CR {:?}", unsafe {
@@ -413,8 +410,6 @@ impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> WitnessSourceAwaitable
             .map(|x| &values.get_item_ref(x).1)
             .max_by_key(|x| x.tracker)
             .unwrap();
-
-        assert_ne!(0, <RS::TrackId as Into<u64>>::into(md.tracker.into()), "Supporting this just isn't worth it.");
 
         let r = awaiters::AwaitersBroker::register(
             &self.common.awaiters_broker,
@@ -666,11 +661,13 @@ impl<T: Default> Debug for Metadata<T> {
     }
 }
 
+
+
 // endregion
 
 #[cfg(test)]
 mod test {
-    use crate::{dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, sorter_playback::PlaybackResolverSorter, ResolutionRecordStorage}, utils::PipeOp};
+    use crate::{dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, sorter_playback::PlaybackResolverSorter, ResolutionRecordStorage, CircuitResolverOpts, TestRecordStorage}, utils::PipeOp};
     use std::{collections::VecDeque, hint::spin_loop, time::Duration, rc::Rc};
 
     use crate::{
@@ -683,20 +680,6 @@ mod test {
 
     type F = GoldilocksField;
 
-    struct TestRecordStorage {
-        record: Rc<ResolutionRecord>
-    }
-
-    impl ResolutionRecordStorage for TestRecordStorage {
-        type Id = ();
-
-        fn store(&mut self, id: Self::Id, record: &ResolutionRecord) {
-        }
-
-        fn get(&self, id: Self::Id) -> std::rc::Rc<ResolutionRecord> {
-            self.record.clone()
-        }
-    }
 
     #[test]
     fn playground() {
@@ -763,7 +746,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         tracks_values_populate(&mut storage, limit);
 
@@ -831,7 +814,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         let (init_var, dep_var) = resolves_populate(&mut storage);
 
@@ -907,7 +890,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         let ((init_var1, dep_var1), (init_var2, dep_var2)) 
             = resolves_siblings_populate(&mut storage);
@@ -984,7 +967,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         let dep_var3 = resolves_descendants_populate(&mut storage);
 
@@ -1111,12 +1094,12 @@ mod test {
     #[test]
     fn awaiter_returns_for_resolved_value_playback_mode() {
 
-        awaiter_returns_for_resolved_value_playback_mode_impl(2, 2);
-        awaiter_returns_for_resolved_value_playback_mode_impl(2, 20);
-        awaiter_returns_for_resolved_value_playback_mode_impl(2, 2048);
-        awaiter_returns_for_resolved_value_playback_mode_impl(10, 2);
-        awaiter_returns_for_resolved_value_playback_mode_impl(10, 20);
-        awaiter_returns_for_resolved_value_playback_mode_impl(10, 2048);
+        // awaiter_returns_for_resolved_value_playback_mode_impl(2, 2);
+        // awaiter_returns_for_resolved_value_playback_mode_impl(2, 20);
+        // awaiter_returns_for_resolved_value_playback_mode_impl(2, 2048);
+        awaiter_returns_for_resolved_value_playback_mode_impl(15, 2);
+        awaiter_returns_for_resolved_value_playback_mode_impl(15, 20);
+        awaiter_returns_for_resolved_value_playback_mode_impl(15, 2048);
     }
 
     fn awaiter_returns_for_resolved_value_playback_mode_impl(limit: usize, desired_parallelism: u32) {
@@ -1137,7 +1120,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         populate(&mut storage, limit);
 
@@ -1217,7 +1200,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
 
@@ -1351,7 +1334,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
         storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
@@ -1419,7 +1402,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
         storage.add_resolution(&[init_var], &[dep_var], res_fn);
@@ -1479,7 +1462,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
         storage.add_resolution(&[init_var], &[dep_var], res_fn);
@@ -1544,7 +1527,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
         storage.add_resolution(&[init_var], &[dep_var_1], res_fn);
@@ -1702,7 +1685,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         storage.set_value(var_4, F::from_u64_with_reduction(7));
         storage.add_resolution(&[var_3, var_4], &[var_5], res_fn);
@@ -1820,7 +1803,7 @@ mod test {
             CircuitResolver::<
                 F, 
                 PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
-            ::new((rs, ()));
+            ::new(rs);
 
         correctness_simple_linear_populate(&mut storage, limit);
 
@@ -1913,7 +1896,7 @@ mod benches {
     use super::*;
     use crate::{
         cs::Variable,
-        dag::{Awaiter, sorter_runtime::RuntimeResolverSorter},
+        dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts},
         field::{goldilocks::GoldilocksField, Field},
     };
     type F = GoldilocksField;

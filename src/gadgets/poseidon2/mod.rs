@@ -455,7 +455,7 @@ mod test {
 
     use crate::config::CSConfig;
     use crate::cs::gates::*;
-    use crate::dag::resolver::CircuitResolverOpts;
+    use crate::dag::CircuitResolverOpts;
     use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::log;
     use crate::worker::Worker;

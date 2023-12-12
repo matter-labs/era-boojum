@@ -18,8 +18,8 @@ mod registrar;
 pub(crate) mod resolution_window;
 pub(crate) mod resolver;
 mod resolver_box;
-pub(crate) mod sorter_runtime;
-pub(crate) mod sorter_playback;
+pub mod sorter_runtime;
+pub mod sorter_playback;
 
 pub trait TrivialWitnessCastable<F: SmallField, const N: usize>:
     'static + Clone + std::fmt::Debug + Send + Sync
@@ -87,7 +87,7 @@ use crate::cs::Place;
 use crate::utils::PipeOp;
 
 use self::guide::{GuideOrder, OrderInfo, RegistrationNum};
-use self::resolver::{CircuitResolverOpts, ResolverIx, ResolverCommonData};
+use self::resolver::{ResolverIx, ResolverCommonData, ResolverComms};
 use self::resolver_box::ResolverBox;
 // we use Arc and interior mutability, so we want Send + Sync just in case
 
@@ -108,17 +108,66 @@ pub trait Awaiter<'a> {
     fn wait(&self);
 }
 
+// TODO: delete
 pub trait ResolutionRecordStorage {
     type Id;
     fn store(&mut self, id: Self::Id, record: &ResolutionRecord);
     fn get(&self, id: Self::Id) -> Rc<ResolutionRecord>;
 }
 
-pub trait Blank {
-    fn blank() -> Self;
+pub trait ResolutionRecordWriter {
+    fn store(&mut self, record: &ResolutionRecord);
 }
 
-#[derive(Default, Clone)]
+pub trait ResolutionRecordSource {
+    fn get(&self) -> &ResolutionRecord;
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CircuitResolverOpts {
+    pub max_variables: usize,
+    //pub witness_columns: usize,
+    //pub max_trace_len: usize,
+    pub desired_parallelism: u32,
+}
+
+impl CircuitResolverOpts {
+    pub fn new(max_variables: usize) -> Self {
+        Self {
+            max_variables,
+            desired_parallelism: 1 << 12,
+        }
+    }
+}
+
+pub struct TestRecordStorage {
+    record: std::rc::Rc<ResolutionRecord>
+}
+
+impl ResolutionRecordStorage for TestRecordStorage {
+    type Id = ();
+
+    fn store(&mut self, id: Self::Id, record: &ResolutionRecord) {
+    }
+
+    fn get(&self, id: Self::Id) -> std::rc::Rc<ResolutionRecord> {
+        self.record.clone()
+    }
+}
+
+impl ResolutionRecordSource for TestRecordStorage {
+    fn get(&self) -> &ResolutionRecord {
+        &self.record
+    }
+}
+
+pub struct NullRecordWriter();
+impl ResolutionRecordWriter for NullRecordWriter {
+    fn store(&mut self, record: &ResolutionRecord) {
+    }
+}
+
+#[derive(Default, Clone, Debug)]
 pub struct ResolutionRecordItem { 
     added_at: RegistrationNum,
     accepted_at: RegistrationNum,
@@ -128,7 +177,7 @@ pub struct ResolutionRecordItem {
     parallelism: u16,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ResolutionRecord {
     pub items: Vec<ResolutionRecordItem>,
     pub registrations_count: usize,
@@ -156,7 +205,7 @@ pub trait ResolverSortingMode<F: SmallField>: Sized
     type TrackId: TrackId + 'static;
     
 
-    fn new(opts: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>);
+    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>);
     fn set_value(&mut self, key: Place, value: F);
     fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
     where
@@ -178,6 +227,7 @@ pub trait ResolverSortingMode<F: SmallField>: Sized
 
     fn flush(&mut self);
     fn final_flush(&mut self);
+    fn write_sequence(&mut self);
 
     fn retrieve_sequence(&mut self) -> &ResolutionRecord;
 }

@@ -143,7 +143,7 @@ mod test {
         gadgets::tables::{
             byte_split::{create_byte_split_table, ByteSplitTable},
             xor8::{create_xor8_table, Xor8Table},
-        }, dag::{sorter_runtime::RuntimeResolverSorter, resolver::CircuitResolverOpts}, config::CSConfig,
+        }, dag::{sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts}, config::CSConfig,
     };
     use blake2::Digest;
     type F = GoldilocksField;

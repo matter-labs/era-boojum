@@ -478,7 +478,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 
 #[cfg(test)]
 mod test {
-    use crate::dag::resolver::CircuitResolverOpts;
+    use crate::dag::CircuitResolverOpts;
     use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::Field;
 

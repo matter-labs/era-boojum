@@ -6,7 +6,6 @@ use crate::cs::gates::lookup_marker::LookupFormalGate;
 use crate::cs::gates::LookupTooling;
 use crate::cs::implementations::reference_cs::INITIAL_LOOKUP_TABLE_ID_VALUE;
 use crate::dag::ResolverSortingMode;
-use crate::dag::resolver::CircuitResolverOpts;
 use crate::{
     config::CSConfig,
     dag::resolver::CircuitResolver,

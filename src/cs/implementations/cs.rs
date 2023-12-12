@@ -1060,7 +1060,7 @@ mod test {
     use crate::cs::implementations::prover::ProofConfig;
     use crate::cs::implementations::transcript::GoldilocksPoisedonTranscript;
 
-    use crate::dag::resolver::CircuitResolverOpts;
+    use crate::dag::CircuitResolverOpts;
     use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::goldilocks::GoldilocksExt2;
 

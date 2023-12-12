@@ -7,7 +7,6 @@ use crate::cs::traits::gate::GatePlacementStrategy;
 use crate::cs::traits::gate::GateRowCleanupFunction;
 use crate::dag::ResolverSortingMode;
 use crate::dag::resolver::CircuitResolver;
-use crate::dag::Blank;
 use crate::dag::sorter_runtime::RuntimeResolverSorter;
 use std::any::TypeId;
 use std::marker::PhantomData;
@@ -245,7 +244,7 @@ impl<
 
         // we can also drop resolver to have no memory reserved by it
         // regardless of the initial settings
-        let opts = crate::dag::resolver::CircuitResolverOpts {
+        let opts = crate::dag::CircuitResolverOpts {
             max_variables: 1,
             desired_parallelism: 1,
         };
