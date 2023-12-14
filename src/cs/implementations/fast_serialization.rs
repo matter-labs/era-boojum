@@ -231,7 +231,7 @@ where
         let mut result: Vec<u32, A> = Vec::with_capacity_in(capacity, A::default());
         let mut tmp =
             unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast(), num_bytes) };
-        src.read_exact(tmp).map_err(Box::new);
+        src.read_exact(tmp).map_err(Box::new)?;
         unsafe { result.set_len(capacity) };
         Ok(result)
     }
@@ -261,7 +261,7 @@ where
         let mut result: Vec<u64, A> = Vec::with_capacity_in(capacity, A::default());
         let mut tmp =
             unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast(), num_bytes) };
-        src.read_exact(tmp).map_err(Box::new);
+        src.read_exact(tmp).map_err(Box::new)?;
         unsafe { result.set_len(capacity) };
 
         Ok(result)
