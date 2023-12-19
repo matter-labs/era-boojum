@@ -101,11 +101,21 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         }
         .to(Arc::new);
 
+        let buf_size = 
+            match 
+                std::env::var("BOOJUM_PRS_BUF_SIZE")
+                .map_err(|_| "")
+                .and_then(|x| x.parse().map_err(|_| ""))
+            {
+                Ok(x) => x,
+                Err(_) => 1 << 10
+            };
+
         let s = Self {
             common,
             comms,
             record: rrs,
-            exec_order_buffer: Vec::with_capacity(1 << 14),
+            exec_order_buffer: Vec::with_capacity(buf_size),
             registrations_added: 0,
             phantom: PhantomData,
         };

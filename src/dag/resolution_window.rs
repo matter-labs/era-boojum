@@ -789,7 +789,7 @@ const PRIMES: [usize; 128] = [
 ];
 
 struct LockStepChannel {
-    batch_done_res: AtomicUsize,
+    // batch_done_res: AtomicUsize,
     lock_state: AtomicUsize,
     lock_correlation: AtomicUsize,
     park_workers: AtomicBool,
@@ -804,7 +804,7 @@ struct LockStepChannel {
 impl LockStepChannel {
     fn new(worker_cnt: usize) -> Self {
         Self {
-            batch_done_res: AtomicUsize::new(1),
+            // batch_done_res: AtomicUsize::new(1),
             lock_state: AtomicUsize::new(LOCK_STEP_STATE_WRITING),
             lock_correlation: AtomicUsize::new(0),
             park_workers: AtomicBool::new(true),
@@ -844,22 +844,30 @@ impl LockStepChannel {
 
         unsafe { self.pool.u_deref().iter().for_each(|x| x.unpark()) }
 
-        let expected_done: usize = PRIMES
-            .iter()
-            .take(unsafe { self.data.u_deref().len() })
-            .product();
-
-        while self.batch_done_res.load(Relaxed) != expected_done
-            && self.panicked.load(Relaxed) == false
-        {
-            unsafe { self.stats.u_deref_mut().execute_wait_loops += 1 };
-            spin_loop();
+        unsafe {
+            for i in (0..self.data.u_deref().len()).rev() {
+                while self.data.u_deref()[i].done == false {
+                    spin_loop();
+                }
+            }
         }
+
+        // let expected_done: usize = PRIMES
+        //     .iter()
+        //     .take(unsafe { self.data.u_deref().len() })
+        //     .product();
+        //
+        // while self.batch_done_res.load(Relaxed) != expected_done
+        //     && self.panicked.load(Relaxed) == false
+        // {
+        //     unsafe { self.stats.u_deref_mut().execute_wait_loops += 1 };
+        //     spin_loop();
+        // }
 
         self.lock_state.store(LOCK_STEP_STATE_WRITING, Relaxed);
         fence(Acquire); // TODO: Do we need this? `data` is only written in this thread.
 
-        self.batch_done_res.store(1, Relaxed);
+        // self.batch_done_res.store(1, Relaxed);
         unsafe { self.data.u_deref_mut().iter_mut().for_each(|x| x.clear()) };
     }
 
@@ -993,17 +1001,21 @@ impl LockStepWorker {
                 self.channel.data.u_deref()[self.id as usize].count
         };
 
-        let old = self
-            .channel
-            .batch_done_res
-            .fetch_update(Release, Relaxed, |x| Some(x * PRIMES[self.id as usize]))
-            .unwrap();
+        fence(Release);
+        unsafe { self.channel.data.u_deref_mut()[self.id as usize].done = true };
 
-        assert!(
-            old % PRIMES[self.id as usize] != 0,
-            "Worker {} attempted to mark a batch as completed twice",
-            self.id
-        );
+
+        // let old = self
+        //     .channel
+        //     .batch_done_res
+        //     .fetch_update(Release, Relaxed, |x| Some(x * PRIMES[self.id as usize]))
+        //     .unwrap();
+        //
+        // assert!(
+        //     old % PRIMES[self.id as usize] != 0,
+        //     "Worker {} attempted to mark a batch as completed twice",
+        //     self.id
+        // );
     }
 
     /// Notifies the channel that this worker has panicked.
