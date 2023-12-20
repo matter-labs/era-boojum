@@ -2284,6 +2284,9 @@ impl<
             proof.queries_per_fri_repetition.push(queries);
         }
 
+        // prepare for cases of wire format
+        proof.normalize();
+
         proof
     }
 }

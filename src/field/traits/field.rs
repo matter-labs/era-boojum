@@ -126,6 +126,8 @@ pub trait Field:
 
 use derivative::Derivative;
 
+use crate::field::U64Representable;
+
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, Hash)]
 #[repr(isize)]
@@ -323,7 +325,6 @@ pub trait FieldExtension<const DEGREE: usize>:
 
 #[repr(C)]
 #[derive(Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
-// #[derive(Clone, Copy, Hash)]
 pub struct ExtensionField<F: Field, const DEGREE: usize, E: FieldExtension<DEGREE, BaseField = F>> {
     #[serde(bound(serialize = "[F; DEGREE]: serde::Serialize"))]
     #[serde(bound(deserialize = "[F; DEGREE]: serde::de::DeserializeOwned"))]
@@ -540,6 +541,22 @@ impl<F: Field, E: FieldExtension<2, BaseField = F>> ExtensionField<F, 2, E> {
         Self {
             coeffs,
             _marker: std::marker::PhantomData,
+        }
+    }
+    #[inline(always)]
+    pub fn normalize(&mut self)
+    where
+        F: U64Representable,
+    {
+        self.coeffs[0].normalize();
+        self.coeffs[1].normalize();
+    }
+    pub fn batch_normalize(dst: &mut [Self])
+    where
+        F: U64Representable,
+    {
+        for el in dst.iter_mut() {
+            el.normalize();
         }
     }
 }

@@ -4,6 +4,15 @@ pub trait U64Representable: U64RawRepresentable {
     fn from_u64(value: u64) -> Option<Self>;
     fn as_u64_array<const N: usize>(input: [Self; N]) -> [u64; N];
     fn as_u64_reduced(&self) -> u64;
+    #[inline(always)]
+    fn normalize(&mut self) {
+        *self = Self::from_raw_u64_unchecked(self.as_u64_reduced());
+    }
+    fn batch_normalize(dst: &mut [Self]) {
+        for el in dst.iter_mut() {
+            el.normalize();
+        }
+    }
 }
 
 pub trait U64RawRepresentable:

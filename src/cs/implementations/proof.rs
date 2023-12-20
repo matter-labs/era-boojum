@@ -1,6 +1,9 @@
-use crate::cs::{
-    oracle::{merkle_tree::MerkleTreeWithCap, TreeHasher},
-    traits::GoodAllocator,
+use crate::{
+    cs::{
+        oracle::{merkle_tree::MerkleTreeWithCap, TreeHasher},
+        traits::GoodAllocator,
+    },
+    field::U64Representable,
 };
 
 use super::{fri::QuerySource, prover::ProofConfig, *};
@@ -41,6 +44,16 @@ impl<F: SmallField, H: TreeHasher<F>> SingleRoundQueries<F, H> {
                 .into_iter()
                 .map(|el| el.transmute_to_another_formal_hasher())
                 .collect(),
+        }
+    }
+
+    pub fn normalize(&mut self) {
+        self.witness_query.normalize();
+        self.stage_2_query.normalize();
+        self.quotient_query.normalize();
+        self.setup_query.normalize();
+        for el in self.fri_queries.iter_mut() {
+            el.normalize();
         }
     }
 }
@@ -94,6 +107,11 @@ impl<F: SmallField, H: TreeHasher<F>> OracleQuery<F, H> {
         new.proof = proof;
 
         new
+    }
+
+    pub fn normalize(&mut self) {
+        // normalize for wire format
+        U64Representable::batch_normalize(&mut self.leaf_elements);
     }
 
     #[inline]
@@ -197,6 +215,30 @@ impl<F: SmallField, H: TreeHasher<F>, EXT: FieldExtension<2, BaseField = F>> Pro
         }
 
         true
+    }
+
+    pub fn normalize(&mut self) {
+        // normalize all fields for wire format
+        U64Representable::batch_normalize(&mut self.public_inputs);
+        H::batch_normalize_outputs(&mut self.witness_oracle_cap);
+        H::batch_normalize_outputs(&mut self.stage_2_oracle_cap);
+        H::batch_normalize_outputs(&mut self.quotient_oracle_cap);
+
+        for el in self.final_fri_monomials.iter_mut() {
+            U64Representable::batch_normalize(el);
+        }
+        ExtensionField::<F, 2, EXT>::batch_normalize(&mut self.values_at_z);
+        ExtensionField::<F, 2, EXT>::batch_normalize(&mut self.values_at_z_omega);
+        ExtensionField::<F, 2, EXT>::batch_normalize(&mut self.values_at_0);
+
+        H::batch_normalize_outputs(&mut self.fri_base_oracle_cap);
+        for el in self.fri_intermediate_oracles_caps.iter_mut() {
+            H::batch_normalize_outputs(el);
+        }
+
+        for el in self.queries_per_fri_repetition.iter_mut() {
+            el.normalize();
+        }
     }
 
     pub fn transmute_to_another_formal_hasher<HH: TreeHasher<F, Output = H::Output>>(
