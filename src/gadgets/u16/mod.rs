@@ -140,6 +140,7 @@ impl<F: SmallField> WitnessHookable<F> for UInt16<F> {
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for UInt16<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -161,6 +162,7 @@ impl<F: SmallField> Selectable<F> for UInt16<F> {
 
     const SUPPORTS_PARALLEL_SELECT: bool = true;
 
+    #[must_use]
     fn parallel_select<CS: ConstraintSystem<F>, const N: usize>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -177,11 +179,13 @@ impl<F: SmallField> Selectable<F> for UInt16<F> {
 
 impl<F: SmallField> UInt16<F> {
     #[inline]
+    #[must_use]
     pub const fn get_variable(&self) -> Variable {
         self.variable
     }
 
     #[inline]
+    #[must_use]
     pub const fn into_num(self) -> Num<F> {
         Num {
             variable: self.variable,
@@ -189,6 +193,7 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(cs: &mut CS, constant: u16) -> Self {
         debug_assert!(F::CAPACITY_BITS >= 16);
 
@@ -200,10 +205,12 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocated_constant(cs, 0)
     }
 
+    #[must_use]
     pub fn allocate_checked<CS: ConstraintSystem<F>>(cs: &mut CS, witness: u16) -> Self {
         let result_var =
             cs.alloc_single_variable_from_witness(F::from_u64_with_reduction(witness as u64));
@@ -214,6 +221,7 @@ impl<F: SmallField> UInt16<F> {
     }
 
     #[inline]
+    #[must_use]
     pub fn from_variable_checked<CS: ConstraintSystem<F>>(cs: &mut CS, variable: Variable) -> Self {
         let result = Self {
             variable,
@@ -229,6 +237,7 @@ impl<F: SmallField> UInt16<F> {
     ///
     /// Does not check the variable to be valid.
     #[inline(always)]
+    #[must_use]
     pub const unsafe fn from_variable_unchecked(variable: Variable) -> Self {
         Self {
             variable,
@@ -236,6 +245,7 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     pub fn overflowing_add<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -263,6 +273,7 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     pub fn overflowing_add_with_carry_in<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -290,6 +301,7 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     pub fn overflowing_sub<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -317,6 +329,7 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     pub fn overflowing_sub_with_borrow_in<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -344,6 +357,7 @@ impl<F: SmallField> UInt16<F> {
         }
     }
 
+    #[must_use]
     fn decompose_into_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 2] {
         let tooling: &DecompositionTooling =
             cs.get_or_create_dynamic_tool::<UInt16DecompositionTooling, _>();
@@ -369,6 +383,7 @@ impl<F: SmallField> UInt16<F> {
         bytes.map(|el| unsafe { UInt8::from_variable_unchecked(el) })
     }
 
+    #[must_use]
     pub fn from_le_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 2]) -> Self {
         let bytes = bytes.map(|el| el.variable);
         let tooling: &RecompositionTooling =
@@ -399,6 +414,7 @@ impl<F: SmallField> UInt16<F> {
     }
 
     #[track_caller]
+    #[must_use]
     pub fn add_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
             if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
@@ -431,6 +447,7 @@ impl<F: SmallField> UInt16<F> {
     }
 
     #[track_caller]
+    #[must_use]
     pub fn sub_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
             if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
@@ -499,6 +516,7 @@ impl<F: SmallField> UInt16<F> {
     /// # Safety
     ///
     /// Does not check if the resulting variable is valid.
+    #[must_use]
     pub unsafe fn increment_unchecked<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let one = cs.allocate_constant(F::ONE);
         let var = Num::from_variable(self.variable)
@@ -511,6 +529,7 @@ impl<F: SmallField> UInt16<F> {
     /// # Safety
     ///
     /// Does not check if the resulting variable is valid.
+    #[must_use]
     pub unsafe fn decrement_unchecked<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let one = cs.allocate_constant(F::ONE);
         let var = Num::from_variable(self.variable)
@@ -521,14 +540,17 @@ impl<F: SmallField> UInt16<F> {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         self.into_num().is_zero(cs)
     }
 
+    #[must_use]
     pub fn to_le_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 2] {
         self.decompose_into_bytes(cs)
     }
 
+    #[must_use]
     pub fn to_be_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 2] {
         let mut bytes = self.to_le_bytes(cs);
         bytes.reverse();

@@ -103,6 +103,7 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt256<F> {
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for UInt256<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -116,6 +117,7 @@ impl<F: SmallField> Selectable<F> for UInt256<F> {
 }
 
 impl<F: SmallField> UInt256<F> {
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(cs: &mut CS, constant: U256) -> Self {
         debug_assert!(F::CAPACITY_BITS >= 32);
 
@@ -124,6 +126,7 @@ impl<F: SmallField> UInt256<F> {
         Self { inner: chunks }
     }
 
+    #[must_use]
     pub fn allocate_from_closure_and_dependencies<
         CS: ConstraintSystem<F>,
         FN: FnOnce(&[F]) -> U256 + 'static + Send + Sync,
@@ -154,10 +157,12 @@ impl<F: SmallField> UInt256<F> {
         Self { inner: chunks }
     }
 
+    #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocated_constant(cs, U256::zero())
     }
 
+    #[must_use]
     pub fn overflowing_add<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -179,6 +184,7 @@ impl<F: SmallField> UInt256<F> {
         (result, carry_out)
     }
 
+    #[must_use]
     pub fn overflowing_sub<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -208,6 +214,7 @@ impl<F: SmallField> UInt256<F> {
     // TODO: This could really be cleaned up with a bit of metaprogramming
     // NOTE: Since this `other` variable is pretty constant for use with secp,
     // maybe we can actually shave off more limbs to make this cheaper
+    #[must_use]
     pub fn widening_mul<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -266,6 +273,7 @@ impl<F: SmallField> UInt256<F> {
         Boolean::multi_and(cs, &equals)
     }
 
+    #[must_use]
     pub fn from_le_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 32]) -> Self {
         let mut inner = [std::mem::MaybeUninit::uninit(); 8];
         for (dst, src) in inner.iter_mut().zip(bytes.array_chunks::<4>()) {
@@ -277,6 +285,7 @@ impl<F: SmallField> UInt256<F> {
         Self { inner }
     }
 
+    #[must_use]
     pub fn from_be_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 32]) -> Self {
         let mut inner = [std::mem::MaybeUninit::uninit(); 8];
         for (dst, src) in inner.iter_mut().rev().zip(bytes.array_chunks::<4>()) {
@@ -288,15 +297,18 @@ impl<F: SmallField> UInt256<F> {
         Self { inner }
     }
 
+    #[must_use]
     pub fn is_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         let limbs_are_zero = self.inner.map(|el| el.is_zero(cs));
         Boolean::multi_and(cs, &limbs_are_zero)
     }
 
+    #[must_use]
     pub fn is_odd<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         self.inner[0].into_num().spread_into_bits::<CS, 32>(cs)[0]
     }
 
+    #[must_use]
     pub fn to_le_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 32] {
         let mut encoding = [std::mem::MaybeUninit::uninit(); 32];
         for (dst, src) in encoding
@@ -309,6 +321,7 @@ impl<F: SmallField> UInt256<F> {
         unsafe { encoding.map(|el| el.assume_init()) }
     }
 
+    #[must_use]
     pub fn to_be_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 32] {
         let mut bytes = self.to_le_bytes(cs);
         bytes.reverse();
@@ -316,6 +329,7 @@ impl<F: SmallField> UInt256<F> {
         bytes
     }
 
+    #[must_use]
     pub fn div2<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let byte_split_id = cs
             .get_table_id_for_marker::<ByteSplitTable<1>>()

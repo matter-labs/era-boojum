@@ -100,6 +100,7 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt160<F> {
 }
 
 impl<F: SmallField> UInt160<F> {
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(cs: &mut CS, constant: Address) -> Self {
         debug_assert!(F::CAPACITY_BITS >= 32);
 
@@ -108,6 +109,7 @@ impl<F: SmallField> UInt160<F> {
         Self { inner: chunks }
     }
 
+    #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocated_constant(cs, Address::zero())
     }
@@ -116,6 +118,7 @@ impl<F: SmallField> UInt160<F> {
     ///
     /// Does not check the variable to be valid.
     #[inline(always)]
+    #[must_use]
     pub unsafe fn from_variables_unchecked(variables: [Variable; 5]) -> Self {
         Self {
             inner: variables.map(|el| UInt32::from_variable_unchecked(el)),
@@ -148,11 +151,13 @@ impl<F: SmallField> UInt160<F> {
         Boolean::multi_and(cs, &equals)
     }
 
+    #[must_use]
     pub fn is_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         let limbs_are_zero = self.inner.map(|el| el.is_zero(cs));
         Boolean::multi_and(cs, &limbs_are_zero)
     }
 
+    #[must_use]
     pub fn to_le_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 20] {
         let mut encoding = [std::mem::MaybeUninit::uninit(); 20];
         for (dst, src) in encoding
@@ -165,6 +170,7 @@ impl<F: SmallField> UInt160<F> {
         unsafe { encoding.map(|el| el.assume_init()) }
     }
 
+    #[must_use]
     pub fn to_be_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 20] {
         let mut bytes = self.to_le_bytes(cs);
         bytes.reverse();
@@ -176,6 +182,7 @@ impl<F: SmallField> UInt160<F> {
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for UInt160<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,

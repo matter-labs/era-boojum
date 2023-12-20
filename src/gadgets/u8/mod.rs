@@ -227,6 +227,7 @@ impl<F: SmallField> WitnessHookable<F> for UInt8<F> {
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for UInt8<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -248,6 +249,7 @@ impl<F: SmallField> Selectable<F> for UInt8<F> {
 
     const SUPPORTS_PARALLEL_SELECT: bool = true;
 
+    #[must_use]
     fn parallel_select<CS: ConstraintSystem<F>, const N: usize>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -264,11 +266,13 @@ impl<F: SmallField> Selectable<F> for UInt8<F> {
 
 impl<F: SmallField> UInt8<F> {
     #[inline]
+    #[must_use]
     pub const fn get_variable(&self) -> Variable {
         self.variable
     }
 
     #[inline]
+    #[must_use]
     pub const fn into_num(self) -> Num<F> {
         Num {
             variable: self.variable,
@@ -292,6 +296,7 @@ impl<F: SmallField> UInt8<F> {
     ///
     /// Does not check the variable to be valid.
     #[inline(always)]
+    #[must_use]
     pub const unsafe fn from_variable_unchecked(variable: Variable) -> Self {
         Self {
             variable,
@@ -299,6 +304,7 @@ impl<F: SmallField> UInt8<F> {
         }
     }
 
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(cs: &mut CS, constant: u8) -> Self {
         debug_assert!(F::CAPACITY_BITS >= 8);
 
@@ -310,10 +316,12 @@ impl<F: SmallField> UInt8<F> {
         }
     }
 
+    #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocated_constant(cs, 0)
     }
 
+    #[must_use]
     pub fn allocate_checked<CS: ConstraintSystem<F>>(cs: &mut CS, witness: u8) -> Self {
         let a = cs.alloc_single_variable_from_witness(F::from_u64_with_reduction(witness as u64));
         range_check_u8(cs, a);
@@ -326,6 +334,7 @@ impl<F: SmallField> UInt8<F> {
         a
     }
 
+    #[must_use]
     pub fn allocate_pair<CS: ConstraintSystem<F>>(cs: &mut CS, pair: [u8; 2]) -> [Self; 2] {
         let a = cs.alloc_single_variable_from_witness(F::from_u64_with_reduction(pair[0] as u64));
         let b = cs.alloc_single_variable_from_witness(F::from_u64_with_reduction(pair[1] as u64));
@@ -382,6 +391,7 @@ impl<F: SmallField> UInt8<F> {
     /// # Safety
     ///
     /// Does not check if the resulting variable is valid.
+    #[must_use]
     pub unsafe fn increment_unchecked<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let one = cs.allocate_constant(F::ONE);
         let var = Num::from_variable(self.variable)
@@ -392,6 +402,7 @@ impl<F: SmallField> UInt8<F> {
     }
 
     #[track_caller]
+    #[must_use]
     pub fn add_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
             if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
@@ -424,6 +435,7 @@ impl<F: SmallField> UInt8<F> {
     }
 
     #[track_caller]
+    #[must_use]
     pub fn sub_no_overflow<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
             if let (Some(a), Some(b)) = (self.witness_hook(&*cs)(), other.witness_hook(&*cs)()) {
@@ -457,6 +469,7 @@ impl<F: SmallField> UInt8<F> {
         }
     }
 
+    #[must_use]
     pub fn overflowing_add<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -480,6 +493,7 @@ impl<F: SmallField> UInt8<F> {
         }
     }
 
+    #[must_use]
     pub fn overflowing_sub<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -508,11 +522,13 @@ impl<F: SmallField> UInt8<F> {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         self.into_num().is_zero(cs)
     }
 
     // Give the two's complement inversion of the given UInt8.
+    #[must_use]
     pub fn negate<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let is_zero = self.is_zero(cs);
         let xor_id = cs
@@ -531,6 +547,7 @@ impl<F: SmallField> UInt8<F> {
 
     // Assuming a two's complement representation, give the absolute
     // value of the UInt8.
+    #[must_use]
     pub fn abs<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let overflow_checker = UInt8::allocated_constant(cs, 2u8.pow(7));
         let (_, of) = self.overflowing_sub(cs, &overflow_checker);
@@ -538,6 +555,7 @@ impl<F: SmallField> UInt8<F> {
         Selectable::conditionally_select(cs, of, self, &neg_self)
     }
 
+    #[must_use]
     pub fn div2<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let byte_split_id = cs
             .get_table_id_for_marker::<ByteSplitTable<1>>()
