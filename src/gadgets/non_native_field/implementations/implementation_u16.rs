@@ -18,6 +18,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> NonNativeFieldOv
 where
     [(); N + 1]:,
 {
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         value: T,
@@ -38,6 +39,7 @@ where
         }
     }
 
+    #[must_use]
     pub fn allocate_checked_without_value<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         params: &Arc<NonNativeFieldOverU16Params<T, N>>,
@@ -70,6 +72,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn allocate_checked<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         witness: T,
@@ -153,6 +156,7 @@ where
         *self = normalized;
     }
 
+    #[must_use]
     pub fn add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let new = if self.form == RepresentationForm::Normalized
             && other.form == RepresentationForm::Normalized
@@ -256,6 +260,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         let mut tmp = self.clone();
         let new = self.add(cs, &mut tmp);
@@ -276,12 +281,14 @@ where
         new
     }
 
+    #[must_use]
     pub fn lazy_double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         let mut tmp = self.clone();
         self.lazy_add(cs, &mut tmp)
     }
 
-    // we add limbs only without range checks,
+    // we add limbs only without range checks
+    #[must_use]
     pub fn lazy_add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let total_range = self.tracker.add(&other.tracker);
         assert_eq!(self.non_zero_limbs, other.non_zero_limbs);
@@ -329,6 +336,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn add_many_lazy<CS: ConstraintSystem<F>, const M: usize>(
         cs: &mut CS,
         mut inputs: [&mut Self; M],
@@ -347,6 +355,7 @@ where
         result
     }
 
+    #[must_use]
     pub fn mul<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
         [(); N + 1]:,
@@ -706,6 +715,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn square<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self
     where
         [(); N + 1]:,
@@ -715,6 +725,7 @@ where
     }
 
     #[allow(unreachable_code)]
+    #[must_use]
     pub fn negated<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self
     where
         [(); N + 1]:,
@@ -849,6 +860,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn sub<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         // sub is only lazy for now
         let mut other_negated = other.negated(cs);
@@ -870,6 +882,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn allocate_inverse_or_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let new = Self::allocate_checked_without_value(cs, &self.params);
 
@@ -918,6 +931,7 @@ where
         new
     }
 
+    #[must_use]
     pub fn inverse_unchecked<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self
     where
         [(); N + 1]:,
@@ -938,6 +952,7 @@ where
         inverse
     }
 
+    #[must_use]
     pub fn div_unchecked<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
         [(); N + 1]:,
@@ -1096,6 +1111,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> Selectable<F>
 {
     const SUPPORTS_PARALLEL_SELECT: bool = false;
 
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
