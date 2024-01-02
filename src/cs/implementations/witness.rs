@@ -1,4 +1,5 @@
 use crate::cs::implementations::fast_serialization::MemcopySerializable;
+use crate::cs::traits::GoodAllocator;
 use crate::dag::WitnessSource;
 use std::alloc::Global;
 use std::sync::atomic::AtomicU32;
@@ -29,13 +30,20 @@ pub struct WitnessSet<F: SmallField> {
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
 #[derivative(Clone, Debug)]
 #[serde(bound = "F: serde::Serialize + serde::de::DeserializeOwned")]
-pub struct WitnessVec<F: SmallField> {
+pub struct WitnessVec<F: SmallField, A: GoodAllocator = Global> {
     pub public_inputs_locations: Vec<(usize, usize)>,
-    pub all_values: Vec<F>,
-    pub multiplicities: Vec<u32>,
+    #[serde(serialize_with = "crate::utils::serialize_vec_with_allocator")]
+    #[serde(deserialize_with = "crate::utils::deserialize_vec_with_allocator")]
+    pub all_values: Vec<F, A>,
+    #[serde(serialize_with = "crate::utils::serialize_vec_with_allocator")]
+    #[serde(deserialize_with = "crate::utils::deserialize_vec_with_allocator")]
+    pub multiplicities: Vec<u32, A>,
 }
 
-impl<F: SmallField> MemcopySerializable for WitnessVec<F> {
+impl<F: SmallField, A: GoodAllocator> MemcopySerializable for WitnessVec<F, A>
+where
+    A: 'static,
+{
     fn read_from_buffer<R: std::io::Read>(mut src: R) -> Result<Self, Box<dyn std::error::Error>> {
         let public_inputs_locations = read_vec_from_buffer(&mut src)?;
         let all_values = MemcopySerializable::read_from_buffer(&mut src)?;
@@ -428,7 +436,7 @@ impl<
         result
     }
 
-    pub fn materialize_witness_vec(&mut self) -> WitnessVec<F> {
+    pub fn materialize_witness_vec<A: GoodAllocator>(&mut self) -> WitnessVec<F, A> {
         assert!(
             CFG::WitnessConfig::EVALUATE_WITNESS,
             "CS is not configured to have witness available"
@@ -454,7 +462,7 @@ impl<
         assert!(max_idx > 0);
 
         // we should do memcopy instead later on
-        let mut all_values = Vec::with_capacity(max_idx);
+        let mut all_values = Vec::with_capacity_in(max_idx, A::default());
         let storage_ref = &self.variables_storage.read().unwrap();
         for idx in 0..max_idx {
             let place = Place(idx as u64);
@@ -463,9 +471,10 @@ impl<
         }
 
         let multiplicities = if self.lookup_parameters.lookup_is_allowed() == false {
-            Vec::new()
+            Vec::new_in(A::default())
         } else {
-            let mut multiplicities = Vec::with_capacity(self.lookups_tables_total_len());
+            let mut multiplicities =
+                Vec::with_capacity_in(self.lookups_tables_total_len(), A::default());
             for subtable in self.lookup_multiplicities.iter() {
                 multiplicities.extend(
                     subtable
@@ -484,9 +493,9 @@ impl<
         }
     }
 
-    pub fn witness_set_from_witness_vec(
+    pub fn witness_set_from_witness_vec<A: GoodAllocator>(
         &self,
-        witness_set: &WitnessVec<F>,
+        witness_set: &WitnessVec<F, A>,
         vars_hint: &DenseVariablesCopyHint,
         wits_hint: &DenseWitnessCopyHint,
         worker: &Worker,
