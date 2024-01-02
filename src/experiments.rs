@@ -4,6 +4,8 @@ use std::ops::Shl;
 use std::ops::Shr;
 use std::ops::Sub;
 
+// use std::simd::num::*;
+// use std::simd::cmp::*;
 use packed_simd::FromCast;
 
 use crate::field::{goldilocks::GoldilocksField, Field};
