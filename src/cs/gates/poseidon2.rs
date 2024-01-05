@@ -221,7 +221,7 @@ where
 
             if round != 0 {
                 // we "reset" the degree
-                for (_idx, dst) in state.iter_mut().enumerate() {
+                for dst in state.iter_mut() {
                     let sbox_out_var = if witness_offset < self.num_witness_columns_used {
                         let var = trace_source.get_witness_value(witness_offset);
                         witness_offset += 1;
@@ -351,7 +351,7 @@ where
             {
                 // we "reset" the degree for all elements because MDS had mixed high-degree
                 // state[0] into all other elements
-                for (_idx, dst) in state.iter_mut().enumerate() {
+                for dst in state.iter_mut() {
                     let sbox_out_var = if witness_offset < self.num_witness_columns_used {
                         let var = trace_source.get_witness_value(witness_offset);
                         witness_offset += 1;
@@ -629,7 +629,7 @@ where
         for round in 0..PAR::HALF_NUM_FULL_ROUNDS {
             if round != 0 {
                 // when we "reset" the degree
-                for (_idx, dst) in state.iter().enumerate() {
+                for dst in state.iter() {
                     let output_value = *dst;
                     output_buffer.push(output_value);
                 }
@@ -709,7 +709,7 @@ where
             {
                 // we "reset" the degree. We have to reset it for all because MDS matrix mixed high-degree
                 // state[0] into all other elements
-                for (_idx, dst) in state.iter().enumerate() {
+                for dst in state.iter() {
                     let output_value = *dst;
                     output_buffer.push(output_value);
                 }

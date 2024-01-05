@@ -2054,8 +2054,8 @@ fn quotening_operation<
 >(
     cs: &mut CS,
     dst: &mut NumExtAsFieldWrapper<F, EXT, CS>,
-    polynomial_values: &Vec<NumExtAsFieldWrapper<F, EXT, CS>>,
-    values_at: &Vec<NumExtAsFieldWrapper<F, EXT, CS>>,
+    polynomial_values: &[NumExtAsFieldWrapper<F, EXT, CS>],
+    values_at: &[NumExtAsFieldWrapper<F, EXT, CS>],
     domain_element: NumAsFieldWrapper<F, CS>,
     at: NumExtAsFieldWrapper<F, EXT, CS>,
     challenges: &[NumExtAsFieldWrapper<F, EXT, CS>],

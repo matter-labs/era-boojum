@@ -62,7 +62,7 @@ impl MixedGL {
     #[unroll::unroll_for_loops]
     pub fn mul_constant_assign(&'_ mut self, other: &GoldilocksField) -> &mut Self {
         for i in 0..16 {
-            self.0[i].mul_assign(&other);
+            self.0[i].mul_assign(other);
         }
 
         self
@@ -146,7 +146,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    pub fn vec_add_assign(a: &mut Vec<Self>, b: &Vec<Self>) {
+    pub fn vec_add_assign(a: &mut [Self], b: &[Self]) {
         use crate::field::traits::field_like::PrimeFieldLike;
         for (a, b) in a.iter_mut().zip(b.iter()) {
             a.add_assign(b, &mut ());
@@ -154,7 +154,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    pub fn vec_mul_assign(a: &mut Vec<Self>, b: &Vec<Self>) {
+    pub fn vec_mul_assign(a: &mut [Self], b: &[Self]) {
         use crate::field::traits::field_like::PrimeFieldLike;
         for (a, b) in a.iter_mut().zip(b.iter()) {
             a.mul_assign(b, &mut ());
@@ -273,14 +273,14 @@ impl crate::field::traits::field_like::PrimeFieldLikeVectorized for MixedGL {
 
     #[inline(always)]
     fn equals(&self, other: &Self) -> bool {
-        self.eq(&other)
+        self.eq(other)
     }
 
     #[inline(always)]
     #[unroll::unroll_for_loops]
     fn mul_all_by_base(&'_ mut self, other: &Self::Base, _ctx: &mut Self::Context) -> &'_ mut Self {
         for a in self.0.iter_mut() {
-            Field::mul_assign(a, &other);
+            Field::mul_assign(a, other);
         }
         self
     }
@@ -377,7 +377,7 @@ impl crate::field::traits::field_like::PrimeFieldLikeVectorized for MixedGL {
         ctx: &mut Self::Context,
     ) -> Self::Twiddles<A> {
         precompute_twiddles_for_fft::<GoldilocksField, GoldilocksField, A, false>(
-            fft_size, &worker, ctx,
+            fft_size, worker, ctx,
         )
     }
 
@@ -388,7 +388,7 @@ impl crate::field::traits::field_like::PrimeFieldLikeVectorized for MixedGL {
         ctx: &mut Self::Context,
     ) -> Self::Twiddles<A> {
         precompute_twiddles_for_fft::<GoldilocksField, GoldilocksField, A, true>(
-            fft_size, &worker, ctx,
+            fft_size, worker, ctx,
         )
     }
 }
@@ -477,7 +477,7 @@ mod test {
 
         // Test over GLPS
         for (aa, bb) in av.iter_mut().zip(bv.iter()) {
-            aa.add_assign(&bb, &mut ctx);
+            aa.add_assign(bb, &mut ctx);
         }
 
         let avv = MixedGL::vec_into_base_vec(av);
@@ -525,7 +525,7 @@ mod test {
 
         // Test over GLPS
         for (aa, bb) in av.iter_mut().zip(bv.iter()) {
-            aa.sub_assign(&bb, &mut ctx);
+            aa.sub_assign(bb, &mut ctx);
         }
 
         // dbg!(&ag);
@@ -563,7 +563,7 @@ mod test {
 
         // Test over GLPS
         for (aa, bb) in av.iter_mut().zip(bv.iter()) {
-            aa.mul_assign(&bb, &mut ctx);
+            aa.mul_assign(bb, &mut ctx);
         }
 
         // dbg!(&ag);

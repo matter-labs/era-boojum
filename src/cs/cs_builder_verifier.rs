@@ -95,7 +95,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
                 .add_gate::<G, _>(placement_strategy, params.clone(), aux_data);
         let evaluator_type_id = TypeId::of::<G::Evaluator>();
         let gate_type_id = TypeId::of::<G>();
-        let evaluator = G::Evaluator::new_from_parameters(params.clone());
+        let evaluator = G::Evaluator::new_from_parameters(params);
 
         // depending on the configuration we should place it into corresponding set,
         // and create some extra staff

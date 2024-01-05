@@ -480,7 +480,7 @@ impl<
                     }
                     super::lookup_argument_in_ext::compute_lookup_poly_pairs_specialized(
                         variables_columns.clone(),
-                        mutliplicities_columns.clone(),
+                        mutliplicities_columns,
                         setup_base.constant_columns.clone(),
                         setup_base.lookup_tables_columns.clone(),
                         setup_base.table_ids_column_idxes.clone(),
@@ -522,7 +522,7 @@ impl<
         drop(sect_1);
 
         let second_stage_polys_storage = SecondStageProductsStorage::from_base_trace_ext(
-            z_poly.clone(),
+            z_poly,
             intermediate_products,
             lookup_witness_encoding_polys,
             lookup_multiplicities_encoding_polys,
@@ -1206,11 +1206,7 @@ impl<
             let mut dst = [q_c0_as_lde, q_c1_as_lde];
 
             if crate::config::DEBUG_SATISFIABLE == false {
-                let src = [
-                    z_poly_c0.clone(),
-                    z_poly_c1.clone(),
-                    unnormalized_l1_inverse,
-                ];
+                let src = [z_poly_c0, z_poly_c1, unnormalized_l1_inverse];
 
                 let op = #[inline(always)]
                 move |dst: &mut [ArcGenericLdeStorage<F, P, Global, Global>; 2],
@@ -1366,7 +1362,7 @@ impl<
                         lookup_beta,
                         lookup_gamma,
                         lookup_terms_challenges,
-                        table_ids_column_idxes.clone(),
+                        table_ids_column_idxes,
                         columns_per_subargument as usize,
                         num_lookup_subarguments,
                         num_multiplicities_polys,

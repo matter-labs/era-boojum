@@ -79,7 +79,7 @@ impl<
     pub fn wait(self) -> Option<T> {
         match self {
             Self::Placeholder => None,
-            Self::Ready(value) => Some(value.clone()),
+            Self::Ready(value) => Some(value),
             Self::Waiting {
                 barrier,
                 witness_source,

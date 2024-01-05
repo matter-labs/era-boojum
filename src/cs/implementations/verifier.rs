@@ -2078,7 +2078,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 &queries.witness_query.proof,
                 &proof.witness_oracle_cap,
                 leaf_hash,
-                base_tree_idx as usize,
+                base_tree_idx,
             );
 
             if is_included == false {
@@ -2099,7 +2099,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 &queries.stage_2_query.proof,
                 &proof.stage_2_oracle_cap,
                 leaf_hash,
-                base_tree_idx as usize,
+                base_tree_idx,
             );
 
             if is_included == false {
@@ -2120,7 +2120,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 &queries.quotient_query.proof,
                 &proof.quotient_oracle_cap,
                 leaf_hash,
-                base_tree_idx as usize,
+                base_tree_idx,
             );
 
             if is_included == false {
@@ -2141,7 +2141,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                 &queries.setup_query.proof,
                 &vk.setup_merkle_tree_cap,
                 leaf_hash,
-                base_tree_idx as usize,
+                base_tree_idx,
             );
 
             if is_included == false {
@@ -2428,7 +2428,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>> Verifier<F, EXT> {
                     &fri_query.proof,
                     cap,
                     leaf_hash,
-                    tree_idx as usize,
+                    tree_idx,
                 );
                 if is_included == false {
                     log!("FRI leaf is not in the tree for step {}", idx);
