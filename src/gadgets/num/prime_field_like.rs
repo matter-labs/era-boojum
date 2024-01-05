@@ -31,11 +31,13 @@ impl<F: SmallField, CS: ConstraintSystem<F>> From<Num<F>> for NumAsFieldWrapper<
 impl<F: SmallField, CSO: ConstraintSystem<F>> CSAllocatable<F> for NumAsFieldWrapper<F, CSO> {
     type Witness = F;
 
+    #[must_use]
     fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         let inner = Num::allocate(cs, witness);
         inner.into()
     }
 
+    #[must_use]
     fn allocate_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let inner = Num::allocate_without_value(cs);
         inner.into()
@@ -56,10 +58,12 @@ impl<F: SmallField, CSO: ConstraintSystem<F>> WitnessHookable<F> for NumAsFieldW
 }
 
 impl<F: SmallField, CS: ConstraintSystem<F>> NumAsFieldWrapper<F, CS> {
+    #[must_use]
     pub const fn into_num(&self) -> Num<F> {
         self.inner
     }
 
+    #[must_use]
     pub fn conditionally_select(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self {
         let inner = Num::conditionally_select(cs, flag, &a.inner, &b.inner);
 
@@ -78,19 +82,21 @@ where
 
     type Context = CS;
     // identities
+    #[must_use]
     fn zero(ctx: &mut Self::Context) -> Self {
         let inner = Num::allocated_constant(ctx, F::ZERO);
         inner.into()
     }
+    #[must_use]
     fn one(ctx: &mut Self::Context) -> Self {
         let inner = Num::allocated_constant(ctx, F::ONE);
         inner.into()
     }
+    #[must_use]
     fn minus_one(ctx: &mut Self::Context) -> Self {
         let inner = Num::allocated_constant(ctx, F::MINUS_ONE);
         inner.into()
     }
-    // Arithmetics. Expressed in mutable way. It would not matter in after inlining
     fn add_assign(&'_ mut self, other: &Self, ctx: &mut Self::Context) -> &'_ mut Self {
         let new = self.into_num().add(ctx, &other.into_num());
         *self = new.into();
@@ -103,6 +109,7 @@ where
 
         self
     }
+    #[must_use]
     fn mul_assign(&'_ mut self, other: &Self, ctx: &mut Self::Context) -> &'_ mut Self {
         let new = self.into_num().mul(ctx, &other.into_num());
         *self = new.into();
@@ -131,12 +138,14 @@ where
         self
     }
     // infallible inverse
+    #[must_use]
     fn inverse(&self, ctx: &mut Self::Context) -> Self {
         let new = self.into_num().inverse_unchecked(ctx);
 
         new.into()
     }
     // constant creation
+    #[must_use]
     fn constant(value: Self::Base, ctx: &mut Self::Context) -> Self {
         let new = Num::allocated_constant(ctx, value);
 
@@ -171,6 +180,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
 impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<F>> Clone
     for NumExtAsFieldWrapper<F, EXT, CS>
 {
+    #[must_use]
     fn clone(&self) -> Self {
         Self {
             c0: self.c0,
@@ -190,6 +200,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CSO: ConstraintSystem
 {
     type Witness = ExtensionField<F, 2, EXT>;
 
+    #[must_use]
     fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         let [c0, c1] = witness.into_coeffs_in_base();
         let c0 = Num::allocate(cs, c0).into();
@@ -198,6 +209,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CSO: ConstraintSystem
         Self::from_coeffs_in_base([c0, c1])
     }
 
+    #[must_use]
     fn allocate_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let c0 = Num::allocate_without_value(cs).into();
         let c1 = Num::allocate_without_value(cs).into();
@@ -230,6 +242,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CSO: ConstraintSystem
 impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<F> + 'static>
     NumExtAsFieldWrapper<F, EXT, CS>
 {
+    #[must_use]
     pub const fn from_coeffs_in_base(coeffs: [NumAsFieldWrapper<F, CS>; 2]) -> Self {
         let [c0, c1] = coeffs;
 
@@ -240,6 +253,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
         }
     }
 
+    #[must_use]
     pub fn from_num_coeffs_in_base(coeffs: [Num<F>; 2]) -> Self {
         let [c0, c1] = coeffs;
 
@@ -250,10 +264,12 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
         }
     }
 
+    #[must_use]
     pub const fn into_coeffs_in_base(self) -> [NumAsFieldWrapper<F, CS>; 2] {
         [self.c0, self.c1]
     }
 
+    #[must_use]
     pub const fn into_num_coeffs_in_base(self) -> [Num<F>; 2] {
         [self.c0.into_num(), self.c1.into_num()]
     }
@@ -289,6 +305,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CS: ConstraintSystem<
         self.c1.mul_assign(base, cs);
     }
 
+    #[must_use]
     pub fn conditionally_select(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self {
         let c0 = NumAsFieldWrapper::conditionally_select(cs, flag, &a.c0, &b.c0);
         let c1 = NumAsFieldWrapper::conditionally_select(cs, flag, &a.c1, &b.c1);
@@ -349,6 +366,7 @@ where
 
     type Context = CS;
     // identities
+    #[must_use]
     fn zero(ctx: &mut Self::Context) -> Self {
         let zero = Num::allocated_constant(ctx, F::ZERO).into();
         Self {
@@ -357,6 +375,7 @@ where
             _marker: std::marker::PhantomData,
         }
     }
+    #[must_use]
     fn one(ctx: &mut Self::Context) -> Self {
         let zero = Num::allocated_constant(ctx, F::ZERO).into();
         let one = Num::allocated_constant(ctx, F::ONE).into();
@@ -366,6 +385,7 @@ where
             _marker: std::marker::PhantomData,
         }
     }
+    #[must_use]
     fn minus_one(ctx: &mut Self::Context) -> Self {
         let zero = Num::allocated_constant(ctx, F::ZERO).into();
         let minus_one = Num::allocated_constant(ctx, F::MINUS_ONE).into();
@@ -375,7 +395,6 @@ where
             _marker: std::marker::PhantomData,
         }
     }
-    // Arithmetics. Expressed in mutable way. It would not matter in after inlining
     fn add_assign(&'_ mut self, other: &Self, ctx: &mut Self::Context) -> &'_ mut Self {
         self.c0.add_assign(&other.c0, ctx);
         self.c1.add_assign(&other.c1, ctx);
@@ -493,6 +512,7 @@ where
         self
     }
     // infallible inverse
+    #[must_use]
     fn inverse(&self, ctx: &mut Self::Context) -> Self {
         if ctx.gate_is_allowed::<FmaGateInExtensionWithoutConstant<F, EXT>>() {
             // we can use FMA
@@ -541,6 +561,7 @@ where
         new
     }
     // constant creation
+    #[must_use]
     fn constant(value: Self::Base, ctx: &mut Self::Context) -> Self {
         let zero = Num::allocated_constant(ctx, F::ZERO).into();
         let constant = Num::allocated_constant(ctx, value).into();
@@ -550,7 +571,7 @@ where
             _marker: std::marker::PhantomData,
         }
     }
-
+    #[must_use]
     fn mul_and_accumulate_into(acc: &mut Self, a: &Self, b: &Self, ctx: &mut Self::Context) {
         if ctx.gate_is_allowed::<FmaGateInExtensionWithoutConstant<F, EXT>>() {
             // we can use FMA

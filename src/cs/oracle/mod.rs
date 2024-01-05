@@ -101,6 +101,14 @@ pub trait TreeHasher<B: Sized>: 'static + Clone + Send + Sync {
         B: 'a;
     fn hash_into_leaf_owned<S: IntoIterator<Item = B>>(source: S) -> Self::Output;
     fn hash_into_node(left: &Self::Output, right: &Self::Output, depth: usize) -> Self::Output;
+    fn normalize_output(_dst: &mut Self::Output) {
+        // empty in general case
+    }
+    fn batch_normalize_outputs(dst: &mut [Self::Output]) {
+        for el in dst.iter_mut() {
+            Self::normalize_output(el);
+        }
+    }
 }
 
 impl<
@@ -157,6 +165,12 @@ impl<
         hasher.absorb(&right[..]);
 
         hasher.finalize()
+    }
+    #[inline]
+    fn normalize_output(dst: &mut Self::Output) {
+        for el in dst.iter_mut() {
+            el.normalize();
+        }
     }
 }
 
