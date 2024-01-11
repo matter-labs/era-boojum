@@ -6,11 +6,12 @@ use crate::config::{DevCSConfig, CSResolverConfig};
 use crate::cs::implementations::polynomial_storage::SatisfiabilityCheckRowView;
 use crate::cs::traits::evaluator::GatePlacementType;
 use crate::cs::traits::gate::GatePlacementStrategy;
+use crate::dag::CircuitResolver;
 use crate::dag::sorter_runtime::RuntimeResolverSorter;
 
-type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+type RCFG = <DevCSConfig as CSConfig>::ResolverConfig;
 
-impl<F: SmallField> CSReferenceAssembly<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>> {
+impl<F: SmallField, CR: CircuitResolver<F, RCFG>> CSReferenceAssembly<F, F, DevCSConfig, CR> {
     pub fn check_if_satisfied(&mut self, worker: &Worker) -> bool {
         let (constants, selectors_placement, _) = self.create_constant_setup_polys(worker);
         let (_deg, num_constants_for_general_purpose_columns) = selectors_placement.compute_stats();

@@ -8,8 +8,8 @@ use std::thread::JoinHandle;
 
 use bincode::Config;
 
-use crate::config::CSResolverConfig;
-use crate::cs::traits::cs::DstBuffer;
+use crate::config::{CSResolverConfig, DoPerformRuntimeAsserts, Resolver};
+use crate::cs::traits::cs::{DstBuffer, CSWitnessSource};
 use crate::field::SmallField;
 
 mod awaiters;
@@ -20,6 +20,9 @@ pub(crate) mod resolver;
 mod resolver_box;
 pub mod sorter_runtime;
 pub mod sorter_playback;
+pub mod resolvers;
+mod primitives;
+
 
 pub trait TrivialWitnessCastable<F: SmallField, const N: usize>:
     'static + Clone + std::fmt::Debug + Send + Sync
@@ -87,8 +90,9 @@ use crate::cs::Place;
 use crate::utils::PipeOp;
 
 use self::guide::{GuideOrder, OrderInfo, RegistrationNum};
-use self::resolver::{ResolverIx, ResolverCommonData, ResolverComms};
-use self::resolver_box::ResolverBox;
+use self::resolver::{ResolverIx, ResolverCommonData};
+use self::resolvers::mt::ResolverComms;
+use self::sorter_runtime::RuntimeResolverSorter;
 // we use Arc and interior mutability, so we want Send + Sync just in case
 
 pub trait WitnessSource<F: SmallField>: 'static + Send + Sync {
@@ -231,3 +235,35 @@ pub trait ResolverSortingMode<F: SmallField>: Sized
 
     fn retrieve_sequence(&mut self) -> &ResolutionRecord;
 }
+
+
+pub trait CircuitResolver<
+    F: SmallField,
+    Cfg: CSResolverConfig
+> :   WitnessSource<F> 
+    + WitnessSourceAwaitable<F> 
+    + CSWitnessSource<F>
+    + Send + Sync 
+{
+    type Arg;
+
+    fn new(args: Self::Arg) -> Self;
+    fn set_value(&mut self, key: Place, value: F);
+    fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
+    where
+        Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync;
+    fn wait_till_resolved(&mut self);
+    fn clear(&mut self);
+}
+
+pub type NullCircuitResolver<F: SmallField, CFG: CSResolverConfig> = resolvers::NullCircuitResolver<F, CFG>;
+
+pub type DefaultCircuitResolver<F: SmallField, CFG: CSResolverConfig> = 
+    resolvers::MtCircuitResolver<
+        F, 
+        RuntimeResolverSorter<
+            F,
+            CFG>,
+        CFG>;
+
+pub type StCircuitResolver<F: SmallField, CFG: CSResolverConfig> = resolvers::StCircuitResolver<F, CFG>;

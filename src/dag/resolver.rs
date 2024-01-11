@@ -2,11 +2,13 @@
 #![allow(clippy::overly_complex_bool_expr)]
 #![allow(clippy::nonminimal_bool)]
 
-use super::{ResolverSortingMode, ResolutionRecord, TrackId};
+use super::primitives::Values;
+use super::{ResolverSortingMode, ResolutionRecord, TrackId, CircuitResolver, CircuitResolverOpts};
 use crate::log;
 use std::any::Any;
 use std::cell::{Cell, UnsafeCell};
 use std::fmt::{Display, Debug};
+use std::marker::PhantomData;
 
 use super::resolution_window::ResolutionWindow;
 use super::{registrar::Registrar, WitnessSource, WitnessSourceAwaitable};
@@ -14,7 +16,6 @@ use crate::config::*;
 use crate::cs::traits::cs::{CSWitnessSource, DstBuffer};
 use crate::cs::{Place, Variable, VariableType};
 use crate::dag::awaiters::AwaitersBroker;
-use crate::dag::resolution_window::invocation_binder;
 use crate::dag::resolver_box::ResolverBox;
 use crate::dag::{awaiters, guide::*};
 use crate::field::SmallField;
@@ -26,9 +27,9 @@ use std::sync::atomic::{fence, AtomicBool, AtomicIsize};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
+
 pub(crate) type Mutarc<T> = Arc<Mutex<T>>;
 
-pub const PARANOIA: bool = false;
 
 
 
@@ -158,285 +159,7 @@ pub struct ResolverCommonData<V, T: Default> {
     pub awaiters_broker: AwaitersBroker<T>,
 }
 
-/// Used to send notifications and data between the resolver, resolution window
-/// and the awaiters.
-pub struct ResolverComms {
-    pub exec_order_buffer_hint: AtomicIsize,
-    pub registration_complete: AtomicBool,
-    pub rw_panicked: AtomicBool,
-    pub rw_panic: Cell<Option<Box<dyn Any + Send + 'static>>>,
-}
 
-#[derive(Debug)]
-struct Stats {
-    values_added: u64,
-    witnesses_added: u64,
-    registrations_added: u64,
-    started_at: std::time::Instant,
-    registration_time: std::time::Duration,
-    total_resolution_time: std::time::Duration,
-}
-
-impl Stats {
-    fn new() -> Self {
-        Self {
-            values_added: 0,
-            witnesses_added: 0,
-            registrations_added: 0,
-            started_at: std::time::Instant::now(),
-            registration_time: std::time::Duration::from_secs(0),
-            total_resolution_time: std::time::Duration::from_secs(0),
-        }
-    }
-}
-
-/// The data is tracked in the following manner:
-///
-/// `key ---> [values.variables/witnesses] ---> [resolvers_order] ---> [resolvers]`
-///
-/// Given a key, one can find a value and the metadata in `variables/witnesses`.
-/// The metadata contains the resolver order index which will produce a value for that item.
-/// The order index contains the index at which the resolver data is placed.
-///    Those indicies are not monotonic and act akin to pointers, and thus are
-///    Unsafe to work with.
-
-pub struct CircuitResolver<V: SmallField, RS: ResolverSortingMode<V>> {
-    // registrar: Registrar,
-
-    sorter: RS,
-
-    pub(crate) common: Arc<ResolverCommonData<V, RS::TrackId>>,
-    // pub(crate) options: CircuitResolverOpts,
-    
-    comms: Arc<ResolverComms>,
-    // pub(crate) guide: BufferGuide<ResolverIx, Cfg>,
-
-    resolution_window_handle: Option<JoinHandle<()>>,
-
-    stats: Stats,
-    call_count: u32,
-    debug_track: Vec<Place>,
-}
-
-unsafe impl<V: SmallField, RS: ResolverSortingMode<V>> Send for CircuitResolver<V, RS> where V: Send {}
-unsafe impl<V: SmallField, RS: ResolverSortingMode<V>> Sync for CircuitResolver<V, RS> where V: Send {}
-
-// TODO: try to eliminate this constraint to something more general, preferably defatult.
-impl<V: SmallField, RS: ResolverSortingMode<V>> CircuitResolver<V, RS> {
-    pub fn new(opts: RS::Arg) -> Self {
-        let threads =
-            match 
-            
-                std::env::var("BOOJUM_CR_THREADS")
-                .map_err(|_| "")
-                .and_then(|x| x.parse().map_err(|_| ""))
-            {
-                Ok(x) => x,
-                Err(_) => 3
-            };
-
-        let debug_track = vec![];
-
-        if cfg!(cr_paranoia_mode) || PARANOIA {
-            log!("Contains tracked keys {:?} ", debug_track);
-        }
-
-        let comms = ResolverComms {
-            exec_order_buffer_hint: AtomicIsize::new(0),
-            registration_complete: AtomicBool::new(false),
-            rw_panicked: AtomicBool::new(false),
-            rw_panic: Cell::new(None),
-        }.to(Arc::new);
-
-        let (sorter, common) = RS::new(opts, comms.clone(), &debug_track);
-
-        Self {
-            // options: opts,
-            call_count: 0,
-            sorter,
-            // guide: BufferGuide::new(opts.desired_parallelism),
-            // registrar: Registrar::new(),
-            comms: comms.clone(),
-
-            resolution_window_handle: ResolutionWindow::<V, RS::TrackId, RS::Config>::run(
-                comms.clone(),
-                common.clone(),
-                &debug_track,
-                threads,
-            )
-            .to(Some),
-
-            common,
-            stats: Stats::new(),
-            debug_track,
-        }
-    }
-
-    pub fn set_value(&mut self, key: Place, value: V) {
-        self.sorter.set_value(key, value)
-    }
-
-    pub fn add_resolution<F>(&mut self, inputs: &[Place], outputs: &[Place], f: F)
-    where
-        F: FnOnce(&[V], &mut DstBuffer<'_, '_, V>) + Send + Sync,
-    {
-        self.sorter.add_resolution(inputs, outputs, f)
-    }
-
-    pub fn wait_till_resolved(&mut self) {
-        self.wait_till_resolved_impl(true);
-    }
-
-    pub fn wait_till_resolved_impl(&mut self, report: bool) {
-        if self
-            .comms
-            .registration_complete
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
-            return;
-        }
-
-        self.sorter.final_flush();
-
-        self.stats.registration_time = self.stats.started_at.elapsed();
-
-        self
-            .comms
-            .registration_complete
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-
-        self.resolution_window_handle
-            .take()
-            .expect("Attempting to join resolution window handler for second time.")
-            .join()
-            .unwrap(); // Just propagate panics. Those are unhandled, unlike the ones from `rw_panic`.
-
-        self.stats.total_resolution_time = self.stats.started_at.elapsed();
-
-        // Propage panic from the resolution window handler.
-        if self
-            .comms
-            .rw_panicked
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
-            if let Some(e) = self.comms.rw_panic.take() {
-                resume_unwind(e);
-            } else {
-                log!("Resolution window panicked, but no panic payload stored.");
-                return;
-            }
-        }
-
-        match report {
-            true => {
-                log!("CR stats {:#?}", self.stats);
-            }
-            false if cfg!(test) || cfg!(debug_assertions) => {
-                print!(" resolution time {:?}...", self.stats.total_resolution_time);
-            }
-            _ => {}
-        }
-        
-        self.sorter.write_sequence();
-
-        if cfg!(cr_paranoia_mode) || PARANOIA {
-            log!("CR {:?}", unsafe {
-                self.common.awaiters_broker.stats.u_deref()
-            });
-        }
-    }
-
-    pub fn retrieve_sequence(&mut self) -> &ResolutionRecord {
-        assert!(self.comms.registration_complete.load(std::sync::atomic::Ordering::Relaxed));
-        self.sorter.retrieve_sequence()
-    }
-
-    pub fn clear(&mut self) {
-        // TODO: implement
-    }
-}
-
-impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> WitnessSource<V> for CircuitResolver<V, RS> {
-    const PRODUCES_VALUES: bool = true;
-
-    fn try_get_value(&self, variable: Place) -> Option<V> {
-        // TODO: UB on subsequent calls?
-
-        let (v, md) = unsafe { self.common.values.u_deref().get_item_ref(variable) };
-
-        match md.is_resolved() {
-            true => {
-                fence(std::sync::atomic::Ordering::Acquire);
-                Some(*v)
-            }
-            false => None,
-        }
-    }
-
-    fn get_value_unchecked(&self, variable: Place) -> V {
-        // TODO: Should this fn be marked as unsafe?
-
-        // Safety: Dereferencing as & in &self context.
-        let (r, md) = unsafe { self.common.values.u_deref().get_item_ref(variable) };
-        // log!("gvu: {:0>8} -> {}", variable.0, r);
-
-        debug_assert!(
-            md.is_resolved(),
-            "Attempted to get value of unresolved variable."
-        );
-
-        *r
-    }
-}
-
-impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> CSWitnessSource<V> for CircuitResolver<V, RS> {}
-
-impl<V: SmallField, RS: ResolverSortingMode<V> + 'static> WitnessSourceAwaitable<V> for CircuitResolver<V, RS> {
-    type Awaiter<'a> = awaiters::Awaiter<'a, RS::TrackId>;
-
-    fn get_awaiter<const N: usize>(&mut self, vars: [Place; N]) -> awaiters::Awaiter<RS::TrackId> {
-        // Safety: We're only getting the metadata address for an item, which is
-        // immutable and the max_tracked value, which isn't but read only once
-        // for the duration of the reference.
-        let values = unsafe { self.common.values.u_deref() };
-
-        if values.max_tracked < vars.iter().map(|x| x.as_any_index()).max().unwrap() as i64 {
-            panic!("The awaiter will never resolve since the awaited variable can't be computed based on currently available registrations. You have holes!!!");
-        }
-
-        // We're picking the item that will be resolved last among other inputs.
-        let md = vars
-            .into_iter()
-            .map(|x| &values.get_item_ref(x).1)
-            .max_by_key(|x| x.tracker)
-            .unwrap();
-
-        let r = awaiters::AwaitersBroker::register(
-            &self.common.awaiters_broker,
-            &self.comms,
-            md,
-        );
-
-        self.sorter.flush();
-
-        r
-    }
-}
-
-// impl Drop for CircuitResolver
-
-impl<V: SmallField, RS: ResolverSortingMode<V>> Drop for CircuitResolver<V, RS> {
-    fn drop(&mut self) {
-        if cfg!(test) || cfg!(debug_assertions) {
-            print!("Starting drop of CircuitResolver (If this hangs, it's bad)...");
-        }
-        self.wait_till_resolved_impl(false);
-
-        if cfg!(test) || cfg!(debug_assertions) {
-            log!("ok");
-        }
-    }
-}
 
 // region: ResolverIx
 
@@ -498,176 +221,13 @@ impl AddAssign<u32> for ResolverIx {
 
 // region: Values
 
-pub struct Values<V, T: Default> {
-    pub(crate) variables: Box<[UnsafeCell<(V, Metadata<T>)>]>,
-    pub(crate) max_tracked: i64, // Be sure to not overflow.
-}
-
-impl<V, T: Default + Copy> Values<V, T> {
-    pub(crate) fn resolve_type(&self, _key: Place) -> &[UnsafeCell<(V, Metadata<T>)>] {
-        &self.variables
-    }
-
-    pub(crate) fn get_item_ref(&self, key: Place) -> &(V, Metadata<T>) {
-        let vs = self.resolve_type(key);
-        unsafe { &(*vs[key.raw_ix()].get()) }
-
-        // TODO: spec unprocessed/untracked items
-    }
-
-    // Safety: No other mutable references to the same item are allowed.
-    pub(crate) unsafe fn get_item_ref_mut(&self, key: Place) -> &mut (V, Metadata<T>) {
-        let vs = self.resolve_type(key);
-        &mut (*vs[key.raw_ix()].get())
-
-        // TODO: spec unprocessed/untracked items
-    }
-
-    /// Marks values as tracked and stores the resolution order that those values
-    /// are resolved in.
-    pub(crate) fn track_values(&mut self, keys: &[Place], loc: T) {
-        for key in keys {
-            let nmd = Metadata::new(loc);
-
-            // Safety: tracking is only done on untracked values, and only once, so the
-            // item at key is guaranteed to not be used. If the item was already tracked,
-            // we panic in the next line.
-            let (_, md) = unsafe { self.get_item_ref_mut(*key) };
-
-            if md.is_tracked() {
-                panic!("Value with index {} is already tracked", key.as_any_index())
-            }
-
-            *md = nmd;
-        }
-
-        self.advance_track();
-    }
-
-    pub(crate) fn set_value(&mut self, key: Place, value: V) {
-        // Safety: we're setting the value, so we're sure that the item at key is not used.
-        // If the item was already set, we panic in the next line.
-        let (v, md) = unsafe { self.get_item_ref_mut(key) };
-
-        if md.is_tracked() {
-            panic!("Value with index {} is already set", key.as_any_index())
-        }
-
-        (*v, *md) = (value, Metadata::new_resolved());
-
-        self.advance_track();
-    }
-
-    fn advance_track(&mut self) {
-        for i in (self.max_tracked + 1)..self.variables.len() as i64 {
-            // TODO: switch to the following on next dev iteration.
-            if  i
-                .to(std::convert::TryInto::<u64>::try_into)
-                .unwrap()
-                .to(Variable::from_variable_index)
-                .to(Place::from_variable)
-                .to(|x| self.get_item_ref(x))
-                .1.is_tracked() 
-            {
-                self.max_tracked = i;
-            } else
-            {
-                break;
-            }
-
-            // if self
-            //     .get_item_ref(Place::from_variable(Variable::from_variable_index(
-            //         i.try_into().unwrap(),
-            //     )))
-            //     .1
-            //     .is_tracked()
-            //     == false
-            // {
-            //     self.max_tracked = i - 1;
-            //     break;
-            // }
-        }
-    }
-}
-
-// endregion
-
-// region: metadata
-
-type MDD = u16;
-
-#[derive(Default)]
-// Used by the resolver for internal tracking purposes.
-pub(crate) struct Metadata<T: Default> {
-    data: MDD,
-    pub tracker: T,
-}
-
-impl<T: Default> Metadata<T> {
-    // Means this element was introduced to the resolver
-    const TRACKED_MASK: MDD = 0b1000_0000_0000_0000;
-    // Means this element was resolved and it's value is set.
-    const RESOLVED_MASK: MDD = 0b0100_0000_0000_0000;
-
-    fn new(tracker: T) -> Self {
-        Self {
-            data: Self::TRACKED_MASK,
-            tracker,
-        }
-    }
-
-    fn new_resolved() -> Self {
-        Self {
-            data: Self::TRACKED_MASK | Self::RESOLVED_MASK,
-            tracker: T::default(),
-        }
-    }
-
-    pub fn is_tracked(&self) -> bool {
-        self.data & Self::TRACKED_MASK != 0
-    }
-
-    pub fn is_resolved(&self) -> bool {
-        self.data & Self::RESOLVED_MASK != 0
-    }
-
-    pub fn mark_resolved(&mut self) {
-        self.data |= Self::RESOLVED_MASK;
-    }
-}
-
-#[derive(Debug)]
-struct MetadataDebugHelper {
-    is_tracked: bool,
-    is_resolved: bool,
-}
-
-impl<T: Default> Debug for Metadata<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use std::mem::size_of;
-        use std::mem::transmute_copy;
-
-        let mdh = MetadataDebugHelper {
-            is_resolved: self.is_resolved(),
-            is_tracked: self.is_tracked(),
-        };
-        let tracker: u64;
-        unsafe {
-            if      size_of::<T>() == size_of::<u64>() { tracker = transmute_copy::<_, u64>(&self.tracker) }
-            else if size_of::<T>() == size_of::<u32>() { tracker = transmute_copy::<_, u32>(&self.tracker) as u64 }
-            else { tracker = 0 }
-        };
-        f.debug_struct("Metadata").field("data", &mdh).field("tracker", &tracker).finish()
-    }
-}
-
 
 
 // endregion
 
 #[cfg(test)]
 mod test {
-    use crate::{dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, sorter_playback::PlaybackResolverSorter, ResolutionRecordStorage, CircuitResolverOpts, TestRecordStorage}, utils::PipeOp};
+    use crate::{dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, sorter_playback::PlaybackResolverSorter, ResolutionRecordStorage, CircuitResolverOpts, TestRecordStorage, resolvers::MtCircuitResolver}, utils::PipeOp};
     use std::{collections::VecDeque, hint::spin_loop, time::Duration, rc::Rc};
 
     use crate::{
@@ -677,9 +237,10 @@ mod test {
     };
 
     use super::*;
+    use super::super::sorter_runtime::*;
 
     type F = GoldilocksField;
-
+    type CFG = Resolver<DoPerformRuntimeAsserts>;
 
     #[test]
     fn playground() {
@@ -696,7 +257,7 @@ mod test {
     }
 
     fn tracks_values_populate<F: SmallField, RS: ResolverSortingMode<F>>(
-        resolver: &mut CircuitResolver<F, RS>, limit: u64)
+        resolver: &mut MtCircuitResolver<F, RS, CFG>, limit: u64)
     {
         for i in 0..limit {
             let a = Place::from_variable(Variable::from_variable_index(i));
@@ -709,7 +270,7 @@ mod test {
     fn tracks_values_record_mode() {
         let limit = 10;
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(
                 CircuitResolverOpts {
                     max_variables: 10,
                     desired_parallelism: 16,
@@ -731,7 +292,7 @@ mod test {
     fn tracks_values_playback_mode() {
         let limit = 10;
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(
                 CircuitResolverOpts {
                     max_variables: 10,
                     desired_parallelism: 16,
@@ -743,9 +304,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         tracks_values_populate(&mut storage, limit);
@@ -759,7 +320,7 @@ mod test {
     }
 
     fn resolves_populate<F: SmallField, RS: ResolverSortingMode<F>>(
-        resolver: &mut CircuitResolver<F, RS>) -> (Place, Place)
+        resolver: &mut MtCircuitResolver<F, RS, CFG>) -> (Place, Place)
     {
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
@@ -779,7 +340,7 @@ mod test {
     #[test]
     fn resolves_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -797,7 +358,7 @@ mod test {
     #[test]
     fn resolves_playback_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -811,9 +372,9 @@ mod test {
         println!("\n----- Recording finished -----\n");
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         let (init_var, dep_var) = resolves_populate(&mut storage);
@@ -827,7 +388,7 @@ mod test {
     }
 
     fn resolves_siblings_populate<F: SmallField, RS: ResolverSortingMode<F>>(
-        resolver: &mut CircuitResolver<F, RS>) -> ((Place, Place), (Place, Place))
+        resolver: &mut MtCircuitResolver<F, RS, CFG>) -> ((Place, Place), (Place, Place))
     {
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             let mut x = ins[0];
@@ -852,7 +413,7 @@ mod test {
     #[test]
     fn resolves_siblings_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -875,7 +436,7 @@ mod test {
     #[test]
     fn resolves_siblings_playback_mode() {
         let mut storage =
-        CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+        MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
             max_variables: 100,
             desired_parallelism: 16,
         });
@@ -887,9 +448,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         let ((init_var1, dep_var1), (init_var2, dep_var2)) 
@@ -908,7 +469,7 @@ mod test {
     }
 
     fn resolves_descendants_populate<F: SmallField, RS: ResolverSortingMode<F>>(
-        resolver: &mut CircuitResolver<F, RS>) -> Place
+        resolver: &mut MtCircuitResolver<F, RS, CFG>) -> Place
     {
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             let mut x = ins[0];
@@ -933,7 +494,7 @@ mod test {
     #[test]
     fn resolves_descendants_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 2,
             });
@@ -952,7 +513,7 @@ mod test {
     // #[ignore = "temp"]
     fn resolves_descendants_playback_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 2,
             });
@@ -964,9 +525,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         let dep_var3 = resolves_descendants_populate(&mut storage);
@@ -982,7 +543,7 @@ mod test {
     #[test]
     fn resolves_with_context() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1017,7 +578,7 @@ mod test {
     #[test]
     fn resolves_and_drops_context_after() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1066,7 +627,7 @@ mod test {
     fn awaiter_returns_for_resolved_value_record_mode() {
         let limit = 1 << 13;
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 2048,
             });
@@ -1105,7 +666,7 @@ mod test {
     fn awaiter_returns_for_resolved_value_playback_mode_impl(limit: usize, desired_parallelism: u32) {
         let limit = 1 << limit;
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism,
             });
@@ -1117,9 +678,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         populate(&mut storage, limit);
@@ -1145,7 +706,7 @@ mod test {
     #[test]
     fn awaiter_returns_after_finish_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1174,7 +735,7 @@ mod test {
     #[test]
     fn awaiter_returns_after_finish_playback_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1197,9 +758,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
@@ -1220,7 +781,7 @@ mod test {
     #[test]
     fn awaiter_returns_for_unexpropriated() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1246,7 +807,7 @@ mod test {
     #[test]
     fn awaiter_blocks_before_resolved() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1276,7 +837,7 @@ mod test {
     #[test]
     fn resolution_after_awaiter_is_supported_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1315,7 +876,7 @@ mod test {
         };
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
         });
@@ -1331,9 +892,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
@@ -1354,7 +915,7 @@ mod test {
     #[test]
     fn try_get_value_returns_none_before_resolve_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1386,7 +947,7 @@ mod test {
         let dep_var = Place::from_variable(Variable::from_variable_index(1));
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1399,9 +960,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
@@ -1414,7 +975,7 @@ mod test {
     #[test]
     fn try_get_value_returns_some_after_resolve_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1447,7 +1008,7 @@ mod test {
         let dep_var = Place::from_variable(Variable::from_variable_index(1));
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
         });
@@ -1459,9 +1020,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
@@ -1476,7 +1037,7 @@ mod test {
     #[test]
     fn try_get_value_returns_some_after_wait_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1502,7 +1063,7 @@ mod test {
     #[test]
     fn try_get_value_returns_some_after_wait_playback_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1524,9 +1085,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         storage.set_value(init_var, F::from_u64_with_reduction(123));
@@ -1542,7 +1103,7 @@ mod test {
     #[test]
     fn try_get_value_returns_none_on_untracked() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1569,7 +1130,7 @@ mod test {
     #[should_panic]
     fn panic_in_resolution_function_is_propagated_through_cr_waiting() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1594,7 +1155,7 @@ mod test {
     #[should_panic]
     fn panic_in_resolution_function_is_propagated_through_awaiter() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1616,7 +1177,7 @@ mod test {
     #[test]
     fn non_chronological_resolution_record_mode() {
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1666,7 +1227,7 @@ mod test {
         let var_5 = Place::from_variable(Variable::from_variable_index(4));
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1682,9 +1243,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         storage.set_value(var_4, F::from_u64_with_reduction(7));
@@ -1701,7 +1262,7 @@ mod test {
     }
 
     fn correctness_simple_linear_populate<F: SmallField, RS: ResolverSortingMode<F>>(
-        resolver: &mut CircuitResolver<F, RS>, limit: usize)
+        resolver: &mut MtCircuitResolver<F, RS, CFG>, limit: usize)
     {
         let mut var_idx = 0;
 
@@ -1744,7 +1305,7 @@ mod test {
         let limit = 1 << 10;
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 32,
             });
@@ -1789,7 +1350,7 @@ mod test {
         let limit = 1 << 10;
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 32,
             });
@@ -1800,9 +1361,9 @@ mod test {
         let rs = TestRecordStorage { record: Rc::new(storage.retrieve_sequence().clone()) };
 
         let mut storage =
-            CircuitResolver::<
+            MtCircuitResolver::<
                 F, 
-                PlaybackResolverSorter<F, TestRecordStorage, Resolver<DoPerformRuntimeAsserts>>>
+                PlaybackResolverSorter<F, TestRecordStorage, CFG>, CFG>
             ::new(rs);
 
         correctness_simple_linear_populate(&mut storage, limit);
@@ -1841,7 +1402,7 @@ mod test {
     }
 
 
-    fn populate<RS: ResolverSortingMode<F>>(storage: &mut CircuitResolver<F, RS>, limit: usize) {
+    fn populate<RS: ResolverSortingMode<F>>(storage: &mut MtCircuitResolver<F, RS, CFG>, limit: usize) {
 
         let mut var_idx = 0u64;
         for _ in 0..limit {
@@ -1896,10 +1457,11 @@ mod benches {
     use super::*;
     use crate::{
         cs::Variable,
-        dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts},
+        dag::{Awaiter, sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts, resolvers::MtCircuitResolver},
         field::{goldilocks::GoldilocksField, Field},
     };
     type F = GoldilocksField;
+    type CFG = Resolver<DoPerformRuntimeAsserts>;
 
     #[test]
     #[ignore = ""]
@@ -1920,7 +1482,7 @@ mod benches {
     fn synth_bench_1() {
         let limit = 1 << 25;
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 2048,
             });
@@ -1993,7 +1555,7 @@ mod benches {
         let limit = 1 << 4;
 
         let mut storage =
-            CircuitResolver::<F, RuntimeResolverSorter<F, Resolver<DoPerformRuntimeAsserts>>>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, RuntimeResolverSorter<F, CFG>, CFG>::new(CircuitResolverOpts {
                 max_variables: limit + 1,
                 desired_parallelism: 16,
             });

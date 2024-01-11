@@ -7,7 +7,7 @@ use crate::cs::implementations::reference_cs::*;
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::toolboxes::static_toolbox::StaticToolboxHolder;
 use crate::cs::traits::cs::ConstraintSystem;
-use crate::dag::ResolverSortingMode;
+use crate::dag::{ResolverSortingMode, CircuitResolver};
 
 impl<
         F: SmallField,
@@ -15,8 +15,8 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-        RSM: ResolverSortingMode<F> + 'static
-    > CSReferenceImplementation<F, P, CFG, GC, T, RSM>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
+    > CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     pub(crate) fn enforce_lookup_over_general_purpose_columns<const N: usize>(
         &mut self,

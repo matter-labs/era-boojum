@@ -479,7 +479,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 #[cfg(test)]
 mod test {
     use crate::dag::CircuitResolverOpts;
-    use crate::dag::sorter_runtime::RuntimeResolverSorter;
+    use crate::dag::DefaultCircuitResolver;
     use crate::field::Field;
 
     use super::*;
@@ -487,6 +487,7 @@ mod test {
     type F = crate::field::goldilocks::GoldilocksField;
     type Ext = crate::field::goldilocks::GoldilocksExt2;
     type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+    type CR = DefaultCircuitResolver<F, RCfg>;
     use crate::cs::cs_builder::*;
     use crate::cs::cs_builder_reference::*;
 
@@ -500,7 +501,7 @@ mod test {
         };
 
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 128, 8);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig, CR>::new(geometry, 128, 8);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = FmaGateInExtensionWithoutConstant::<F, Ext>::configure_builder(

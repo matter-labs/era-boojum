@@ -475,7 +475,7 @@ mod test {
         type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -551,7 +551,7 @@ mod test {
         type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 

@@ -1,5 +1,5 @@
 use crate::log;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::cs::Place;
 
@@ -98,7 +98,7 @@ impl Registrar {
             if place.0 <= to.0 {
                 resolvers.append(resolver_ixs);
 
-                if super::resolver::PARANOIA
+                if super::resolvers::mt::PARANOIA
                     && resolver_ixs
                         .iter()
                         .any(|x| *x == ResolverIx::new_resolver(0))
@@ -141,6 +141,7 @@ impl Registrar {
         &self.vars
     }
 }
+
 
 #[cfg(test)]
 mod test {

@@ -1,4 +1,6 @@
-use crate::log;
+use itertools::Itertools;
+
+use crate::{log, field::SmallField};
 use std::{intrinsics::size_of, marker::PhantomData};
 
 use crate::{
@@ -403,6 +405,63 @@ impl Resolver {
     }
 }
 
+pub(crate) fn invocation_binder<Fn, F: SmallField>(
+    resolver: &Resolver,
+    ins: &[F],
+    out: &mut [&mut F],
+    debug_track: bool,
+) where
+    Fn: FnOnce(&[F], &mut DstBuffer<F>) + Send + Sync,
+{
+    unsafe {
+        // Safety: This is the actual type of the provided function.
+        let bound = resolver.resolve_fn::<Fn>();
+
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && false {
+            log!(
+                "Ivk: Ins [{}], Out [{}], Out-addr [{}], Thread [{}]",
+                resolver
+                    .inputs()
+                    .iter()
+                    .map(|x| x.0.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                resolver
+                    .outputs()
+                    .iter()
+                    .map(|x| x.0.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                out.iter()
+                    .map(|x| *x as *const _ as usize)
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                std::thread::current().name().unwrap_or("unnamed")
+            )
+        }
+
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && debug_track && false {
+            log!(
+                "Ivk: provided inputs:\n   - {:?}",
+                ins.iter().map(|x| x.as_raw_u64()).collect_vec()
+            );
+        }
+
+        bound(ins, &mut DstBuffer::MutSliceIndirect(out, debug_track, 0));
+
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && debug_track && true {
+            log!(
+                "Ivk: calculated outputs:\n   - {:?}",
+                out.iter().map(|x| x.as_raw_u64()).collect_vec()
+            );
+        }
+    }
+
+    // TODO: uninit resolver.
+}
+
+
 #[cfg(test)]
 mod test {
     use std::{
@@ -414,12 +473,12 @@ mod test {
 
     use crate::{
         cs::{traits::cs::DstBuffer, Place, Variable},
-        dag::{resolution_window::invocation_binder, resolver_box::ResolverHeader, guide::RegistrationNum},
+        dag::{ resolver_box::ResolverHeader, guide::RegistrationNum},
         field::{goldilocks::GoldilocksField, Field},
         log,
     };
 
-    use super::{Resolver, ResolverBox};
+    use super::{Resolver, ResolverBox, invocation_binder};
 
     type F = GoldilocksField;
 

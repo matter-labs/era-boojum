@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, sync::{Arc, Mutex}, cell::UnsafeCell, rc::Rc };
 
-use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolver::{Values, Metadata, ExecOrder, OrderIx, ResolverIx}, resolver_box::ResolverBox, awaiters::AwaitersBroker, ResolutionRecordItem, guide::{OrderInfo, GuideMetadata}}, utils::{PipeOp, UnsafeCellEx}};
+use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolver::{ ExecOrder, OrderIx, ResolverIx}, resolver_box::ResolverBox, awaiters::AwaitersBroker, ResolutionRecordItem, guide::{OrderInfo, GuideMetadata}, primitives::{Values, Metadata}}, utils::{PipeOp, UnsafeCellEx}};
 
-use super::{sorter_runtime::RuntimeResolverSorter, ResolverSortingMode, ResolutionRecordStorage, resolver::{ResolverCommonData, ResolverComms}, ResolutionRecord, resolution_window::invocation_binder, guide::RegistrationNum, ResolutionRecordSource};
+use super::{sorter_runtime::RuntimeResolverSorter, ResolverSortingMode, ResolutionRecordStorage, resolver::{ResolverCommonData}, ResolutionRecord,  guide::RegistrationNum, ResolutionRecordSource, resolvers::mt::ResolverComms, resolver_box::invocation_binder};
 
 struct OrderBufferItem {
     resolver_ix: ResolverIx,
@@ -41,7 +41,7 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Playback
 
         self.comms.exec_order_buffer_hint.store(1, std::sync::atomic::Ordering::Relaxed);
 
-        if super::resolver::PARANOIA {
+        if crate::dag::resolvers::mt::PARANOIA {
             println!(
                 "RS_P: buffer written, {} item, size: {}",
                 self.exec_order_buffer.len(),

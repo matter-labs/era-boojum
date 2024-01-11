@@ -2,9 +2,9 @@ use std::{marker::PhantomData, sync::{Arc, Mutex, atomic::{AtomicBool, AtomicUsi
 
 use itertools::Itertools;
 
-use crate::{config::CSResolverConfig, field::SmallField, cs::{VariableType, Variable, Place, traits::cs::DstBuffer}, log, dag::{resolver::Metadata, resolution_window::invocation_binder, ResolutionRecordItem}, utils::{PipeOp, UnsafeCellEx}};
+use crate::{config::CSResolverConfig, field::SmallField, cs::{VariableType, Variable, Place, traits::cs::DstBuffer}, log, dag::{ResolutionRecordItem, primitives::{Values, Metadata}, resolver_box::invocation_binder}, utils::{PipeOp, UnsafeCellEx}};
 
-use super::{ResolverSortingMode, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, PARANOIA, ResolverCommonData, Values, OrderIx, ExecOrder, ResolverComms}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord, CircuitResolverOpts, resolution_window::RWConfigRecord, ResolutionRecordStorage, NullRecordWriter, ResolutionRecordWriter};
+use super::{ResolverSortingMode, registrar::Registrar, guide::{BufferGuide, GuideOrder, OrderInfo, GuideMetadata, RegistrationNum, GuideLoc}, resolver::{ResolverIx, ResolverCommonData, OrderIx, ExecOrder}, awaiters::AwaitersBroker, resolver_box::ResolverBox, ResolutionRecord, CircuitResolverOpts, resolution_window::RWConfigRecord, ResolutionRecordStorage, NullRecordWriter, ResolutionRecordWriter, resolvers::mt::ResolverComms};
 
 #[derive(Debug)]
 struct Stats {
@@ -205,7 +205,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
                 ri.parallelism = nfo.metadata.parallelism() as u16;
             }
 
-            if PARANOIA {
+            if super::resolvers::mt::PARANOIA {
                 for i in len..len + order.size() {
                     if tgt[i].value == ResolverIx(0) {
                         log!(
@@ -323,7 +323,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
     }
 
     fn set_value(&mut self, key: crate::cs::Place, value: F) {
-        if (cfg!(cr_paranoia_mode) || PARANOIA) && self.debug_track.contains(&key) && false {
+        if (cfg!(cr_paranoia_mode) || super::resolvers::mt::PARANOIA) && self.debug_track.contains(&key) && false {
             log!("CR: setting {:?} -> {:?}", key, value);
         }
 
@@ -387,7 +387,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
                     invocation_binder::<Fn, F>)
         };
 
-        if PARANOIA && resolver_ix.0 == 0 {
+        if crate::dag::resolvers::mt::PARANOIA && resolver_ix.0 == 0 {
             println!(
                 "CR: Resolvers push returned ix 0, on resolution {}",
                 self.stats.registrations_added
@@ -396,7 +396,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
         let mut hit = false;
 
-        if (cfg!(cr_paranoia_mode) || PARANOIA) && true {
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && true {
             if let Some(x) = self.debug_track.iter().find(|x| inputs.contains(x)) {
                 log!("CR: added resolution with tracked input {:?}", x);
 
@@ -472,7 +472,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
     {
         let mut resolvers = vec![(resolver_ix, inputs, outputs, added_at)];
 
-        if PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
+        if super::resolvers::mt::PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
             println!("CR: Internalize called with resolver_ix 0");
         }
 
@@ -488,7 +488,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
             let new_resolvers = self.internalize_one(resolver_ix, inputs, outputs, added_at);
 
-            if PARANOIA {
+            if super::resolvers::mt::PARANOIA {
                 if new_resolvers.iter().any(|x| x.0 == 0) {
                     println!("CR: internalize_one returned resolver with ix 0");
                 }
@@ -540,11 +540,11 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             );
         }
 
-        if PARANOIA && resolver_ix == ResolverIx::new_resolver(0) && false {
+        if super::resolvers::mt::PARANOIA && resolver_ix == ResolverIx::new_resolver(0) && false {
             self.guide.tracing = true;
         }
 
-        if PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
+        if super::resolvers::mt::PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
             println!("CR: resolver_ix {} pushed to guide.", resolver_ix.0);
         }
 
@@ -629,14 +629,14 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         self.record.registrations_count = self.stats.registrations_added as usize;
 
 
-        if cfg!(cr_paranoia_mode) || PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             log!(
                 "CR: Final order written. Order len {}",
                 self.common.exec_order.lock().unwrap().items.len()
             );
         }
 
-        if cfg!(cr_paranoia_mode) || PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             self.guide.stats.finalize();
 
             log!("CR {:?}", self.guide.stats);

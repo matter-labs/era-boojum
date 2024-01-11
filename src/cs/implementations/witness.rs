@@ -1,4 +1,5 @@
 use crate::cs::implementations::fast_serialization::MemcopySerializable;
+use crate::dag::CircuitResolver;
 use crate::dag::ResolverSortingMode;
 use crate::dag::WitnessSource;
 use std::alloc::Global;
@@ -96,8 +97,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-        RSM: ResolverSortingMode<F> + 'static
-    > CSReferenceAssembly<F, P, CFG, RSM>
+        CR: CircuitResolver<F, CFG::ResolverConfig>
+    > CSReferenceAssembly<F, P, CFG, CR>
 {
     pub fn wait_for_witness(&mut self) {
         assert!(

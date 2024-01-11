@@ -181,7 +181,7 @@ mod test {
         type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig, RuntimeResolverSorter<F, RCfg>>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -375,8 +375,7 @@ mod test {
             use crate::config::DevCSConfig;
             type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
-            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig,
-            RuntimeResolverSorter<F, RCfg>>::new(
+            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(
                 geometry,
                 max_variables,
                 max_trace_len,
@@ -423,8 +422,7 @@ mod test {
 
         type RCfgS = <SetupCSConfig as CSConfig>::ResolverConfig;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, SetupCSConfig,
-        RuntimeResolverSorter<F, RCfgS>>::new(
+        let builder_impl = CsReferenceImplementationBuilder::<F, P, SetupCSConfig>::new(
             geometry,
             max_variables,
             max_trace_len,
@@ -471,8 +469,7 @@ mod test {
         use crate::config::ProvingCSConfig;
         type RCfgP = <ProvingCSConfig as CSConfig>::ResolverConfig;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig,
-        RuntimeResolverSorter<F, RCfgP>>::new(
+        let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
             geometry,
             max_variables,
             max_trace_len,

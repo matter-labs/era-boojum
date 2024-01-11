@@ -34,8 +34,8 @@ use crate::{
 
 use super::{
     guide::{OrderInfo, GuideLoc},
-    resolver::{OrderIx, ResolverCommonData, ResolverIx, ResolverComms},
-    resolver_box::Resolver, TrackId,
+    resolver::{OrderIx, ResolverCommonData, ResolverIx},
+    resolver_box::Resolver, TrackId, resolvers::mt::ResolverComms,
 };
 
 #[derive(PartialEq, Eq, Debug)]
@@ -247,7 +247,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                 }
             }
 
-            if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && true {
+            if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && true {
                 log!("RW: Batch! {} tasks.", count);
             }
 
@@ -274,7 +274,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                 .for_each(|x| {
                     x.state = ResolverState::Done;
 
-                    if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+                    if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
                         unsafe {
                             let r = self.common.resolvers.u_deref().get(x.order_info.value);
 
@@ -301,7 +301,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                     }
                 });
 
-            // if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+            // if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             //     if self
             //         .exec_order_buffer
             //         .iter()
@@ -426,7 +426,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
 
                 self.stats.total_consumption = extend_to as u64;
 
-                if super::resolver::PARANOIA || cfg!(cr_paranoia_mode) {
+                if crate::dag::resolvers::mt::PARANOIA || cfg!(cr_paranoia_mode) {
                     log!(
                         "RW: Extended range by {}, new range {}..{}",
                         extend_to,
@@ -488,7 +488,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
             }
         }
 
-        if super::resolver::PARANOIA || cfg!(cr_paranoia_mode) {
+        if crate::dag::resolvers::mt::PARANOIA || cfg!(cr_paranoia_mode) {
             log!("[{:?}] RW: Exit conditions met.", std::time::Instant::now())
         }
 
@@ -498,7 +498,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
 
         self.stats.total_time = start_instant.elapsed();
 
-        if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             log!("CR {:#?}", self.stats);
             log!("CR {:#?}", unsafe { &*self.channel.stats.get() });
 
@@ -560,7 +560,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> W
                             // here, as this is an unsynchronizd access.
                             let resolver = this.common.resolvers.u_deref().get(*resolver_ix);
 
-                            if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+                            if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
                                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                                     this.invoke(resolver, *order_ix);
 
@@ -596,7 +596,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> W
             });
         }
 
-        if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             log!(
                 "{}\n{:#?}\n{:#?}",
                 std::thread::current().name().unwrap_or_default(),
@@ -619,7 +619,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> W
         let ins_ixs = resolver.inputs();
         let out_ixs = resolver.outputs();
 
-        if super::resolver::PARANOIA && false {
+        if crate::dag::resolvers::mt::PARANOIA && false {
             let vs = self.common.values.u_deref();
 
             println!("RW: input ixs: {:#?}", ins_ixs);
@@ -681,7 +681,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> W
 
         let mut track = false;
 
-        if cfg!(cr_paranoia_mode) || super::resolver::PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             if let Some(x) = self
                 .debug_track
                 .iter()
@@ -832,7 +832,7 @@ impl LockStepChannel {
     fn execute(&self) {
         use std::sync::atomic::Ordering::*;
 
-        if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && false {
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && false {
             log!("RW: batch sent {:#?}", unsafe { self.data.u_deref() });
         }
 
@@ -1046,59 +1046,4 @@ impl LockStepWorker {
     }
 }
 
-pub(crate) fn invocation_binder<F, V: SmallField>(
-    resolver: &Resolver,
-    ins: &[V],
-    out: &mut [&mut V],
-    debug_track: bool,
-) where
-    F: FnOnce(&[V], &mut DstBuffer<V>) + Send + Sync,
-{
-    unsafe {
-        // Safety: This is the actual type of the provided function.
-        let bound = resolver.resolve_fn::<F>();
 
-        if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && false {
-            log!(
-                "Ivk: Ins [{}], Out [{}], Out-addr [{}], Thread [{}]",
-                resolver
-                    .inputs()
-                    .iter()
-                    .map(|x| x.0.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                resolver
-                    .outputs()
-                    .iter()
-                    .map(|x| x.0.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                out.iter()
-                    .map(|x| *x as *const _ as usize)
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                std::thread::current().name().unwrap_or("unnamed")
-            )
-        }
-
-        if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && debug_track && false {
-            log!(
-                "Ivk: provided inputs:\n   - {:?}",
-                ins.iter().map(|x| x.as_raw_u64()).collect_vec()
-            );
-        }
-
-        bound(ins, &mut DstBuffer::MutSliceIndirect(out, debug_track, 0));
-
-        if (cfg!(cr_paranoia_mode) || super::resolver::PARANOIA) && debug_track && true {
-            log!(
-                "Ivk: calculated outputs:\n   - {:?}",
-                out.iter().map(|x| x.as_raw_u64()).collect_vec()
-            );
-        }
-    }
-
-    // TODO: uninit resolver.
-    // What did I mean by that?
-}

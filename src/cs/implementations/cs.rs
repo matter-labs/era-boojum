@@ -13,7 +13,7 @@ use crate::utils::PipeOp;
 use std::any::TypeId;
 use std::sync::atomic::AtomicU32;
 
-use crate::dag::resolver::CircuitResolver;
+use crate::dag::CircuitResolver;
 
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::traits::cs::{ConstraintSystem, DstBuffer};
@@ -30,11 +30,11 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-        RSM: ResolverSortingMode<F> + 'static
-    > ConstraintSystem<F> for CSReferenceImplementation<F, P, CFG, GC, T, RSM>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
+    > ConstraintSystem<F> for CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     type Config = CFG;
-    type WitnessSource = CircuitResolver<F, crate::dag::sorter_runtime::RuntimeResolverSorter<F, CFG::ResolverConfig>>;
+    type WitnessSource = CR;
     type GatesConfig = GC;
     type StaticToolbox = T;
 
@@ -1116,7 +1116,7 @@ mod test {
         }
 
         let builder_impl = 
-            CsReferenceImplementationBuilder::<F, P, DevCSConfig, RuntimeResolverSorter<F, RCfg>>
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>
             ::new(
                 geometry,
                 max_variables,
@@ -1296,7 +1296,6 @@ mod test {
             GoldilocksField,
             P,
             DevCSConfig,
-            RuntimeResolverSorter<F, RCfg>,
         >::new(geometry, 512, 128));
         let builder = configure(builder);
         let mut cs = builder.build(CircuitResolverOpts::new(512));
@@ -1403,16 +1402,11 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::<
-            F,
-            P,
-            DevCSConfig,
-            RuntimeResolverSorter<F, RCfg>>
-            ::new(
-                geometry,
-                max_variables,
-                max_trace_len,
-            );
+        let builder_impl = CsReferenceImplementationBuilder::< F, P, DevCSConfig> ::new(
+            geometry,
+            max_variables,
+            max_trace_len,
+        );
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
@@ -1602,12 +1596,7 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::<
-            F,
-            P,
-            DevCSConfig,
-            RuntimeResolverSorter<F, RCfg>>
-            ::new(
+        let builder_impl = CsReferenceImplementationBuilder::<F, P, DevCSConfig> ::new(
                 geometry,
                 max_variables,
                 max_trace_len,

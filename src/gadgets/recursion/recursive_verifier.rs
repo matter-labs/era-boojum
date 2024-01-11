@@ -2233,8 +2233,7 @@ mod test {
         let max_trace_len = 1 << 16;
         let num_vars = 1 << 22;
 
-        let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, DevCSConfig,
-            RuntimeResolverSorter<F, RCfg>>::new(
+        let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, DevCSConfig>::new(
             geometry,
             num_vars,
             max_trace_len,

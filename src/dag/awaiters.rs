@@ -10,7 +10,8 @@ use crate::utils::{PipeOp, UnsafeCellEx};
 
 use super::TrackId;
 use super::guide::GuideLoc;
-use super::resolver::{Metadata, ResolverComms};
+use super::primitives::Metadata;
+use super::resolvers::mt::ResolverComms;
 
 #[derive(Debug)]
 pub(crate) struct AwaiterStats {
@@ -119,4 +120,10 @@ impl<'a, T: TrackId> crate::dag::Awaiter<'a> for Awaiter<'a, T> {
         // is written in another thread.
         fence(Ordering::Acquire);
     }
+}
+
+pub struct ImmediateAwaiter { }
+
+impl<'a> crate::dag::Awaiter<'a> for ImmediateAwaiter {
+    fn wait(&self) { }
 }
