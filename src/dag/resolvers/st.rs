@@ -2,7 +2,7 @@ use std::{marker::{PhantomData}, cell::UnsafeCell, collections::VecDeque};
 
 use smallvec::SmallVec;
 
-use crate::{field::SmallField, config::{CSResolverConfig, CSDebugConfig}, dag::{CircuitResolver, WitnessSource, WitnessSourceAwaitable, resolver::{OrderIx, ResolverIx}, primitives::{Values, Metadata}, awaiters::{AwaitersBroker, ImmediateAwaiter}, resolver_box::{ResolverBox, invocation_binder, Resolver}, registrar::Registrar}, cs::{traits::cs::{CSWitnessSource, DstBuffer}, Place}, utils::PipeOp as _, log};
+use crate::{field::SmallField, config::{CSResolverConfig, CSDebugConfig}, dag::{CircuitResolver, WitnessSource, WitnessSourceAwaitable, resolver::{OrderIx, ResolverIx}, primitives::{Values, Metadata}, awaiters::{AwaitersBroker, ImmediateAwaiter}, resolver_box::{ResolverBox, invocation_binder, Resolver}, registrar::Registrar, CircuitResolverOpts}, cs::{traits::cs::{CSWitnessSource, DstBuffer}, Place}, utils::PipeOp as _, log};
 
 pub struct StCircuitResolverParams {
     pub max_variables: usize
@@ -17,7 +17,8 @@ pub struct StCircuitResolver<F, CFG: CSResolverConfig> {
     values: Values<F, OrderIx>,
     deferrer: Deferrer,
     resolver_box: ResolverBox<F>,
-    options: StCircuitResolverParams,
+    // options: StCircuitResolverParams,
+    options: CircuitResolverOpts,
     stats: Stats,
     phantom: PhantomData<CFG>,
 }
@@ -190,7 +191,7 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
 }
 
 impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for StCircuitResolver<F, CFG> {
-    type Arg = StCircuitResolverParams;
+    type Arg = CircuitResolverOpts;
 
     fn new(opts: Self::Arg) -> Self {
         let values = Values {
@@ -227,7 +228,7 @@ impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for StCircuit
         // Safety: We test that inputs and outputs are distinct lists in the assert clause.
         let output_packs = outputs.iter().map(|x| unsafe { self.values.get_item_ref_mut(*x) });
 
-        log!("STCR: push {:?} -> {:?}", inputs, outputs);
+        // log!("STCR: push {:?} -> {:?}", inputs, outputs);
 
         if CFG::DebugConfig::PERFORM_RUNTIME_ASSERTS {
             assert!(
@@ -300,7 +301,7 @@ mod test {
 
     #[test]
     fn resolves_init() {
-        let mut resolver = StCircuitResolver::<F, CFG>::new(StCircuitResolverParams { max_variables: 111 });
+        let mut resolver = StCircuitResolver::<F, CFG>::new(CircuitResolverOpts::new(111));
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);
@@ -316,7 +317,7 @@ mod test {
 
     #[test]
     fn resolves_chain() {
-        let mut resolver = StCircuitResolver::<F, CFG>::new(StCircuitResolverParams { max_variables: 111 });
+        let mut resolver = StCircuitResolver::<F, CFG>::new(CircuitResolverOpts::new(111));
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);
@@ -333,7 +334,7 @@ mod test {
 
     #[test]
     fn resolves_delayed_set() {
-        let mut resolver = StCircuitResolver::<F, CFG>::new(StCircuitResolverParams { max_variables: 111 });
+        let mut resolver = StCircuitResolver::<F, CFG>::new(CircuitResolverOpts::new(111));
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);

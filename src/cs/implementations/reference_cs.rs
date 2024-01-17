@@ -26,7 +26,7 @@ pub struct CSReferenceImplementation<
     CFG: CSConfig,
     GC: GateConfigurationHolder<F>,
     T: StaticToolboxHolder,
-    CR: CircuitResolver<F, CFG::ResolverConfig>,
+    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<F, <CFG as CSConfig>::ResolverConfig>,
 > {
     pub(crate) parameters: CSGeometry,
     pub(crate) lookup_parameters: LookupParameters,

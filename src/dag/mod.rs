@@ -144,6 +144,15 @@ impl CircuitResolverOpts {
     }
 }
 
+impl From<usize> for CircuitResolverOpts {
+    fn from(value: usize) -> Self {
+        Self {
+            max_variables: value,
+            desired_parallelism: 1 << 12,
+        }
+    }
+}
+
 pub struct TestRecordStorage {
     record: std::rc::Rc<ResolutionRecord>
 }
@@ -256,14 +265,13 @@ pub trait CircuitResolver<
     fn clear(&mut self);
 }
 
-pub type NullCircuitResolver<F: SmallField, CFG: CSResolverConfig> = resolvers::NullCircuitResolver<F, CFG>;
+pub type NullCircuitResolver<F, CFG> = resolvers::NullCircuitResolver<F, CFG>;
 
-pub type DefaultCircuitResolver<F: SmallField, CFG: CSResolverConfig> = 
+pub type StCircuitResolver<F, CFG> = resolvers::StCircuitResolver<F, CFG>;
+pub type MtCircuitResolver<F, CFG> =
     resolvers::MtCircuitResolver<
-        F, 
-        RuntimeResolverSorter<
-            F,
-            CFG>,
+        F,
+        RuntimeResolverSorter<F, CFG>,
         CFG>;
 
-pub type StCircuitResolver<F: SmallField, CFG: CSResolverConfig> = resolvers::StCircuitResolver<F, CFG>;
+pub type DefaultCircuitResolver<F, CFG> = MtCircuitResolver<F, CFG>;

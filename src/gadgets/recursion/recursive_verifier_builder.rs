@@ -629,9 +629,9 @@ impl<
         )
     }
 
-    fn build<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
+    fn build<'b, GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder, ARG: Into<Self::BuildParams<'b>>>(
         builder: CsBuilder<Self, F, GC, TB>,
-        _params: Self::BuildParams<'_>,
+        _params: ARG,
     ) -> Self::Final<GC, TB> {
         let this: CsRecursiveVerifierBuilder<F, EXT, CS> = builder.implementation;
 

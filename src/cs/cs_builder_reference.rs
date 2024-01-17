@@ -337,9 +337,9 @@ impl<
         )
     }
 
-    fn build<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
+    fn build<'a, GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder, ARG: Into<Self::BuildParams<'a>>>(
         builder: CsBuilder<Self, F, GC, TB>,
-        params: Self::BuildParams<'_>,
+        params: ARG,
     ) -> Self::Final<GC, TB> {
         let CsReferenceImplementationBuilder {
             parameters,
@@ -379,7 +379,7 @@ impl<
                 &mut columns_cleanups,
             );
 
-        let variables_storage = RwLock::new(CR::new(params));
+        let variables_storage = RwLock::new(CR::new(params.into()));
         // let variables_storage = RwLock::new(CircuitResolver::new(CircuitResolverOpts {
         //     max_variables,
         //     desired_parallelism: 1 << 12,
