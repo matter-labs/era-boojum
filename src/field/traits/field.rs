@@ -323,7 +323,6 @@ pub trait FieldExtension<const DEGREE: usize>:
 
 #[repr(C)]
 #[derive(Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
-// #[derive(Clone, Copy, Hash)]
 pub struct ExtensionField<F: Field, const DEGREE: usize, E: FieldExtension<DEGREE, BaseField = F>> {
     #[serde(bound(serialize = "[F; DEGREE]: serde::Serialize"))]
     #[serde(bound(deserialize = "[F; DEGREE]: serde::de::DeserializeOwned"))]

@@ -89,9 +89,20 @@ const EPSILON: u64 = (1 << 32) - 1;
 ///   = 2**64 - 2**32 + 1
 ///   = 2**32 * (2**32 - 1) + 1
 /// ```
-#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Default, serde::Deserialize)]
 #[repr(transparent)]
 pub struct GoldilocksField(pub u64);
+
+// To allow wire format equality, we normalize on serialization
+impl serde::Serialize for GoldilocksField {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.as_u64_reduced())
+    }
+}
 
 impl GoldilocksField {
     pub const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(7);

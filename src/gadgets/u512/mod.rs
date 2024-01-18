@@ -63,6 +63,7 @@ impl<F: SmallField> CSAllocatable<F> for UInt512<F> {
     }
 
     #[inline(always)]
+    #[must_use]
     fn allocate_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let vars = cs.alloc_multiple_variables_without_values::<16>();
 
@@ -71,6 +72,7 @@ impl<F: SmallField> CSAllocatable<F> for UInt512<F> {
         Self { inner: as_u32 }
     }
 
+    #[must_use]
     fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         let chunks = decompose_u512_as_u32x16(witness);
         let chunks = chunks.map(|el| UInt32::allocate_checked(cs, el));
@@ -82,19 +84,6 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {
     const INTERNAL_STRUCT_LEN: usize = 16;
 
     fn witness_from_set_of_values(values: [F; Self::INTERNAL_STRUCT_LEN]) -> Self::Witness {
-        // let value: U256 = WitnessCastable::cast_from_source(
-        //     [
-        //         values[0],
-        //         values[1],
-        //         values[2],
-        //         values[3],
-        //         values[4],
-        //         values[5],
-        //         values[6],
-        //         values[7],
-        //     ]
-        // );
-
         // value
         recompose_u512_as_u32x16(
             values.map(|el| <u32 as WitnessCastable<F, F>>::cast_from_source(el)),
@@ -104,11 +93,6 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {
     // we should be able to allocate without knowing values yet
     fn create_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocate_without_value(cs)
-
-        // let inner: [_; 5] = std::array::from_fn(|_| UInt32::create_without_value(cs));
-        // Self {
-        //     inner
-        // }
     }
 
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN]
@@ -126,6 +110,7 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for UInt512<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -139,6 +124,7 @@ impl<F: SmallField> Selectable<F> for UInt512<F> {
 }
 
 impl<F: SmallField> UInt512<F> {
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         constant: (U256, U256),
@@ -150,6 +136,7 @@ impl<F: SmallField> UInt512<F> {
         Self { inner: chunks }
     }
 
+    #[must_use]
     pub fn allocate_from_closure_and_dependencies<
         CS: ConstraintSystem<F>,
         FN: FnOnce(&[F]) -> (U256, U256) + 'static + Send + Sync,
@@ -180,10 +167,12 @@ impl<F: SmallField> UInt512<F> {
         Self { inner: chunks }
     }
 
+    #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocated_constant(cs, (U256::zero(), U256::zero()))
     }
 
+    #[must_use]
     pub fn overflowing_add<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -205,6 +194,7 @@ impl<F: SmallField> UInt512<F> {
         (result, carry_out)
     }
 
+    #[must_use]
     pub fn overflowing_sub<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -252,6 +242,7 @@ impl<F: SmallField> UInt512<F> {
         Boolean::multi_and(cs, &equals)
     }
 
+    #[must_use]
     pub fn from_le_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 64]) -> Self {
         let mut inner = [std::mem::MaybeUninit::uninit(); 16];
         for (dst, src) in inner.iter_mut().zip(bytes.array_chunks::<4>()) {
@@ -263,6 +254,7 @@ impl<F: SmallField> UInt512<F> {
         Self { inner }
     }
 
+    #[must_use]
     pub fn from_be_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 64]) -> Self {
         let mut inner = [std::mem::MaybeUninit::uninit(); 16];
         for (dst, src) in inner.iter_mut().rev().zip(bytes.array_chunks::<4>()) {
@@ -274,11 +266,13 @@ impl<F: SmallField> UInt512<F> {
         Self { inner }
     }
 
+    #[must_use]
     pub fn is_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         let limbs_are_zero = self.inner.map(|el| el.is_zero(cs));
         Boolean::multi_and(cs, &limbs_are_zero)
     }
 
+    #[must_use]
     pub fn to_le_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 64] {
         let mut encoding = [std::mem::MaybeUninit::uninit(); 64];
         for (dst, src) in encoding
@@ -291,6 +285,7 @@ impl<F: SmallField> UInt512<F> {
         unsafe { encoding.map(|el| el.assume_init()) }
     }
 
+    #[must_use]
     pub fn to_be_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 64] {
         let mut bytes = self.to_le_bytes(cs);
         bytes.reverse();
@@ -298,6 +293,7 @@ impl<F: SmallField> UInt512<F> {
         bytes
     }
 
+    #[must_use]
     pub fn to_low(self) -> UInt256<F> {
         UInt256 {
             inner: [
@@ -313,6 +309,7 @@ impl<F: SmallField> UInt512<F> {
         }
     }
 
+    #[must_use]
     pub fn to_high(self) -> UInt256<F> {
         UInt256 {
             inner: [

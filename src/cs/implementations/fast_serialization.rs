@@ -207,6 +207,65 @@ where
     }
 }
 
+impl<A: GoodAllocator> MemcopySerializable for Vec<u32, A>
+where
+    Self: 'static,
+{
+    fn write_into_buffer<W: Write>(&self, mut dst: W) -> Result<(), Box<dyn Error>> {
+        let len_le_bytes = (self.len() as u64).to_le_bytes();
+        dst.write_all(&len_le_bytes).map_err(Box::new)?;
+
+        let num_bytes = self.len() * std::mem::size_of::<u32>();
+        let src = unsafe { slice::from_raw_parts(self.as_ptr().cast(), num_bytes) };
+        dst.write_all(src).map_err(Box::new)?;
+
+        Ok(())
+    }
+
+    fn read_from_buffer<R: Read>(mut src: R) -> Result<Self, Box<dyn Error>> {
+        let mut len_le_bytes = [0u8; 8];
+        src.read_exact(&mut len_le_bytes).map_err(Box::new)?;
+        let capacity = u64::from_le_bytes(len_le_bytes) as usize;
+
+        let num_bytes = capacity * std::mem::size_of::<u32>();
+        let mut result: Vec<u32, A> = Vec::with_capacity_in(capacity, A::default());
+        let tmp = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast(), num_bytes) };
+        src.read_exact(tmp).map_err(Box::new)?;
+        unsafe { result.set_len(capacity) };
+        Ok(result)
+    }
+}
+
+impl<A: GoodAllocator> MemcopySerializable for Vec<u64, A>
+where
+    Self: 'static,
+{
+    fn write_into_buffer<W: Write>(&self, mut dst: W) -> Result<(), Box<dyn Error>> {
+        let len_le_bytes = (self.len() as u64).to_le_bytes();
+        dst.write_all(&len_le_bytes).map_err(Box::new)?;
+
+        let num_bytes = self.len() * std::mem::size_of::<u64>();
+        let src = unsafe { slice::from_raw_parts(self.as_ptr().cast(), num_bytes) };
+        dst.write_all(src).map_err(Box::new)?;
+
+        Ok(())
+    }
+
+    fn read_from_buffer<R: Read>(mut src: R) -> Result<Self, Box<dyn Error>> {
+        let mut len_le_bytes = [0u8; 8];
+        src.read_exact(&mut len_le_bytes).map_err(Box::new)?;
+        let capacity = u64::from_le_bytes(len_le_bytes) as usize;
+
+        let num_bytes = capacity * std::mem::size_of::<u64>();
+        let mut result: Vec<u64, A> = Vec::with_capacity_in(capacity, A::default());
+        let tmp = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast(), num_bytes) };
+        src.read_exact(tmp).map_err(Box::new)?;
+        unsafe { result.set_len(capacity) };
+
+        Ok(result)
+    }
+}
+
 impl<F: SmallField, const N: usize, A: GoodAllocator> MemcopySerializable for Vec<[F; N], A>
 where
     Self: 'static,
