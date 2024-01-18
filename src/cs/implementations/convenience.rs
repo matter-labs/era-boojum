@@ -9,6 +9,7 @@ use super::witness::WitnessVec;
 use crate::cs::cs_builder_verifier::CsVerifierBuilder;
 use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
 use crate::dag::{ResolverSortingMode, CircuitResolver};
+use crate::cs::traits::GoodAllocator;
 
 use super::transcript::Transcript;
 use crate::cs::traits::circuit::Circuit;
@@ -162,9 +163,10 @@ impl<
         TR: Transcript<F>,
         H: TreeHasher<F, Output = TR::CompatibleCap>,
         POW: PoWRunner,
+        A: GoodAllocator,
     >(
         &self,
-        witness_vector: &WitnessVec<F>,
+        witness_vector: &WitnessVec<F, A>,
         proof_config: ProofConfig,
         setup_base: &SetupBaseStorage<F, P>,
         setup: &SetupStorage<F, P>,

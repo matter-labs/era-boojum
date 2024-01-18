@@ -449,11 +449,14 @@ impl<F: PrimeField, H: TreeHasher<F>, A: GoodAllocator, B: GoodAllocator>
     }
 
     pub fn get_cap(&self) -> Vec<H::Output, A> {
-        if let Some(cap) = self.node_hashes_enumerated_from_leafs.last().cloned() {
+        let mut output = if let Some(cap) = self.node_hashes_enumerated_from_leafs.last().cloned() {
             cap
         } else {
             self.leaf_hashes.clone()
-        }
+        };
+        H::batch_normalize_outputs(&mut output);
+
+        output
     }
 
     pub fn get_proof<C: GoodAllocator>(&self, idx: usize) -> (H::Output, Vec<H::Output, C>) {
@@ -495,6 +498,7 @@ impl<F: PrimeField, H: TreeHasher<F>, A: GoodAllocator, B: GoodAllocator>
         }
 
         let cap_el = &cap[idx];
+        H::normalize_output(&mut current);
 
         cap_el == &current
     }

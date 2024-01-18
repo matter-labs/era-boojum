@@ -50,8 +50,9 @@ impl MemcopySerializable for Vec<Variable> {
         let len_le_bytes = (len as u64).to_le_bytes();
         dst.write_all(&len_le_bytes).map_err(Box::new)?;
 
+        let num_bytes = len * std::mem::size_of::<Variable>();
         let ptr: *const u8 = self.as_ptr().cast();
-        let src = unsafe { std::slice::from_raw_parts(ptr, len) };
+        let src = unsafe { std::slice::from_raw_parts(ptr, num_bytes) };
 
         dst.write_all(src).map_err(Box::new)?;
 
@@ -90,8 +91,9 @@ impl MemcopySerializable for Vec<Witness> {
         let len_le_bytes = (len as u64).to_le_bytes();
         dst.write_all(&len_le_bytes).map_err(Box::new)?;
 
+        let num_bytes = len * std::mem::size_of::<Variable>();
         let ptr: *const u8 = self.as_ptr().cast();
-        let src = unsafe { std::slice::from_raw_parts(ptr, len) };
+        let src = unsafe { std::slice::from_raw_parts(ptr, num_bytes) };
 
         dst.write_all(src).map_err(Box::new)?;
 

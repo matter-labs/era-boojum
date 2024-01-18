@@ -1,7 +1,7 @@
-use itertools::Itertools;
-
+use crate::log;
 use crate::{log, field::SmallField};
-use std::{intrinsics::size_of, marker::PhantomData};
+use std::marker::PhantomData;
+use std::mem::size_of;
 
 use crate::{
     cs::{traits::cs::DstBuffer, Place},

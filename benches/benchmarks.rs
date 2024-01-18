@@ -192,104 +192,104 @@ fn criterion_benchmark_poseidon2_inner_statevec(c: &mut Criterion) {
 //     });
 // }
 
-fn criterion_benchmark_add_naive(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_add_naive(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    let aa: Vec<u64> = (0..(degree * 2)).map(|x| x as u64 + 1).collect();
-    let bb: Vec<u64> = (0..(degree * 2)).map(|x| x as u64 + 2).collect();
-    let mut cc: Vec<u64> = Vec::with_capacity(degree * 2);
+//     let aa: Vec<u64> = (0..(degree * 2)).map(|x| x as u64 + 1).collect();
+//     let bb: Vec<u64> = (0..(degree * 2)).map(|x| x as u64 + 2).collect();
+//     let mut cc: Vec<u64> = Vec::with_capacity(degree * 2);
 
-    c.bench_function("Naive", |b| {
-        b.iter(|| unsafe {
-            boojum::experiments::naive(black_box(&aa), black_box(&bb), black_box(&mut cc))
-        })
-    });
-}
+//     c.bench_function("Naive", |b| {
+//         b.iter(|| unsafe {
+//             boojum::experiments::naive(black_box(&aa), black_box(&bb), black_box(&mut cc))
+//         })
+//     });
+// }
 
-fn criterion_benchmark_add_vectors_naive(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_add_vectors_naive(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    let mut aa: Vec<GoldilocksField> = (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect();
-    let bb: Vec<GoldilocksField> = (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect();
+//     let mut aa: Vec<GoldilocksField> = (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect();
+//     let bb: Vec<GoldilocksField> = (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect();
 
-    c.bench_function("Naive Vec add", |b| {
-        b.iter(|| boojum::experiments::vec_add_native(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("Naive Vec add", |b| {
+//         b.iter(|| boojum::experiments::vec_add_native(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
-fn criterion_benchmark_add_vectors_vectorized(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_add_vectors_vectorized(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    let aa: Vec<GoldilocksField> = (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect();
-    let bb: Vec<GoldilocksField> = (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect();
+//     let aa: Vec<GoldilocksField> = (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect();
+//     let bb: Vec<GoldilocksField> = (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect();
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("Unrolled Vec add", |b| {
-        b.iter(|| boojum::experiments::vec_add_vectorized(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("Unrolled Vec add", |b| {
+//         b.iter(|| boojum::experiments::vec_add_vectorized(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
-fn criterion_benchmark_add_vectors_simd(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_add_vectors_simd(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    use boojum::experiments::GLV;
-    let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
-    let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     use boojum::experiments::GLV;
+//     let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
 
-    (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut aa);
-    (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut bb);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut aa);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut bb);
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("SIMD Vec add", |b| {
-        b.iter(|| boojum::experiments::vec_add_simd(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("SIMD Vec add", |b| {
+//         b.iter(|| boojum::experiments::vec_add_simd(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
-fn criterion_benchmark_add_vectors_portable_simd(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_add_vectors_portable_simd(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    use boojum::experiments::GLV;
-    let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
-    let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     use boojum::experiments::GLV;
+//     let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
 
-    (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut aa);
-    (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut bb);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut aa);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut bb);
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("Portable SIMD Vec add", |b| {
-        b.iter(|| boojum::experiments::vec_add_portable_simd(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("Portable SIMD Vec add", |b| {
+//         b.iter(|| boojum::experiments::vec_add_portable_simd(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
 use boojum::utils::clone_respecting_allignment;
 
@@ -350,99 +350,99 @@ fn criterion_benchmark_mul_vectors_naive(c: &mut Criterion) {
     });
 }
 
-fn criterion_benchmark_mul_vectors_vectorized(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_mul_vectors_vectorized(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    let aa: Vec<GoldilocksField> = (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect();
-    let bb: Vec<GoldilocksField> = (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect();
+//     let aa: Vec<GoldilocksField> = (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect();
+//     let bb: Vec<GoldilocksField> = (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect();
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("Unrolled Vec mul", |b| {
-        b.iter(|| boojum::experiments::vec_mul_vectorized(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("Unrolled Vec mul", |b| {
+//         b.iter(|| boojum::experiments::vec_mul_vectorized(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
-fn criterion_benchmark_mul_vectors_simd(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_mul_vectors_simd(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    use boojum::experiments::GLV;
-    let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
-    let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     use boojum::experiments::GLV;
+//     let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
 
-    (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut aa);
-    (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut bb);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut aa);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut bb);
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("SIMD Vec mul", |b| {
-        b.iter(|| boojum::experiments::vec_mul_simd(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("SIMD Vec mul", |b| {
+//         b.iter(|| boojum::experiments::vec_mul_simd(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
-fn criterion_benchmark_mul_vectors_portable_simd_long(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_mul_vectors_portable_simd_long(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    use boojum::experiments::GLV;
-    let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
-    let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     use boojum::experiments::GLV;
+//     let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
 
-    (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut aa);
-    (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut bb);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut aa);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut bb);
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("Portable SIMD long Vec mul", |b| {
-        b.iter(|| {
-            boojum::experiments::vec_mul_portable_simd_long(black_box(&mut aa), black_box(&bb))
-        })
-    });
-}
+//     c.bench_function("Portable SIMD long Vec mul", |b| {
+//         b.iter(|| {
+//             boojum::experiments::vec_mul_portable_simd_long(black_box(&mut aa), black_box(&bb))
+//         })
+//     });
+// }
 
-fn criterion_benchmark_mul_vectors_portable_simd(c: &mut Criterion) {
-    let degree: usize = 1 << 24;
+// fn criterion_benchmark_mul_vectors_portable_simd(c: &mut Criterion) {
+//     let degree: usize = 1 << 24;
 
-    use boojum::experiments::GLV;
-    let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
-    let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     use boojum::experiments::GLV;
+//     let mut aa = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
+//     let mut bb = boojum::utils::allocate_with_alignment_of::<GoldilocksField, GLV>(degree * 2);
 
-    (0..(degree * 2))
-        .map(|x| x as u64 + 1)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut aa);
-    (0..(degree * 2))
-        .map(|x| x as u64 + 2)
-        .map(GoldilocksField::from_u64_with_reduction)
-        .collect_into(&mut bb);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 1)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut aa);
+//     (0..(degree * 2))
+//         .map(|x| x as u64 + 2)
+//         .map(GoldilocksField::from_u64_with_reduction)
+//         .collect_into(&mut bb);
 
-    let mut aa = boojum::utils::cast_check_alignment(aa);
-    let bb = boojum::utils::cast_check_alignment(bb);
+//     let mut aa = boojum::utils::cast_check_alignment(aa);
+//     let bb = boojum::utils::cast_check_alignment(bb);
 
-    c.bench_function("Portable SIMD Vec mul", |b| {
-        b.iter(|| boojum::experiments::vec_mul_portable_simd(black_box(&mut aa), black_box(&bb)))
-    });
-}
+//     c.bench_function("Portable SIMD Vec mul", |b| {
+//         b.iter(|| boojum::experiments::vec_mul_portable_simd(black_box(&mut aa), black_box(&bb)))
+//     });
+// }
 
 fn criterion_benchmark_mul_vectors_mixedgl(c: &mut Criterion) {
     let degree: usize = 1 << 24;

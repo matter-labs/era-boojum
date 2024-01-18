@@ -32,12 +32,14 @@ impl<F: SmallField> CSAllocatable<F> for Boolean<F> {
     }
 
     #[inline(always)]
+    #[must_use]
     fn allocate_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let var = cs.alloc_variable_without_value();
 
         Self::from_variable_checked(cs, var)
     }
 
+    #[must_use]
     fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         let var = cs.alloc_single_variable_from_witness(F::from_u64_unchecked(witness as u64));
 
@@ -112,6 +114,7 @@ use crate::cs::gates::SelectionGate;
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for Boolean<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -136,6 +139,7 @@ impl<F: SmallField> Selectable<F> for Boolean<F> {
 
     const SUPPORTS_PARALLEL_SELECT: bool = true;
 
+    #[must_use]
     fn parallel_select<CS: ConstraintSystem<F>, const N: usize>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -160,11 +164,13 @@ pub type NegationTooling = std::collections::HashMap<Variable, Variable>;
 
 impl<F: SmallField> Boolean<F> {
     #[inline]
+    #[must_use]
     pub const fn get_variable(&self) -> Variable {
         self.variable
     }
 
     #[inline]
+    #[must_use]
     pub const fn into_num(self) -> Num<F> {
         Num {
             variable: self.variable,
@@ -173,6 +179,7 @@ impl<F: SmallField> Boolean<F> {
     }
 
     #[inline]
+    #[must_use]
     pub fn from_variable_checked<CS: ConstraintSystem<F>>(cs: &mut CS, variable: Variable) -> Self {
         if cs.gate_is_allowed::<BooleanConstraintGate>() {
             BooleanConstraintGate::enforce_boolean(cs, variable);
@@ -206,6 +213,7 @@ impl<F: SmallField> Boolean<F> {
     ///
     /// Does not check the variable to be valid.
     #[inline(always)]
+    #[must_use]
     pub const unsafe fn from_variable_unchecked(variable: Variable) -> Self {
         Self {
             variable,
@@ -213,6 +221,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(cs: &mut CS, constant: bool) -> Self {
         debug_assert!(F::CAPACITY_BITS >= 32);
 
@@ -224,6 +233,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn negated<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Self {
         let tooling: &NegationTooling =
             cs.get_or_create_dynamic_tool::<BooleanNegationTooling, _>();
@@ -254,6 +264,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn and<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         let result_var = FmaGateInBaseFieldWithoutConstant::compute_fma(
             cs,
@@ -269,6 +280,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn or<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         // (1 - a) * (1 - b) = (1 - c)
         // it doesn't fit into FMA gate, so we use quadratic combination
@@ -433,6 +445,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn xor<CS: ConstraintSystem<F>>(self, cs: &mut CS, other: Self) -> Self {
         // Constrain (a + a) * (b) = (a + b - c)
         // Given that a and b are boolean constrained, if they
@@ -476,6 +489,7 @@ impl<F: SmallField> Boolean<F> {
     }
 
     // `self` should be "true" if "should_enforce" is true, otherwise can be any
+    #[track_caller]
     pub fn conditionally_enforce_true<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -515,6 +529,7 @@ impl<F: SmallField> Boolean<F> {
     }
 
     // `self` should be "false" if "should_enforce" is true, otherwise can be any
+    #[track_caller]
     pub fn conditionally_enforce_false<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -553,6 +568,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn multi_and<CS: ConstraintSystem<F>>(cs: &mut CS, candidates: &[Self]) -> Self {
         debug_assert!(candidates.len() > 0);
 
@@ -589,6 +605,7 @@ impl<F: SmallField> Boolean<F> {
         }
     }
 
+    #[must_use]
     pub fn multi_or<CS: ConstraintSystem<F>>(cs: &mut CS, candidates: &[Self]) -> Self {
         debug_assert!(candidates.len() > 0);
 

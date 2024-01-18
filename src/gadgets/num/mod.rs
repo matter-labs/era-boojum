@@ -38,6 +38,7 @@ impl<F: SmallField> CSAllocatable<F> for Num<F> {
     }
 
     #[inline(always)]
+    #[must_use]
     fn allocate_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let var = cs.alloc_variable_without_value();
 
@@ -48,6 +49,7 @@ impl<F: SmallField> CSAllocatable<F> for Num<F> {
     }
 
     #[inline(always)]
+    #[must_use]
     fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         let var = cs.alloc_single_variable_from_witness(witness);
 
@@ -58,6 +60,7 @@ impl<F: SmallField> CSAllocatable<F> for Num<F> {
     }
 
     #[inline(always)]
+    #[must_use]
     fn allocate_constant<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         let var = cs.allocate_constant(witness);
 
@@ -120,6 +123,7 @@ impl<F: SmallField> WitnessHookable<F> for Num<F> {
 use crate::gadgets::traits::selectable::Selectable;
 
 impl<F: SmallField> Selectable<F> for Num<F> {
+    #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -145,6 +149,7 @@ impl<F: SmallField> Selectable<F> for Num<F> {
 
     const SUPPORTS_PARALLEL_SELECT: bool = true;
 
+    #[must_use]
     fn parallel_select<CS: ConstraintSystem<F>, const N: usize>(
         cs: &mut CS,
         flag: Boolean<F>,
@@ -187,11 +192,13 @@ impl<F: SmallField> Selectable<F> for Num<F> {
 
 impl<F: SmallField> Num<F> {
     #[inline]
+    #[must_use]
     pub const fn get_variable(&self) -> Variable {
         self.variable
     }
 
     #[inline(always)]
+    #[must_use]
     pub const fn from_variable(var: Variable) -> Self {
         Self {
             variable: var,
@@ -200,6 +207,7 @@ impl<F: SmallField> Num<F> {
     }
 
     #[inline]
+    #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(cs: &mut CS, constant: F) -> Self {
         let constant_var = cs.allocate_constant(constant);
 
@@ -210,11 +218,13 @@ impl<F: SmallField> Num<F> {
     }
 
     #[inline]
+    #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::allocated_constant(cs, F::ZERO)
     }
 
     #[inline]
+    #[must_use]
     pub fn is_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
         if let Some(existing_check) = cs.check_is_zero_memoization(self.variable) {
             return unsafe { Boolean::from_variable_unchecked(existing_check) };
@@ -230,6 +240,7 @@ impl<F: SmallField> Num<F> {
         }
     }
 
+    #[must_use]
     pub fn add<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) -> Self {
         if cs.gate_is_allowed::<FmaGateInBaseFieldWithoutConstant<F>>() {
             let one = cs.allocate_constant(F::ONE);
@@ -250,6 +261,7 @@ impl<F: SmallField> Num<F> {
         }
     }
 
+    #[must_use]
     pub fn sub<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) -> Self {
         if cs.gate_is_allowed::<FmaGateInBaseFieldWithoutConstant<F>>() {
             let one = cs.allocate_constant(F::ONE);
@@ -270,6 +282,7 @@ impl<F: SmallField> Num<F> {
         }
     }
 
+    #[must_use]
     pub fn mul<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) -> Self {
         if cs.gate_is_allowed::<FmaGateInBaseFieldWithoutConstant<F>>() {
             let result_var = FmaGateInBaseFieldWithoutConstant::compute_fma(
@@ -289,6 +302,7 @@ impl<F: SmallField> Num<F> {
         }
     }
 
+    #[must_use]
     pub fn spread_into_bits<CS: ConstraintSystem<F>, const LIMIT: usize>(
         &self,
         cs: &mut CS,
@@ -477,6 +491,7 @@ impl<F: SmallField> Num<F> {
         }
     }
 
+    #[must_use]
     fn decompose_into_bytes_inner<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -588,6 +603,7 @@ impl<F: SmallField> Num<F> {
         result
     }
 
+    #[must_use]
     pub fn constraint_bit_length_as_bytes<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -644,6 +660,7 @@ impl<F: SmallField> Num<F> {
         }
     }
 
+    #[track_caller]
     pub fn enforce_zero_for_linear_combination<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         input: &[(Variable, F)],
@@ -761,6 +778,7 @@ impl<F: SmallField> Num<F> {
         // }
     }
 
+    #[track_caller]
     pub fn enforce_linear_combination_converge_into<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         input: &[(Variable, F)],
@@ -921,6 +939,7 @@ impl<F: SmallField> Num<F> {
         diff.is_zero(cs)
     }
 
+    #[must_use]
     pub fn allocate_multiple_from_closure_and_dependencies<
         CS: ConstraintSystem<F>,
         const N: usize,
@@ -1084,6 +1103,7 @@ impl<F: SmallField> Num<F> {
 }
 
 /// Returns dot product of the variable, padding by 0 if necessary
+#[must_use]
 pub fn dot_product<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     mut candidates: impl Iterator<Item = (Variable, Variable)>,
@@ -1110,6 +1130,7 @@ pub fn dot_product<F: SmallField, CS: ConstraintSystem<F>>(
     }
 }
 
+#[must_use]
 pub fn dot_product_using_dot_product_gate<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     mut candidates: impl Iterator<Item = (Variable, Variable)>,
