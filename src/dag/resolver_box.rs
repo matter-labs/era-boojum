@@ -1,5 +1,7 @@
+use itertools::Itertools;
+
 use crate::log;
-use crate::{log, field::SmallField};
+use crate::field::SmallField;
 use std::marker::PhantomData;
 use std::mem::size_of;
 
