@@ -1,6 +1,5 @@
 use crate::cs::implementations::fast_serialization::MemcopySerializable;
 use crate::dag::CircuitResolver;
-use crate::dag::ResolverSortingMode;
 use crate::cs::traits::GoodAllocator;
 use crate::dag::WitnessSource;
 use std::alloc::Global;

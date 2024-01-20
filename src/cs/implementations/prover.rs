@@ -29,7 +29,6 @@ use crate::cs::implementations::proof::SingleRoundQueries;
 use crate::cs::implementations::transcript::BoolsBuffer;
 use crate::cs::traits::gate::GatePlacementStrategy;
 use crate::dag::CircuitResolver;
-use crate::dag::ResolverSortingMode;
 use crate::dag::WitnessSource;
 use crate::field::traits::field_like::mul_assign_vectorized_in_extension;
 use std::sync::Arc;

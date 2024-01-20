@@ -4,7 +4,6 @@
 // Allow inspection.
 #![allow(clippy::let_and_return)]
 
-use crate::log;
 use std::{
     any::Any,
     cell::{Cell, UnsafeCell},
@@ -27,16 +26,13 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 
 use crate::{
-    cs::{traits::cs::DstBuffer, Place},
+    cs::Place,
     field::SmallField,
-    utils::{DilatoryPrinter, PipeOp, UnsafeCellEx},
+    utils::{DilatoryPrinter, PipeOp, UnsafeCellEx}, dag::{guide::{OrderInfo, GuideLoc}, primitives::{ResolverIx, OrderIx}, TrackId, resolver_box::Resolver}, log,
 };
 
-use super::{
-    guide::{OrderInfo, GuideLoc},
-    resolver::{OrderIx, ResolverCommonData, ResolverIx},
-    resolver_box::Resolver, TrackId, resolvers::mt::ResolverComms,
-};
+use super::{ResolverComms, ResolverCommonData};
+
 
 #[derive(PartialEq, Eq, Debug)]
 enum ResolverState {
@@ -133,7 +129,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
             .collect();
 
         // False positive: https://github.com/rust-lang/rust-clippy/issues/11382
-        #[allow(clippy::arc_with_non_send_sync)]
+        // #[allow(clippy::arc_with_non_send_sync)]
         let channel = Arc::new(LockStepChannel::new(threads as usize));
 
         let pool = (0..threads)
@@ -349,7 +345,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                                 .outputs()
                         })
                         .map(|x| unsafe {
-                            self.common.values.u_deref().get_item_ref(*x).1.tracker.clone()
+                            self.common.values.u_deref().get_item_ref(*x).1.tracker
                         })
                         .for_each(|x| awaiters.notify(x));
 

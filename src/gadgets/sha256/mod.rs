@@ -124,7 +124,7 @@ mod test {
             maj4::{create_maj4_table, Maj4Table},
             trixor4::{create_tri_xor_table, TriXor4Table},
         },
-        log, dag::{sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts}, config::CSConfig,
+        log, dag::{CircuitResolverOpts}, config::CSConfig,
     };
     use blake2::Digest;
     type F = GoldilocksField;

@@ -1,8 +1,10 @@
-use std::{marker::PhantomData, sync::{Arc, Mutex}, cell::UnsafeCell, rc::Rc };
 
-use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolver::{ ExecOrder, OrderIx, ResolverIx}, resolver_box::ResolverBox, awaiters::AwaitersBroker, ResolutionRecordItem, guide::{OrderInfo, GuideMetadata}, primitives::{Values, Metadata}}, utils::{PipeOp, UnsafeCellEx}};
+use std::{marker::PhantomData, sync::{Arc, Mutex}, cell::UnsafeCell };
 
-use super::{sorter_runtime::RuntimeResolverSorter, ResolverSortingMode, ResolutionRecordStorage, resolver::{ResolverCommonData}, ResolutionRecord,  guide::RegistrationNum, ResolutionRecordSource, resolvers::mt::ResolverComms, resolver_box::invocation_binder};
+use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolver_box::{ResolverBox, invocation_binder}, awaiters::AwaitersBroker, guide::{OrderInfo, GuideMetadata, RegistrationNum}, primitives::{Values, Metadata, OrderIx, ExecOrder, ResolverIx}, resolvers::mt::{ResolverComms, ResolverCommonData}}, utils::{PipeOp, UnsafeCellEx}};
+
+use super::{ResolverSortingMode, ResolutionRecordItem, ResolutionRecordSource, ResolutionRecord};
+
 
 struct OrderBufferItem {
     resolver_ix: ResolverIx,
@@ -56,10 +58,10 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
     for PlaybackResolverSorter<F, Rrs, Cfg> 
 {
     type Arg = Rrs;
-    type Config = super::resolution_window::RWConfigPlayback<OrderIx>;
+    type Config = crate::dag::resolvers::mt::resolution_window::RWConfigPlayback<OrderIx>;
     type TrackId = OrderIx;
 
-    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
+    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, _debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
             let mut values = Vec::with_capacity(size);
@@ -159,7 +161,7 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         };
 
         // TODO: Change OrderInfo such that unrelated data is not stored along.
-        self.exec_order_buffer.push(OrderBufferItem { resolver_ix: resolver_ix, record_item: record.clone() });
+        self.exec_order_buffer.push(OrderBufferItem { resolver_ix, record_item: record.clone() });
 
         // Without the additions, awaiters for 0th resolver would resolve immediately.
         values.track_values(outputs, record.order_ix + 1);
@@ -177,20 +179,20 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
 
     unsafe fn internalize(
         &mut self, 
-        resolver_ix: super::resolver::ResolverIx,
-        inputs: &[crate::cs::Place], 
-        outputs: &[crate::cs::Place],
-        added_at: super::guide::RegistrationNum) {
+        _resolver_ix: ResolverIx,
+        _inputs: &[crate::cs::Place], 
+        _outputs: &[crate::cs::Place],
+        _added_at: RegistrationNum) {
         todo!()
     }
 
     fn internalize_one(
         &mut self,
-        resolver_ix: super::resolver::ResolverIx,
-        inputs: &[crate::cs::Place],
-        outputs: &[crate::cs::Place],
-        added_at: super::guide::RegistrationNum
-    ) -> Vec<super::resolver::ResolverIx> {
+        _resolver_ix: ResolverIx,
+        _inputs: &[crate::cs::Place],
+        _outputs: &[crate::cs::Place],
+        _added_at: RegistrationNum
+    ) -> Vec<ResolverIx> {
         todo!()
     }
 
@@ -203,7 +205,7 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         self.write_buffer(Some(self.record.get().registrations_count));
     }
 
-    fn retrieve_sequence(&mut self) -> &crate::dag::ResolutionRecord {
+    fn retrieve_sequence(&mut self) -> &ResolutionRecord {
         self.record.get()
     }
 

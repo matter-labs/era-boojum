@@ -7,7 +7,6 @@ use crate::cs::implementations::polynomial_storage::SatisfiabilityCheckRowView;
 use crate::cs::traits::evaluator::GatePlacementType;
 use crate::cs::traits::gate::GatePlacementStrategy;
 use crate::dag::CircuitResolver;
-use crate::dag::sorter_runtime::RuntimeResolverSorter;
 
 type RCFG = <DevCSConfig as CSConfig>::ResolverConfig;
 

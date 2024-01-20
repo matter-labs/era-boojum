@@ -5,8 +5,7 @@ use crate::config::*;
 use crate::cs::gates::lookup_marker::LookupFormalGate;
 use crate::cs::gates::LookupTooling;
 use crate::cs::implementations::reference_cs::INITIAL_LOOKUP_TABLE_ID_VALUE;
-use crate::dag::sorter_runtime::{ActiveRecordingResolverSorter, RuntimeResolverSorter};
-use crate::dag::{ResolverSortingMode, DefaultCircuitResolver};
+use crate::dag::{DefaultCircuitResolver};
 use crate::{
     config::CSConfig,
     dag::CircuitResolver,
@@ -25,7 +24,6 @@ use super::{
 use super::{CSGeometry, GateTypeEntry, LookupParameters, Tool, Variable, Witness};
 use crate::cs::implementations::evaluator_data::*;
 use crate::cs::traits::gate::GatePlacementStrategy;
-use crate::dag::resolver::*;
 
 pub struct CsReferenceImplementationBuilder<
     F: SmallField,

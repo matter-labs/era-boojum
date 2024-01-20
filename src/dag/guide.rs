@@ -1,13 +1,14 @@
-use crate::{log, field::SmallField};
-use std::{marker::PhantomData, ops::Range};
-
 use smallvec::SmallVec;
-
+use std::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::Range
+};
+use super::primitives::OrderIx;
+use super::TrackId;
 use crate::{config::*, utils::PipeOp};
+use crate::{field::SmallField, log};
 
-use super::{resolver::OrderIx, TrackId};
-
-use std::fmt::Debug;
 
 // TODO: Move to a more fitting location.
 pub(crate) type RegistrationNum = u32;
@@ -94,10 +95,6 @@ enum GuideRecord {
     Index(OrderIx),
     Jump((OrderIx, OrderIx)),
 }
-
-// endregion
-
-// region: spans guide
 
 // TODO: remove on next dev iteration.
 /// First guide implementation, tries to write in place, thus wasting space (can have long gaps).
@@ -245,7 +242,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> SpansGuide<F, Cfg> {
             let new_origin =
                 // The last element still contains a residual copy of the last span.
                 span_loc.origin.index + guide.parallelism;
-            *span_loc = Span::new(Pointer::new_at(new_origin.into()));
+            *span_loc = Span::new(Pointer::new_at(new_origin));
         }
 
         r
@@ -330,12 +327,10 @@ pub struct GuideMetadata {
 
 impl GuideMetadata {
     pub fn new(parallelism: u16, added_at: RegistrationNum, accepted_at: RegistrationNum) -> Self {
-        debug_assert!(parallelism <= u16::MAX);
         Self { parallelism, added_at, accepted_at }
     }
 
     pub fn with_parallelism(&self, parallelism: u16) -> Self {
-        debug_assert!(parallelism <= u16::MAX);
         Self { parallelism, ..*self }
     }
 

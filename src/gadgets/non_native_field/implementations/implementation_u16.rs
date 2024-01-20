@@ -1154,7 +1154,6 @@ mod test {
     use crate::cs::gates::*;
     use crate::cs::traits::gate::GatePlacementStrategy;
     use crate::dag::CircuitResolverOpts;
-    use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::goldilocks::GoldilocksField;
     use crate::gadgets::tables::range_check_16_bits::{
         create_range_check_16_bits_table, RangeCheck16BitsTable,

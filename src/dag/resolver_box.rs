@@ -1,3 +1,6 @@
+#![allow(clippy::overly_complex_bool_expr)]
+#![allow(clippy::nonminimal_bool)]
+
 use itertools::Itertools;
 
 use crate::log;
@@ -10,7 +13,8 @@ use crate::{
     utils::PipeOp,
 };
 
-use super::{resolver::ResolverIx, guide::RegistrationNum};
+use super::{guide::RegistrationNum, primitives::ResolverIx};
+
 
 pub trait ResolutionFn<V> = FnOnce(&[V], &mut DstBuffer<V>) + Send + Sync;
 

@@ -1,9 +1,7 @@
-use crate::log;
-use std::collections::{HashMap, VecDeque};
+use crate::{log, dag::primitives::ResolverIx };
+use std::collections::HashMap;
 
 use crate::cs::Place;
-
-use super::resolver::ResolverIx;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Stats {
@@ -15,9 +13,11 @@ pub(crate) struct Stats {
     pub secondary_resolutions: usize,
 }
 
-/// The Registrat keeps track of all variables in accordance to their place
-/// in the resolver, and keeps tabs on how many variables are tracked in total
-/// in the circuit.
+/// The Registrar keeps track of all variables in accordance to their place in the resolver, and
+/// keeps tabs on how many variables are tracked in total in the circuit.
+///
+/// Unlike the deferrer, it is responsible with deciding whether a resolver should be deferred,
+/// and can handle any non circular dependency among the deferred resolvers.
 pub(crate) struct Registrar {
     pub max_tracked_variable: Place,
     vars: HashMap<Place, Vec<ResolverIx>>,
@@ -98,7 +98,7 @@ impl Registrar {
             if place.0 <= to.0 {
                 resolvers.append(resolver_ixs);
 
-                if super::resolvers::mt::PARANOIA
+                if super::PARANOIA
                     && resolver_ixs
                         .iter()
                         .any(|x| *x == ResolverIx::new_resolver(0))

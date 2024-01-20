@@ -13,7 +13,7 @@ use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
 use crate::cs::oracle::TreeHasher;
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::toolboxes::static_toolbox::StaticToolboxHolder;
-use crate::dag::{ResolverSortingMode, CircuitResolver};
+use crate::dag::{CircuitResolver};
 use crate::utils::*;
 use std::alloc::Global;
 use std::collections::HashSet;

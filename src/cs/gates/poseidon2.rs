@@ -885,9 +885,6 @@ where
 mod test {
     use crate::cs::gates::testing_tools::test_evaluator;
     use crate::dag::CircuitResolverOpts;
-    use crate::dag::DefaultCircuitResolver;
-    use crate::dag::resolver::*;
-    use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::Field;
 
     use super::*;

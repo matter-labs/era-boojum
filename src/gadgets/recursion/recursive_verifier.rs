@@ -2205,7 +2205,6 @@ mod test {
     use crate::cs::implementations::pow::NoPow;
     use crate::cs::implementations::transcript::*;
     use crate::dag::CircuitResolverOpts;
-    use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::goldilocks::{GoldilocksExt2, GoldilocksField};
     use crate::gadgets::recursion::recursive_verifier_builder::CsRecursiveVerifierBuilder;
     use crate::gadgets::traits::witnessable::WitnessHookable;

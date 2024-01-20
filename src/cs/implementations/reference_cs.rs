@@ -8,7 +8,6 @@ use crate::cs::traits::gate::GateRowCleanupFunction;
 use crate::dag::CircuitResolver;
 use crate::dag::DefaultCircuitResolver;
 use crate::dag::NullCircuitResolver;
-use crate::dag::ResolverSortingMode;
 use std::any::TypeId;
 use std::marker::PhantomData;
 use std::sync::atomic::AtomicU32;

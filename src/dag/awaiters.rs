@@ -9,7 +9,6 @@ use crate::log;
 use crate::utils::{PipeOp, UnsafeCellEx};
 
 use super::TrackId;
-use super::guide::GuideLoc;
 use super::primitives::Metadata;
 use super::resolvers::mt::ResolverComms;
 
@@ -63,7 +62,9 @@ impl<T: TrackId> AwaitersBroker<T> {
     }
 }
 
-/// The Awaiter attempts to resolve a (set of) variables in its own thread.
+/// The Awaiter attempts to resolve a (set of) variables in its own thread.  
+/// Waits based on the `track_id`. Once an id is resolved, all items with lower id are considered
+/// resolved.
 pub struct Awaiter<'a, T> {
     pub(crate) broker: &'a AwaitersBroker<T>,
     comms: &'a ResolverComms,
@@ -122,6 +123,7 @@ impl<'a, T: TrackId> crate::dag::Awaiter<'a> for Awaiter<'a, T> {
     }
 }
 
+/// An awaiter that is always considered resolved. Used by the single threaded resolver.
 pub struct ImmediateAwaiter { }
 
 impl<'a> crate::dag::Awaiter<'a> for ImmediateAwaiter {

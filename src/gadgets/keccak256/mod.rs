@@ -122,7 +122,7 @@ mod test {
             and8::{create_and8_table, And8Table},
             byte_split::{create_byte_split_table, ByteSplitTable},
             xor8::{create_xor8_table, Xor8Table},
-        }, dag::{sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts},
+        }, dag::{CircuitResolverOpts},
     };
     use sha3::Digest;
     type F = GoldilocksField;

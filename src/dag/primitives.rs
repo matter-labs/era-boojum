@@ -1,6 +1,11 @@
-use std::{cell::UnsafeCell, ops::Range};
+use std::cell::UnsafeCell;
+use std::ops::{Sub, Add, AddAssign};
 
-use crate::{cs::{Place, Variable}, utils::PipeOp as _};
+use crate::cs::{Place, Variable};
+use crate::utils::PipeOp as _;
+
+use super::TrackId;
+use super::guide::OrderInfo;
 
 
 pub struct Values<V, T: Default> {
@@ -75,7 +80,8 @@ impl<V, T: Default + Copy> Values<V, T> {
                 .1.is_tracked() 
             {
                 self.max_tracked = i;
-            } else
+            } 
+            else 
             {
                 break;
             }
@@ -83,24 +89,20 @@ impl<V, T: Default + Copy> Values<V, T> {
     }
 }
 
-// endregion
-
-// region: metadata
-
-type MDD = u16;
+type Mdd = u16;
 
 #[derive(Default)]
 // Used by the resolver for internal tracking purposes.
 pub(crate) struct Metadata<T: Default> {
-    data: MDD,
+    data: Mdd,
     pub tracker: T,
 }
 
 impl<T: Default> Metadata<T> {
     // Means this element was introduced to the resolver
-    const TRACKED_MASK: MDD = 0b1000_0000_0000_0000;
+    const TRACKED_MASK: Mdd = 0b1000_0000_0000_0000;
     // Means this element was resolved and it's value is set.
-    const RESOLVED_MASK: MDD = 0b0100_0000_0000_0000;
+    const RESOLVED_MASK: Mdd = 0b0100_0000_0000_0000;
 
     pub(crate) fn new(tracker: T) -> Self {
         Self {
@@ -125,6 +127,8 @@ impl<T: Default> Metadata<T> {
     }
 
     pub fn mark_resolved(&mut self) {
+        // This is a workaround for single threaded resolver, that doesn't mark `tracked` in some
+        // cases, but requires for some asserts in common code.
         // TODO: separate the resolver implementations.
         self.data |= Self::RESOLVED_MASK | Self::TRACKED_MASK;
     }
@@ -155,3 +159,166 @@ impl<T: Default> std::fmt::Debug for Metadata<T> {
     }
 }
 
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Default, Clone, Copy)]
+pub struct OrderIx(u32);
+
+
+impl From<u32> for OrderIx {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<u64> for OrderIx {
+    fn from(value: u64) -> Self {
+        // This trait will not fail under normal circumstances.
+        debug_assert!(value < u32::MAX as u64);
+        Self(value as u32)
+    }
+}
+
+impl From<usize> for OrderIx {
+    fn from(value: usize) -> Self {
+        // This trait will not fail under normal circumstances.
+        debug_assert!(value < u32::MAX as usize);
+        Self(value as u32)
+    }
+}
+
+impl From<OrderIx> for u32 {
+    fn from(value: OrderIx) -> Self {
+        value.0
+    }
+}
+
+impl From<OrderIx> for u64 {
+    fn from(value: OrderIx) -> Self {
+        value.0 as u64
+    }
+}
+
+impl From<OrderIx> for usize {
+    fn from(value: OrderIx) -> Self {
+        value.0 as usize
+    }
+}
+
+impl From<OrderIx> for isize {
+    fn from(value: OrderIx) -> Self {
+        value.0 as isize
+    }
+}
+
+impl TrackId for OrderIx { }
+
+impl Add<i32> for OrderIx {
+    type Output = Self;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        debug_assert!(rhs >= 0);
+        OrderIx(self.0 + rhs as u32)
+    }
+}
+
+impl AddAssign<i32> for OrderIx {
+    fn add_assign(&mut self, rhs: i32) {
+        *self = *self + rhs;
+    }
+}
+
+impl Add<u32> for OrderIx {
+    type Output = Self;
+
+    fn add(self, rhs: u32) -> Self::Output {
+        OrderIx(self.0 + rhs)
+    }
+}
+
+impl AddAssign<u32> for OrderIx {
+        fn add_assign(&mut self, rhs: u32) {
+        *self = *self + rhs;
+    }
+}
+
+
+impl Add<usize> for OrderIx {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        debug_assert!(rhs < u32::MAX as usize);
+        OrderIx(self.0 + rhs as u32)
+    }
+}
+
+impl Sub for OrderIx {
+    type Output = u32;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.0 - rhs.0
+    }
+}
+
+pub struct ExecOrder {
+    /// Represents the current size of the execution order. It is safe to execute the order up to
+    /// this value.
+    pub size: usize,
+    /// The order itself. The `len` of the vector behaves differently in record and playback mode.
+    /// Code agnostic to the mode can't rely on it.
+    pub items: Vec<OrderInfo<ResolverIx>>
+}
+
+
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct ResolverIx(pub u32);
+
+pub enum ResolverIxType {
+    Jump,
+    Resolver,
+}
+
+impl ResolverIx {
+    // Resolver box uses `sizeof` to determine the size of the allocations,
+    // and operates on pointers or _size primitives, which always have lsb == 0
+    // in their sizes, thus we can use the lsb to store type info.
+    const TYPE_MASK: u32 = 1;
+
+    pub fn get_type(self) -> ResolverIxType {
+        match self.0 & Self::TYPE_MASK == 0 {
+            true => ResolverIxType::Resolver,
+            false => ResolverIxType::Jump,
+        }
+    }
+
+    fn new_jump(value: u32) -> Self {
+        Self(value | Self::TYPE_MASK)
+    }
+
+    pub fn new_resolver(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub fn normalized(&self) -> usize {
+        (!Self::TYPE_MASK & self.0) as usize
+    }
+}
+
+impl AddAssign for ResolverIx {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 = rhs.0;
+    }
+}
+
+impl Sub for ResolverIx {
+    type Output = u32;
+
+    fn sub(self, origin: Self) -> Self::Output {
+        self.0 - origin.0
+    }
+}
+
+impl AddAssign<u32> for ResolverIx {
+    fn add_assign(&mut self, rhs: u32) {
+        self.0 = rhs;
+    }
+}

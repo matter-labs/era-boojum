@@ -20,7 +20,7 @@ use crate::cs::traits::cs::{ConstraintSystem, DstBuffer};
 use crate::cs::traits::evaluator::*;
 use crate::cs::traits::gate::Gate;
 
-use crate::dag::{CSWitnessValues, WitnessSource, WitnessSourceAwaitable, ResolverSortingMode};
+use crate::dag::{CSWitnessValues, WitnessSource, WitnessSourceAwaitable};
 
 use crate::cs::implementations::reference_cs::*;
 
@@ -1061,7 +1061,6 @@ mod test {
     use crate::cs::implementations::transcript::GoldilocksPoisedonTranscript;
 
     use crate::dag::CircuitResolverOpts;
-    use crate::dag::sorter_runtime::RuntimeResolverSorter;
     use crate::field::goldilocks::GoldilocksExt2;
 
     use crate::{
