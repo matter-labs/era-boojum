@@ -501,7 +501,7 @@ mod test {
         };
 
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig, CR>::new(geometry, 128, 8);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig, CR>::new(geometry, 8);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = FmaGateInExtensionWithoutConstant::<F, Ext>::configure_builder(

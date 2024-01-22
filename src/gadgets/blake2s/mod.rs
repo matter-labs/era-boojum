@@ -205,7 +205,7 @@ mod test {
                 F,
                 F,
                 DevCSConfig>
-            ::new(geometry, 1 << 20, 1 << 17);
+            ::new(geometry, 1 << 17);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 

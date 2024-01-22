@@ -1,5 +1,5 @@
 
-use self::resolvers::mt::sorters::sorter_runtime::RuntimeResolverSorter;
+use self::resolvers::mt::sorters::sorter_live::LiveResolverSorter;
 use std::fmt::Debug;
 use std::hint::spin_loop;
 use std::sync::Arc;
@@ -150,7 +150,7 @@ pub type StCircuitResolver<F, CFG> = resolvers::StCircuitResolver<F, CFG>;
 pub type MtCircuitResolver<F, CFG> =
     resolvers::MtCircuitResolver<
         F,
-        RuntimeResolverSorter<F, CFG>,
+        LiveResolverSorter<F, CFG>,
         CFG>;
 
 pub type DefaultCircuitResolver<F, CFG> = MtCircuitResolver<F, CFG>;

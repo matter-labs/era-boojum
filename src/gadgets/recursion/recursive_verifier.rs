@@ -2234,7 +2234,6 @@ mod test {
 
         let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, DevCSConfig>::new(
             geometry,
-            num_vars,
             max_trace_len,
         );
         let builder = new_builder::<_, GoldilocksField>(builder_impl);

@@ -906,7 +906,7 @@ mod test {
         };
 
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 128, 8);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 8);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = Poseidon2Gate::configure_builder(

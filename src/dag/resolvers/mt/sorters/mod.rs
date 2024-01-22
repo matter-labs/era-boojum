@@ -5,7 +5,7 @@ use crate::{dag::{TrackId, guide::RegistrationNum, primitives::{ResolverIx, Orde
 use super::{resolution_window::RWConfig, ResolverComms, ResolverCommonData};
 
 pub mod sorter_playback;
-pub mod sorter_runtime;
+pub mod sorter_live;
 
 
 pub trait ResolverSortingMode<F: SmallField>: Sized
@@ -15,13 +15,13 @@ pub trait ResolverSortingMode<F: SmallField>: Sized
     type TrackId: TrackId + 'static;
     
 
-    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>);
+    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>);
     fn set_value(&mut self, key: Place, value: F);
     fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
     where
         Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync;
 
-    unsafe fn internalize(
+    fn internalize(
         &mut self, 
         resolver_ix: ResolverIx,
         inputs: &[Place], 

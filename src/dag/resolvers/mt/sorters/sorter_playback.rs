@@ -61,7 +61,7 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
     type Config = crate::dag::resolvers::mt::resolution_window::RWConfigPlayback<OrderIx>;
     type TrackId = OrderIx;
 
-    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, _debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
+    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, _debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
             let mut values = Vec::with_capacity(size);
@@ -104,14 +104,10 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         .to(Arc::new);
 
         let buf_size = 
-            match 
-                std::env::var("BOOJUM_PRS_BUF_SIZE")
-                .map_err(|_| "")
-                .and_then(|x| x.parse().map_err(|_| ""))
-            {
-                Ok(x) => x,
-                Err(_) => 1 << 10
-            };
+            std::env::var("BOOJUM_PRS_BUF_SIZE")
+            .map_err(|_| "")
+            .and_then(|x| x.parse().map_err(|_| ""))
+            .unwrap_or(1 << 10);
 
         let s = Self {
             common,
@@ -177,7 +173,7 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
 
     }
 
-    unsafe fn internalize(
+    fn internalize(
         &mut self, 
         _resolver_ix: ResolverIx,
         _inputs: &[crate::cs::Place], 

@@ -1,3 +1,5 @@
+#![allow(clippy::nonminimal_bool)]
+#![allow(clippy::overly_complex_bool_expr)]
 
 use std::{marker::PhantomData, sync::{Arc, Mutex, atomic::AtomicIsize}, cell::UnsafeCell};
 
@@ -32,87 +34,22 @@ impl Stats {
 }
 
 
-pub(crate) struct Source;
-
-// impl ResolverSorterSource for Source {
-//     fn new<F: SmallField, Cfg: CSResolverConfig>(opts: CircuitResolverOpts) -> impl ResolverSorter<F> {
-//         ActiveRecordingResolverSorter::<F, Cfg>::new(opts)
-//     }
-// }
-
-// pub struct ActiveResolverSorter<F: SmallField, Cfg: CSResolverConfig>
-//     (ActiveRecordingResolverSorter<F, Cfg, NullRecordWriter>);
-//
-// impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for ActiveResolverSorter<F, Cfg> {
-//     type Arg = CircuitResolverOpts;
-//     type Config = RWConfigRecord<GuideLoc>;
-//     type TrackId = GuideLoc;
-//
-//     fn new(opts: Self::Arg, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
-//         let (this, common) = ActiveRecordingResolverSorter::new(opts, debug_track);
-//
-//         (Self(this), common)
-//     }
-//
-//     fn set_value(&mut self, key: Place, value: F) {
-//         self.0.set_value(key, value)
-//     }
-//
-//     fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
-//     where
-//         Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync {
-//         self.0.add_resolution(inputs, outputs, f)
-//     }
-//
-//     unsafe fn internalize(
-//         &mut self, 
-//         resolver_ix: ResolverIx,
-//         inputs: &[Place], 
-//         outputs: &[Place],
-//         added_at: RegistrationNum) {
-//         self.0.internalize(resolver_ix, inputs, outputs, added_at)
-//     }
-//
-//     fn internalize_one(
-//         &mut self,
-//         resolver_ix: ResolverIx,
-//         inputs: &[Place],
-//         outputs: &[Place],
-//         added_at: RegistrationNum
-//     ) -> Vec<ResolverIx> {
-//         self.0.internalize_one(resolver_ix, inputs, outputs, added_at)
-//     }
-//
-//     fn flush(&mut self) {
-//         self.0.flush()
-//     }
-//
-//     fn final_flush(&mut self) {
-//         self.0.flush()
-//     }
-//
-//     fn retrieve_sequence(&mut self) -> &ResolutionRecord {
-//         self.0.retrieve_sequence()
-//     }
-// }
-
-
 pub struct NullRecordWriter();
 impl ResolutionRecordWriter for NullRecordWriter {
     fn store(&mut self, _record: &ResolutionRecord) {
     }
 }
 
-pub struct RuntimeResolverSorter<F: SmallField, Cfg: CSResolverConfig>
-    (ActiveRecordingResolverSorter<F, Cfg, NullRecordWriter>);
+pub struct LiveResolverSorter<F: SmallField, Cfg: CSResolverConfig>
+    (LiveRecordingResolverSorter<F, Cfg, NullRecordWriter>);
 
-impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeResolverSorter<F, Cfg> {
+impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for LiveResolverSorter<F, Cfg> {
     type Arg = CircuitResolverOpts;
     type Config = RWConfigRecord<GuideLoc>;
     type TrackId = GuideLoc;
 
-    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
-        let (this, common) = ActiveRecordingResolverSorter::new((opts, NullRecordWriter()), comms, debug_track);
+    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
+        let (this, common) = LiveRecordingResolverSorter::new((opts, NullRecordWriter()), comms, debug_track);
 
         (Self(this), common)
     }
@@ -127,7 +64,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
         self.0.add_resolution(inputs, outputs, f)
     }
 
-    unsafe fn internalize(
+    fn internalize(
         &mut self, 
         resolver_ix: ResolverIx,
         inputs: &[Place], 
@@ -163,7 +100,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for RuntimeRes
     }
 }
 
-pub struct ActiveRecordingResolverSorter<
+pub struct LiveRecordingResolverSorter<
     F:SmallField,
     Cfg: CSResolverConfig,
     RW: ResolutionRecordWriter,
@@ -183,7 +120,7 @@ pub struct ActiveRecordingResolverSorter<
 }
 
 impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
-    ActiveRecordingResolverSorter<F, Cfg, RW> {
+    LiveRecordingResolverSorter<F, Cfg, RW> {
 
     fn write_order<'a, GO: GuideOrder<'a, ResolverIx>>(
         tgt: &Mutex<ExecOrder>,
@@ -272,13 +209,13 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
 }
 
 impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverSortingMode<F> 
-    for ActiveRecordingResolverSorter<F, Cfg, RW> 
+    for LiveRecordingResolverSorter<F, Cfg, RW> 
 {
     type Arg = (CircuitResolverOpts, RW);
     type Config = RWConfigRecord<GuideLoc>;
     type TrackId = GuideLoc;
 
-    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, debug_track: &Vec<Place>) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
+    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
 
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
@@ -314,7 +251,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         let s = Self {
             stats: Stats::new(),
             options: opts,
-            debug_track: debug_track.clone(),
+            debug_track: debug_track.to_vec(),
             common,
             comms,
             record: ResolutionRecord::new(0, 0, opts.max_variables),
@@ -457,21 +394,18 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         }
 
         if let Ok(resolver_ix) = registrar_answer {
-            // Safety: `self.resolvers` is dropped as a temp value a few lines above.
-            unsafe {
-                self.internalize(
-                    resolver_ix, 
-                    inputs, 
-                    outputs, 
-                    self.stats.registrations_added as RegistrationNum) 
-            };
+            self.internalize(
+                resolver_ix, 
+                inputs, 
+                outputs, 
+                self.stats.registrations_added as RegistrationNum);
         }
 
         self.record.items[self.stats.registrations_added as usize].order_len = self.order_len;
         self.stats.registrations_added += 1;
     }
 
-    unsafe fn internalize(
+    fn internalize(
         &mut self,
         resolver_ix: ResolverIx,
         inputs: &[Place],
@@ -484,18 +418,17 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             println!("CR: Internalize called with resolver_ix 0");
         }
 
-        // Safety: using as shared, assuming no &mut references to
-        // `self.resolvers` that access the same underlying data. This is
-        // guaranteed by the fact that inputs and outputs for any given resolver
-        // is written only once by this thread, and safety requires that no &mut
-        // references to `self.resolvers` exist.
-        let rb = self.common.resolvers.u_deref();
+        // Safety: We're in `&mut self` context, so no other holders of this on this thread. This
+        // thread is the only one that ever accesses the box as &mut, so we're guaranteed to not
+        // have any other &mut refs.
+        let rb = unsafe { self.common.resolvers.u_deref() };
 
         while resolvers.len() > 0 {
             let (resolver_ix, inputs, outputs, added_at) = resolvers.pop().unwrap();
 
             let new_resolvers = self.internalize_one(resolver_ix, inputs, outputs, added_at);
 
+            #[allow(clippy::collapsible_if)]
             if crate::dag::resolvers::mt::PARANOIA {
                 if new_resolvers.iter().any(|x| x.0 == 0) {
                     println!("CR: internalize_one returned resolver with ix 0");
@@ -508,7 +441,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             // The resolver is not yet pushed to the resolution window.
             new_resolvers
                 .into_iter()
-                .map(|x| (x, rb.get(x).inputs(), rb.get(x).outputs(), rb.get(x).added_at()))
+                .map(|x| unsafe { (x, rb.get(x).inputs(), rb.get(x).outputs(), rb.get(x).added_at()) })
                 .to(|x| resolvers.extend(x));
         }
     }

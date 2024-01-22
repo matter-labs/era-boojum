@@ -41,7 +41,6 @@ pub struct CsReferenceImplementationBuilder<
     lookup_parameters: LookupParameters,
     max_trace_len: usize,
     lookup_marker_gate_idx: Option<u32>,
-    max_variables: usize,
 
     evaluation_data_over_general_purpose_columns: EvaluationDataOverGeneralPurposeColumns<F, P>,
     evaluation_data_over_specialized_columns: EvaluationDataOverSpecializedColumns<F, P>,
@@ -55,7 +54,7 @@ impl<
     >
     CsReferenceImplementationBuilder<F, P, CFG, CR>
 {
-    pub fn new(geometry: CSGeometry, max_variables: usize, max_trace_len: usize) -> Self {
+    pub fn new(geometry: CSGeometry, max_trace_len: usize) -> Self {
         Self {
             phantom: std::marker::PhantomData,
 
@@ -63,7 +62,6 @@ impl<
             lookup_parameters: LookupParameters::NoLookup,
 
             max_trace_len,
-            max_variables,
             lookup_marker_gate_idx: None,
 
             evaluation_data_over_general_purpose_columns:
@@ -344,7 +342,6 @@ impl<
             lookup_parameters,
             max_trace_len,
             lookup_marker_gate_idx,
-            max_variables,
             evaluation_data_over_general_purpose_columns,
             evaluation_data_over_specialized_columns,
             ..
@@ -379,7 +376,6 @@ impl<
 
         let variables_storage = RwLock::new(CR::new(params.into()));
         // let variables_storage = RwLock::new(CircuitResolver::new(CircuitResolverOpts {
-        //     max_variables,
         //     desired_parallelism: 1 << 12,
         //     // desired_parallelism: (1 << 15) + 1,
         // }));

@@ -376,7 +376,7 @@ mod test {
     use crate::dag::{CircuitResolverOpts, WitnessSource as _, WitnessSourceAwaitable as _, Awaiter};
     use crate::dag::resolvers::MtCircuitResolver;
     use crate::dag::resolvers::mt::sorters::ResolverSortingMode;
-    use crate::dag::resolvers::mt::sorters::sorter_runtime::*;
+    use crate::dag::resolvers::mt::sorters::sorter_live::*;
 
     use crate::field::SmallField;
     use crate::log;
@@ -436,7 +436,7 @@ mod test {
     fn tracks_values_record_mode() {
         let limit = 10;
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(
                 CircuitResolverOpts {
                     max_variables: 10,
                     desired_parallelism: 16,
@@ -458,7 +458,7 @@ mod test {
     fn tracks_values_playback_mode() {
         let limit = 10;
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(
                 CircuitResolverOpts {
                     max_variables: 10,
                     desired_parallelism: 16,
@@ -508,7 +508,7 @@ mod test {
     #[test]
     fn resolves_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -526,7 +526,7 @@ mod test {
     #[test]
     fn resolves_playback_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -581,7 +581,7 @@ mod test {
     #[test]
     fn resolves_siblings_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -604,7 +604,7 @@ mod test {
     #[test]
     fn resolves_siblings_playback_mode() {
         let mut storage =
-        MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+        MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
             max_variables: 100,
             desired_parallelism: 16,
         });
@@ -662,7 +662,7 @@ mod test {
     #[test]
     fn resolves_descendants_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 2,
             });
@@ -681,7 +681,7 @@ mod test {
     // #[ignore = "temp"]
     fn resolves_descendants_playback_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 2,
             });
@@ -711,7 +711,7 @@ mod test {
     #[test]
     fn resolves_with_context() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -746,7 +746,7 @@ mod test {
     #[test]
     fn resolves_and_drops_context_after() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -795,7 +795,7 @@ mod test {
     fn awaiter_returns_for_resolved_value_record_mode() {
         let limit = 1 << 13;
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 2048,
             });
@@ -834,7 +834,7 @@ mod test {
     fn awaiter_returns_for_resolved_value_playback_mode_impl(limit: usize, desired_parallelism: u32) {
         let limit = 1 << limit;
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism,
             });
@@ -874,7 +874,7 @@ mod test {
     #[test]
     fn awaiter_returns_after_finish_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -903,7 +903,7 @@ mod test {
     #[test]
     fn awaiter_returns_after_finish_playback_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -949,7 +949,7 @@ mod test {
     #[test]
     fn awaiter_returns_for_unexpropriated() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -975,7 +975,7 @@ mod test {
     #[test]
     fn awaiter_blocks_before_resolved() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1005,7 +1005,7 @@ mod test {
     #[test]
     fn resolution_after_awaiter_is_supported_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1044,7 +1044,7 @@ mod test {
         };
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
         });
@@ -1083,7 +1083,7 @@ mod test {
     #[test]
     fn try_get_value_returns_none_before_resolve_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1115,7 +1115,7 @@ mod test {
         let dep_var = Place::from_variable(Variable::from_variable_index(1));
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1143,7 +1143,7 @@ mod test {
     #[test]
     fn try_get_value_returns_some_after_resolve_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1176,7 +1176,7 @@ mod test {
         let dep_var = Place::from_variable(Variable::from_variable_index(1));
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
         });
@@ -1205,7 +1205,7 @@ mod test {
     #[test]
     fn try_get_value_returns_some_after_wait_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1231,7 +1231,7 @@ mod test {
     #[test]
     fn try_get_value_returns_some_after_wait_playback_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1271,7 +1271,7 @@ mod test {
     #[test]
     fn try_get_value_returns_none_on_untracked() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1298,7 +1298,7 @@ mod test {
     #[should_panic]
     fn panic_in_resolution_function_is_propagated_through_cr_waiting() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1323,7 +1323,7 @@ mod test {
     #[should_panic]
     fn panic_in_resolution_function_is_propagated_through_awaiter() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1345,7 +1345,7 @@ mod test {
     #[test]
     fn non_chronological_resolution_record_mode() {
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1393,7 +1393,7 @@ mod test {
         let var_5 = Place::from_variable(Variable::from_variable_index(4));
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: 100,
                 desired_parallelism: 16,
             });
@@ -1471,7 +1471,7 @@ mod test {
         let limit = 1 << 10;
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 32,
             });
@@ -1516,7 +1516,7 @@ mod test {
         let limit = 1 << 10;
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 32,
             });
@@ -1623,7 +1623,7 @@ mod benches {
     use super::*;
     use crate::{
         cs::{Variable, Place, traits::cs::DstBuffer},
-        field::{goldilocks::GoldilocksField, Field}, config::{Resolver, DoPerformRuntimeAsserts}, log, dag::{resolvers::mt::sorters::sorter_runtime::RuntimeResolverSorter, CircuitResolverOpts, Awaiter as _},
+        field::{goldilocks::GoldilocksField, Field}, config::{Resolver, DoPerformRuntimeAsserts}, log, dag::{resolvers::mt::sorters::sorter_live::LiveResolverSorter, CircuitResolverOpts, Awaiter as _},
     };
     type F = GoldilocksField;
     type Cfg = Resolver<DoPerformRuntimeAsserts>;
@@ -1647,7 +1647,7 @@ mod benches {
     fn synth_bench_1() {
         let limit = 1 << 25;
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: limit * 5,
                 desired_parallelism: 2048,
             });
@@ -1720,7 +1720,7 @@ mod benches {
         let limit = 1 << 4;
 
         let mut storage =
-            MtCircuitResolver::<F, RuntimeResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
                 max_variables: limit + 1,
                 desired_parallelism: 16,
             });

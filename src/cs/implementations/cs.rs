@@ -1118,7 +1118,6 @@ mod test {
             CsReferenceImplementationBuilder::<F, P, DevCSConfig>
             ::new(
                 geometry,
-                max_variables,
                 max_trace_len,
             );
         let builder = new_builder::<_, F>(builder_impl);
@@ -1295,7 +1294,7 @@ mod test {
             GoldilocksField,
             P,
             DevCSConfig,
-        >::new(geometry, 512, 128));
+        >::new(geometry, 128));
         let builder = configure(builder);
         let mut cs = builder.build(CircuitResolverOpts::new(512));
 
@@ -1403,7 +1402,6 @@ mod test {
 
         let builder_impl = CsReferenceImplementationBuilder::< F, P, DevCSConfig> ::new(
             geometry,
-            max_variables,
             max_trace_len,
         );
         let builder = new_builder::<_, F>(builder_impl);
@@ -1597,7 +1595,6 @@ mod test {
 
         let builder_impl = CsReferenceImplementationBuilder::<F, P, DevCSConfig> ::new(
                 geometry,
-                max_variables,
                 max_trace_len,
             );
         let builder = new_builder::<_, F>(builder_impl);
