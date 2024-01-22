@@ -5,7 +5,7 @@ use crate::config::*;
 use crate::cs::gates::lookup_marker::LookupFormalGate;
 use crate::cs::gates::LookupTooling;
 use crate::cs::implementations::reference_cs::INITIAL_LOOKUP_TABLE_ID_VALUE;
-use crate::dag::{DefaultCircuitResolver};
+use crate::dag::DefaultCircuitResolver;
 use crate::{
     config::CSConfig,
     dag::CircuitResolver,
@@ -29,12 +29,15 @@ pub struct CsReferenceImplementationBuilder<
     F: SmallField,
     P: PrimeFieldLikeVectorized<Base = F>,
     CFG: CSConfig,
-    // CR: CircuitResolver<F, CFG::ResolverConfig> = 
-    //     crate::dag::resolvers::MtCircuitResolver<F, 
-    //         RuntimeResolverSorter<F, 
+    // CR: CircuitResolver<F, CFG::ResolverConfig> =
+    //     crate::dag::resolvers::MtCircuitResolver<F,
+    //         RuntimeResolverSorter<F,
     //             <CFG as CSConfig>::ResolverConfig>, <CFG as CSConfig>::ResolverConfig>,
-    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<F, <CFG as CSConfig>::ResolverConfig>
-    > {
+    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<
+        F,
+        <CFG as CSConfig>::ResolverConfig,
+    >,
+> {
     phantom: std::marker::PhantomData<(P, CFG, CR)>,
 
     parameters: CSGeometry,
@@ -47,12 +50,11 @@ pub struct CsReferenceImplementationBuilder<
 }
 
 impl<
-    F: SmallField,
-    P: PrimeFieldLikeVectorized<Base = F>,
-    CFG: CSConfig,
-    CR: CircuitResolver<F, CFG::ResolverConfig>,
-    >
-    CsReferenceImplementationBuilder<F, P, CFG, CR>
+        F: SmallField,
+        P: PrimeFieldLikeVectorized<Base = F>,
+        CFG: CSConfig,
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
+    > CsReferenceImplementationBuilder<F, P, CFG, CR>
 {
     pub fn new(geometry: CSGeometry, max_trace_len: usize) -> Self {
         Self {
@@ -107,12 +109,11 @@ impl<
 }
 
 impl<
-    F: SmallField,
-    P: PrimeFieldLikeVectorized<Base = F>,
-    CFG: CSConfig,
-    CR: CircuitResolver<F, CFG::ResolverConfig>,
-    >
-    CsBuilderImpl<F, CsReferenceImplementationBuilder<F, P, CFG, CR>>
+        F: SmallField,
+        P: PrimeFieldLikeVectorized<Base = F>,
+        CFG: CSConfig,
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
+    > CsBuilderImpl<F, CsReferenceImplementationBuilder<F, P, CFG, CR>>
     for CsReferenceImplementationBuilder<F, P, CFG, CR>
 {
     type Final<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder> =
@@ -204,7 +205,8 @@ impl<
     fn allow_lookup<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
         mut builder: CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, CR>, F, GC, TB>,
         lookup_parameters: super::LookupParameters,
-    ) -> CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, CR>, F, Self::GcWithLookup<GC>, TB> {
+    ) -> CsBuilder<CsReferenceImplementationBuilder<F, P, CFG, CR>, F, Self::GcWithLookup<GC>, TB>
+    {
         assert_eq!(
             builder.implementation.lookup_parameters,
             LookupParameters::NoLookup,
@@ -333,7 +335,12 @@ impl<
         )
     }
 
-    fn build<'a, GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder, ARG: Into<Self::BuildParams<'a>>>(
+    fn build<
+        'a,
+        GC: GateConfigurationHolder<F>,
+        TB: StaticToolboxHolder,
+        ARG: Into<Self::BuildParams<'a>>,
+    >(
         builder: CsBuilder<Self, F, GC, TB>,
         params: ARG,
     ) -> Self::Final<GC, TB> {

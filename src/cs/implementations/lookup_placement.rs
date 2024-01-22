@@ -7,7 +7,7 @@ use crate::cs::implementations::reference_cs::*;
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::toolboxes::static_toolbox::StaticToolboxHolder;
 use crate::cs::traits::cs::ConstraintSystem;
-use crate::dag::{CircuitResolver};
+use crate::dag::CircuitResolver;
 
 impl<
         F: SmallField,

@@ -45,7 +45,12 @@ pub trait CsBuilderImpl<F: SmallField, TImpl> {
         lookup_parameters: LookupParameters,
     ) -> CsBuilder<TImpl, F, Self::GcWithLookup<GC>, TB>;
 
-    fn build<'a, GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder, ARG: Into<Self::BuildParams<'a>>>(
+    fn build<
+        'a,
+        GC: GateConfigurationHolder<F>,
+        TB: StaticToolboxHolder,
+        ARG: Into<Self::BuildParams<'a>>,
+    >(
         builder: CsBuilder<TImpl, F, GC, TB>,
         params: ARG,
     ) -> Self::Final<GC, TB>;

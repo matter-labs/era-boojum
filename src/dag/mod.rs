@@ -1,13 +1,12 @@
-
 use self::resolvers::mt::sorters::sorter_live::LiveResolverSorter;
 use std::fmt::Debug;
 use std::hint::spin_loop;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use crate::config::CSResolverConfig;
+use crate::cs::traits::cs::{CSWitnessSource, DstBuffer};
 use crate::cs::Place;
-use crate::cs::traits::cs::{DstBuffer, CSWitnessSource};
 use crate::field::SmallField;
 
 mod awaiters;
@@ -123,15 +122,13 @@ impl From<usize> for CircuitResolverOpts {
     }
 }
 
-pub trait TrackId: From<u64> + Into<u64> + Into<usize> + Eq + Ord + Debug + Default + Clone + Copy {}
+pub trait TrackId:
+    From<u64> + Into<u64> + Into<usize> + Eq + Ord + Debug + Default + Clone + Copy
+{
+}
 
-pub trait CircuitResolver<
-    F: SmallField,
-    Cfg: CSResolverConfig
-> :   WitnessSource<F> 
-    + WitnessSourceAwaitable<F> 
-    + CSWitnessSource<F>
-    + Send + Sync 
+pub trait CircuitResolver<F: SmallField, Cfg: CSResolverConfig>:
+    WitnessSource<F> + WitnessSourceAwaitable<F> + CSWitnessSource<F> + Send + Sync
 {
     type Arg;
 
@@ -148,9 +145,6 @@ pub type NullCircuitResolver<F, CFG> = resolvers::NullCircuitResolver<F, CFG>;
 
 pub type StCircuitResolver<F, CFG> = resolvers::StCircuitResolver<F, CFG>;
 pub type MtCircuitResolver<F, CFG> =
-    resolvers::MtCircuitResolver<
-        F,
-        LiveResolverSorter<F, CFG>,
-        CFG>;
+    resolvers::MtCircuitResolver<F, LiveResolverSorter<F, CFG>, CFG>;
 
 pub type DefaultCircuitResolver<F, CFG> = MtCircuitResolver<F, CFG>;

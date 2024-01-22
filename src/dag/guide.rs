@@ -1,14 +1,9 @@
-use smallvec::SmallVec;
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    ops::Range
-};
 use super::primitives::OrderIx;
 use super::TrackId;
 use crate::{config::*, utils::PipeOp};
 use crate::{field::SmallField, log};
-
+use smallvec::SmallVec;
+use std::{fmt::Debug, marker::PhantomData, ops::Range};
 
 // TODO: Move to a more fitting location.
 pub(crate) type RegistrationNum = u32;
@@ -79,13 +74,12 @@ pub(crate) trait Guide<T, F: SmallField, Cfg: CSResolverConfig> {
         Self: 'a;
 
     fn push(
-        &mut self, 
-        value: T, 
-        after: Option<GuideLoc>, 
+        &mut self,
+        value: T,
+        after: Option<GuideLoc>,
         added_at: RegistrationNum,
         accepted_at: RegistrationNum,
-    ) 
-    -> (GuideLoc, Self::PushOrder<'_>);
+    ) -> (GuideLoc, Self::PushOrder<'_>);
 
     fn flush(&mut self) -> Self::FinalizationOrder<'_>;
 }
@@ -113,7 +107,7 @@ pub(crate) struct SpansGuide<F: SmallField, Cfg> {
     /// pointer in the guide.
     pub spans: [Span; GUIDE_SIZE],
 
-    phantom: PhantomData<F>
+    phantom: PhantomData<F>,
 }
 
 pub(crate) struct Span {
@@ -135,9 +129,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> SpansGuide<F, Cfg> {
     pub fn new(parallelism: usize) -> Self {
         Self {
             parallelism,
-            spans: std::array::from_fn(|x| {
-                Span::new(Pointer::new_at((x * parallelism).into()))
-            }),
+            spans: std::array::from_fn(|x| Span::new(Pointer::new_at((x * parallelism).into()))),
             end: 0u64.into(),
             phantom: PhantomData,
         }
@@ -327,20 +319,30 @@ pub struct GuideMetadata {
 
 impl GuideMetadata {
     pub fn new(parallelism: u16, added_at: RegistrationNum, accepted_at: RegistrationNum) -> Self {
-        Self { parallelism, added_at, accepted_at }
+        Self {
+            parallelism,
+            added_at,
+            accepted_at,
+        }
     }
 
     pub fn with_parallelism(&self, parallelism: u16) -> Self {
-        Self { parallelism, ..*self }
+        Self {
+            parallelism,
+            ..*self
+        }
     }
 
     pub fn parallelism(&self) -> usize {
         self.parallelism as usize
     }
 
-    pub fn added_at(&self)    -> RegistrationNum { self.added_at }
-    pub fn accepted_at(&self) -> RegistrationNum { self.accepted_at }
-
+    pub fn added_at(&self) -> RegistrationNum {
+        self.added_at
+    }
+    pub fn accepted_at(&self) -> RegistrationNum {
+        self.accepted_at
+    }
 }
 
 pub trait GuideOrder<'a, T>
@@ -439,7 +441,9 @@ impl<'a, T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> GuideOrder<'a, T
     }
 }
 
-impl<'a, T: Debug, F: SmallField, Cfg: CSResolverConfig> Drop for BufferGuideFinalization<'a, T, F, Cfg> {
+impl<'a, T: Debug, F: SmallField, Cfg: CSResolverConfig> Drop
+    for BufferGuideFinalization<'a, T, F, Cfg>
+{
     fn drop(&mut self) {
         for _ in 0..GUIDE_SIZE {
             self.guide.expropriate_span();
@@ -836,7 +840,9 @@ impl<T: Debug, F: SmallField, Cfg: CSResolverConfig> BufferGuide<T, F, Cfg> {
     }
 }
 
-impl<T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> Guide<T, F, Cfg> for BufferGuide<T, F, Cfg> {
+impl<T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> Guide<T, F, Cfg>
+    for BufferGuide<T, F, Cfg>
+{
     type PushOrder<'a>         = BufferGuideOrder       <'a, T, F, Cfg> where T: 'a;
     type FinalizationOrder<'a> = BufferGuideFinalization<'a, T, F, Cfg> where T: 'a;
 
@@ -939,7 +945,11 @@ mod general_tests {
 #[cfg(test)]
 mod spans_guide_tests {
     use super::SpansGuide;
-    use crate::{config::{DoPerformRuntimeAsserts, Resolver}, field::goldilocks::GoldilocksField, utils::PipeOp};
+    use crate::{
+        config::{DoPerformRuntimeAsserts, Resolver},
+        field::goldilocks::GoldilocksField,
+        utils::PipeOp,
+    };
 
     #[test]
     fn acquire_after_none_gives_incremented_indicies() {
@@ -979,7 +989,8 @@ mod spans_guide_tests {
     fn acquire_after_some_gaps_over_required_parallelism() {
         let p = 4;
 
-        let mut guide = SpansGuide::<GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(p as usize);
+        let mut guide =
+            SpansGuide::<GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(p as usize);
 
         let (i1, _) = guide.acquire_position(None);
         let (i2, _) = guide.acquire_position(Some(i1));
@@ -1065,7 +1076,8 @@ mod buffer_guide_tests {
     use crate::{
         config::{DoPerformRuntimeAsserts, Resolver},
         dag::guide::{GuideLoc, GuideMetadata, GuideOrder, OrderInfo},
-        log, field::goldilocks::GoldilocksField,
+        field::goldilocks::GoldilocksField,
+        log,
     };
 
     use super::{BufferGuide, GUIDE_SIZE};
@@ -1074,7 +1086,8 @@ mod buffer_guide_tests {
     fn independent_pushes_are_sequentional() {
         const P: usize = 4;
 
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(P as u32);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(P as u32);
 
         let results: [GuideLoc; P * 2] = std::array::from_fn(|_| guide.push(0, None, 0, 0).0);
 
@@ -1106,7 +1119,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn filling_0th_span_expropriates_outstanding_span() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let _ = guide.push(0, None, 0, 0);
         let _ = guide.push(1, None, 0, 0);
@@ -1134,7 +1148,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn filling_non_0th_span_expropriates_outstanding_span() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let _ = guide.push(0, None, 0, 0);
         let _ = guide.push(1, None, 0, 0);
@@ -1167,7 +1182,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn push_after_last_depending_on_last_skips_id() {
-        let mut guide = BufferGuide::<usize, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<usize, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (mut loc, _) = guide.push(0, None, 0, 0);
 
@@ -1182,7 +1198,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn forced_expropriation_carries_value_over() {
-        let mut guide = BufferGuide::<usize, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<usize, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (mut pos, _) = guide.push(0, None, 0, 0);
 
@@ -1216,7 +1233,8 @@ mod buffer_guide_tests {
     fn dependent_pushes_are_dropped_at_least_parallelism_away() {
         let p = 4;
 
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(p);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(p);
 
         let (i1, _) = guide.push(0, None, 0, 0);
         let (i2, _) = guide.push(0, None, 0, 0);
@@ -1238,7 +1256,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn initial_order_is_nop() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let _ = guide.push(0, None, 0, 0);
         let _ = guide.push(1, None, 0, 0);
@@ -1254,7 +1273,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn empty_orders_are_empty() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (_, order) = guide.push(0, None, 0, 0);
 
@@ -1269,7 +1289,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_returns_all_items() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (i1, _) = guide.push(1, None, 0, 0);
         let (_, _) = guide.push(2, Some(i1), 0, 0);
@@ -1292,7 +1313,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_after_flush_returns_new_items() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (i1, _) = guide.push(1, None, 0, 0);
         let (i2, _) = guide.push(2, Some(i1), 0, 0);
@@ -1320,7 +1342,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn release_with_full_full_spans_returns_correct_parallelizm() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (_, _) = guide.push(1, None, 0, 0);
         let (_, _) = guide.push(2, None, 0, 0);
@@ -1395,7 +1418,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_release_with_full_part_spans_returns_correct_parallelism() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (_i1, _) = guide.push(1, None, 0, 0);
         let (_i2, _) = guide.push(2, None, 0, 0);
@@ -1431,7 +1455,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_release_with_part_full_spans_returns_correct_parallelism() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
         let mut vec = [OrderInfo::new(0, GuideMetadata::new(0, 0, 0)); 9];
 
         let (_i1, _) = guide.push(1, None, 0, 0);
@@ -1466,7 +1491,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_release_with_part_part_lt_spans_returns_correct_parallelism() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (_i1, _) = guide.push(1, None, 0, 0);
         let (_i2, _) = guide.push(2, None, 0, 0);
@@ -1497,7 +1523,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_release_with_part_part_gt_spans_returns_correct_parallelism() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (_i1, _) = guide.push(1, None, 0, 0);
         let (_i2, _) = guide.push(2, None, 0, 0);
@@ -1529,7 +1556,8 @@ mod buffer_guide_tests {
 
     #[test]
     fn flush_release_with_part_part_eq_spans_returns_correct_parallelism() {
-        let mut guide = BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
+        let mut guide =
+            BufferGuide::<u32, GoldilocksField, Resolver<DoPerformRuntimeAsserts>>::new(4);
 
         let (_i1, _) = guide.push(1, None, 0, 0);
         let (_i2, _) = guide.push(2, None, 0, 0);

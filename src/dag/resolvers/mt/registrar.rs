@@ -1,4 +1,4 @@
-use crate::{log, dag::primitives::ResolverIx };
+use crate::{dag::primitives::ResolverIx, log};
 use std::collections::HashMap;
 
 use crate::cs::Place;
@@ -141,7 +141,6 @@ impl Registrar {
         &self.vars
     }
 }
-
 
 #[cfg(test)]
 mod test {

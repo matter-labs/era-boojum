@@ -11,9 +11,8 @@ use crate::{
 };
 
 pub struct NullCircuitResolver<F, CFG> {
-    phantom: PhantomData<(F, CFG)>
+    phantom: PhantomData<(F, CFG)>,
 }
-
 
 impl<F: SmallField, CFG: CSResolverConfig> WitnessSource<F> for NullCircuitResolver<F, CFG> {
     const PRODUCES_VALUES: bool = false;
@@ -27,7 +26,9 @@ impl<F: SmallField, CFG: CSResolverConfig> WitnessSource<F> for NullCircuitResol
     }
 }
 
-impl<F: SmallField, CFG: CSResolverConfig> WitnessSourceAwaitable<F> for NullCircuitResolver<F, CFG> {
+impl<F: SmallField, CFG: CSResolverConfig> WitnessSourceAwaitable<F>
+    for NullCircuitResolver<F, CFG>
+{
     type Awaiter<'a> = Awaiter<'a, OrderIx>;
 
     fn get_awaiter<const N: usize>(&mut self, _vars: [crate::cs::Place; N]) -> Self::Awaiter<'_> {
@@ -35,15 +36,9 @@ impl<F: SmallField, CFG: CSResolverConfig> WitnessSourceAwaitable<F> for NullCir
     }
 }
 
+impl<F: SmallField, CFG: CSResolverConfig> CSWitnessSource<F> for NullCircuitResolver<F, CFG> {}
 
-impl<F: SmallField, CFG: CSResolverConfig> CSWitnessSource<F> for NullCircuitResolver<F, CFG> { }
-
-impl<
-    F: SmallField, 
-    CFG: CSResolverConfig
-    > 
-    CircuitResolver<F, CFG> for NullCircuitResolver<F, CFG> 
-{
+impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for NullCircuitResolver<F, CFG> {
     type Arg = ();
 
     fn new(_args: Self::Arg) -> Self {
@@ -54,9 +49,14 @@ impl<
         panic!("Null resolver.");
     }
 
-    fn add_resolution<Fn>(&mut self, _inputs: &[crate::cs::Place], _outputs: &[crate::cs::Place], _f: Fn)
-        where
-        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync {
+    fn add_resolution<Fn>(
+        &mut self,
+        _inputs: &[crate::cs::Place],
+        _outputs: &[crate::cs::Place],
+        _f: Fn,
+    ) where
+        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync,
+    {
         panic!("Null resolver");
     }
 

@@ -3,8 +3,8 @@
 
 use itertools::Itertools;
 
-use crate::log;
 use crate::field::SmallField;
+use crate::log;
 use std::marker::PhantomData;
 use std::mem::size_of;
 
@@ -14,7 +14,6 @@ use crate::{
 };
 
 use super::{guide::RegistrationNum, primitives::ResolverIx};
-
 
 pub trait ResolutionFn<V> = FnOnce(&[V], &mut DstBuffer<V>) + Send + Sync;
 
@@ -369,7 +368,9 @@ impl Resolver {
         &*ptr
     }
 
-    pub fn added_at(&self) -> RegistrationNum { self.header.registration_num }
+    pub fn added_at(&self) -> RegistrationNum {
+        self.header.registration_num
+    }
 
     pub fn inputs(&self) -> &[Place] {
         // Safety: Ensured by ctor.
@@ -467,7 +468,6 @@ pub(crate) fn invocation_binder<Fn, F: SmallField>(
     // TODO: uninit resolver.
 }
 
-
 #[cfg(test)]
 mod test {
     use std::{
@@ -479,12 +479,12 @@ mod test {
 
     use crate::{
         cs::{traits::cs::DstBuffer, Place, Variable},
-        dag::{ resolver_box::ResolverHeader, guide::RegistrationNum},
+        dag::{guide::RegistrationNum, resolver_box::ResolverHeader},
         field::{goldilocks::GoldilocksField, Field},
         log,
     };
 
-    use super::{Resolver, ResolverBox, invocation_binder};
+    use super::{invocation_binder, Resolver, ResolverBox};
 
     type F = GoldilocksField;
 
@@ -600,7 +600,7 @@ mod test {
 
         let value = unsafe { rbox.get(ix) };
 
-        run_invariant_asserts(&ins, &out, 1<< 7, &resolution_fn, binder, value);
+        run_invariant_asserts(&ins, &out, 1 << 7, &resolution_fn, binder, value);
     }
 
     #[test]

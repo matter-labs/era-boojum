@@ -1,7 +1,7 @@
 use super::reference_cs::CSReferenceAssembly;
 use super::*;
 
-use crate::config::{DevCSConfig, CSResolverConfig};
+use crate::config::{CSResolverConfig, DevCSConfig};
 
 use crate::cs::implementations::polynomial_storage::SatisfiabilityCheckRowView;
 use crate::cs::traits::evaluator::GatePlacementType;

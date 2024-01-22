@@ -8,8 +8,8 @@ use super::verifier::VerificationKey;
 use super::witness::WitnessVec;
 use crate::cs::cs_builder_verifier::CsVerifierBuilder;
 use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
-use crate::dag::{CircuitResolver};
 use crate::cs::traits::GoodAllocator;
+use crate::dag::CircuitResolver;
 
 use super::transcript::Transcript;
 use crate::cs::traits::circuit::Circuit;

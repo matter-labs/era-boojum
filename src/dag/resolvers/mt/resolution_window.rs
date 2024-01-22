@@ -11,6 +11,7 @@ use std::{
     collections::VecDeque,
     hint::spin_loop,
     io::Write,
+    marker::PhantomData,
     ops::Range,
     panic::AssertUnwindSafe,
     path::PathBuf,
@@ -19,7 +20,7 @@ use std::{
         Arc, Mutex,
     },
     thread::{park, yield_now, JoinHandle, Thread},
-    time::Duration, marker::PhantomData,
+    time::Duration,
 };
 
 use itertools::Itertools;
@@ -38,8 +39,7 @@ use crate::{
     utils::{DilatoryPrinter, PipeOp, UnsafeCellEx},
 };
 
-use super::{ResolverComms, ResolverCommonData};
-
+use super::{ResolverCommonData, ResolverComms};
 
 #[derive(PartialEq, Eq, Debug)]
 enum ResolverState {
@@ -117,7 +117,9 @@ pub(crate) struct ResolutionWindow<V, T: TrackId, Cfg: RWConfig<T>> {
 
 unsafe impl<V, T: TrackId, Cfg: RWConfig<T>> Send for ResolutionWindow<V, T, Cfg> {}
 
-impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> ResolutionWindow<V, T, Cfg> {
+impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
+    ResolutionWindow<V, T, Cfg>
+{
     pub(crate) fn run(
         comms: Arc<ResolverComms>,
         common: Arc<ResolverCommonData<V, T>>,
@@ -260,8 +262,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
             // end the resolution.
             if let Some(panic) = self.channel.get_panic() {
                 self.comms.rw_panic.set(Some(panic));
-                self
-                    .comms
+                self.comms
                     .rw_panicked
                     .store(true, std::sync::atomic::Ordering::Relaxed);
                 return;
@@ -351,9 +352,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                                 .get(x.order_info.value)
                                 .outputs()
                         })
-                        .map(|x| unsafe {
-                            self.common.values.u_deref().get_item_ref(*x).1.tracker
-                        })
+                        .map(|x| unsafe { self.common.values.u_deref().get_item_ref(*x).1.tracker })
                         .for_each(|x| awaiters.notify(x));
 
                     drop(awaiters);
@@ -388,10 +387,8 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
                 .comms
                 .registration_complete
                 .load(std::sync::atomic::Ordering::Relaxed);
-            
+
             use std::sync::atomic::Ordering::Relaxed;
-
-
 
             let exec_order = self.common.exec_order.lock().unwrap();
             let limit = exec_order.size;
@@ -442,25 +439,28 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static> 
 
                 let mut iters = 0;
                 loop {
-
-                    let hint = self.comms.exec_order_buffer_hint.compare_exchange(
-                        1, 0, Relaxed, Relaxed);
+                    let hint = self
+                        .comms
+                        .exec_order_buffer_hint
+                        .compare_exchange(1, 0, Relaxed, Relaxed);
 
                     match hint {
-                        Ok(_) => { 
+                        Ok(_) => {
                             break;
                         }
-                        _ => { 
+                        _ => {
                             iters += 1;
 
-                            if iters > (1 << 10) 
-                            { 
-                                if self.comms.registration_complete.load(Relaxed) { break }
+                            if iters > (1 << 10) {
+                                if self.comms.registration_complete.load(Relaxed) {
+                                    break;
+                                }
 
                                 iters = 0;
                             }
 
-                            yield_now(); continue; 
+                            yield_now();
+                            continue;
                         }
                     }
                 }
@@ -529,10 +529,18 @@ struct Worker<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> {
     phantom: PhantomData<Cfg>,
 }
 
-unsafe impl<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> Send for Worker<V, T, Cfg, SIZE> {}
-unsafe impl<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> Sync for Worker<V, T, Cfg, SIZE> {}
+unsafe impl<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> Send
+    for Worker<V, T, Cfg, SIZE>
+{
+}
+unsafe impl<V: Copy, T: TrackId, Cfg: RWConfig<T>, const SIZE: usize> Sync
+    for Worker<V, T, Cfg, SIZE>
+{
+}
 
-impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> Worker<V, T, Cfg, SIZE> {
+impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize>
+    Worker<V, T, Cfg, SIZE>
+{
     fn run(&mut self) {
         let mut stats = WorkerStats::default();
 
@@ -627,7 +635,10 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> W
 
             println!("RW: input ixs: {:#?}", ins_ixs);
             println!("RW: variables resolved");
-            vs.variables.iter().enumerate().for_each(|(i, x)| { println!("[{}] => r: {}", i, x.u_deref().1.is_resolved()) });
+            vs.variables
+                .iter()
+                .enumerate()
+                .for_each(|(i, x)| println!("[{}] => r: {}", i, x.u_deref().1.is_resolved()));
         }
 
         let ins_vs: SmallVec<[_; 8]> = ins_ixs
@@ -690,7 +701,11 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize> W
                 .iter()
                 .find(|x| resolver.inputs().contains(x))
             {
-                log!("RW: invoking at ix {:?} with tracked input {:?}", order_ix, x);
+                log!(
+                    "RW: invoking at ix {:?} with tracked input {:?}",
+                    order_ix,
+                    x
+                );
 
                 track = true;
             }
@@ -1006,7 +1021,6 @@ impl LockStepWorker {
 
         fence(Release);
         unsafe { self.channel.data.u_deref_mut()[self.id as usize].done = true };
-
 
         // let old = self
         //     .channel

@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 
 use derivative::*;
 
-
 // pub const DEBUG_SATISFIABLE: bool = true;
 pub const DEBUG_SATISFIABLE: bool = false;
 

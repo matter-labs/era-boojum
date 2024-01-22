@@ -13,7 +13,7 @@ use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
 use crate::cs::oracle::TreeHasher;
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::toolboxes::static_toolbox::StaticToolboxHolder;
-use crate::dag::{CircuitResolver};
+use crate::dag::CircuitResolver;
 use crate::utils::*;
 use std::alloc::Global;
 use std::collections::HashSet;
@@ -91,7 +91,7 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-        CR: CircuitResolver<F, CFG::ResolverConfig>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
     > CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     pub fn pad_and_shrink(&mut self) -> (usize, FinalizationHintsForProver) {

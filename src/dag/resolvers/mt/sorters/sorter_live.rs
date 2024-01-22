@@ -1,7 +1,11 @@
 #![allow(clippy::nonminimal_bool)]
 #![allow(clippy::overly_complex_bool_expr)]
 
-use std::{marker::PhantomData, sync::{Arc, Mutex, atomic::AtomicIsize}, cell::UnsafeCell};
+use std::{
+    cell::UnsafeCell,
+    marker::PhantomData,
+    sync::{atomic::AtomicIsize, Arc, Mutex},
+};
 
 use itertools::Itertools;
 
@@ -24,8 +28,7 @@ use crate::{
     utils::{PipeOp, UnsafeCellEx},
 };
 
-use super::{ResolverSortingMode, ResolutionRecordWriter, ResolutionRecord};
-
+use super::{ResolutionRecord, ResolutionRecordWriter, ResolverSortingMode};
 
 #[derive(Debug)]
 struct Stats {
@@ -50,23 +53,27 @@ impl Stats {
     }
 }
 
-
 pub struct NullRecordWriter();
 impl ResolutionRecordWriter for NullRecordWriter {
-    fn store(&mut self, _record: &ResolutionRecord) {
-    }
+    fn store(&mut self, _record: &ResolutionRecord) {}
 }
 
-pub struct LiveResolverSorter<F: SmallField, Cfg: CSResolverConfig>
-    (LiveRecordingResolverSorter<F, Cfg, NullRecordWriter>);
+pub struct LiveResolverSorter<F: SmallField, Cfg: CSResolverConfig>(
+    LiveRecordingResolverSorter<F, Cfg, NullRecordWriter>,
+);
 
 impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for LiveResolverSorter<F, Cfg> {
     type Arg = CircuitResolverOpts;
     type Config = RWConfigRecord<GuideLoc>;
     type TrackId = GuideLoc;
 
-    fn new(opts: Self::Arg, comms: Arc<ResolverComms>, debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
-        let (this, common) = LiveRecordingResolverSorter::new((opts, NullRecordWriter()), comms, debug_track);
+    fn new(
+        opts: Self::Arg,
+        comms: Arc<ResolverComms>,
+        debug_track: &[Place],
+    ) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
+        let (this, common) =
+            LiveRecordingResolverSorter::new((opts, NullRecordWriter()), comms, debug_track);
 
         (Self(this), common)
     }
@@ -77,16 +84,18 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for LiveResolv
 
     fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
     where
-        Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync {
+        Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync,
+    {
         self.0.add_resolution(inputs, outputs, f)
     }
 
     fn internalize(
-        &mut self, 
+        &mut self,
         resolver_ix: ResolverIx,
-        inputs: &[Place], 
+        inputs: &[Place],
         outputs: &[Place],
-        added_at: RegistrationNum) {
+        added_at: RegistrationNum,
+    ) {
         self.0.internalize(resolver_ix, inputs, outputs, added_at)
     }
 
@@ -95,9 +104,10 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for LiveResolv
         resolver_ix: ResolverIx,
         inputs: &[Place],
         outputs: &[Place],
-        added_at: RegistrationNum
+        added_at: RegistrationNum,
     ) -> Vec<ResolverIx> {
-        self.0.internalize_one(resolver_ix, inputs, outputs, added_at)
+        self.0
+            .internalize_one(resolver_ix, inputs, outputs, added_at)
     }
 
     fn flush(&mut self) {
@@ -118,7 +128,7 @@ impl<F: SmallField, Cfg: CSResolverConfig> ResolverSortingMode<F> for LiveResolv
 }
 
 pub struct LiveRecordingResolverSorter<
-    F:SmallField,
+    F: SmallField,
     Cfg: CSResolverConfig,
     RW: ResolutionRecordWriter,
 > {
@@ -133,12 +143,12 @@ pub struct LiveRecordingResolverSorter<
     record_writer: RW,
     /// Tracks the size of the execution order written.
     order_len: usize,
-    field: PhantomData<F>
+    field: PhantomData<F>,
 }
 
 impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
-    LiveRecordingResolverSorter<F, Cfg, RW> {
-
+    LiveRecordingResolverSorter<F, Cfg, RW>
+{
     fn write_order<'a, GO: GuideOrder<'a, ResolverIx>>(
         tgt: &Mutex<ExecOrder>,
         record: &mut ResolutionRecord,
@@ -211,13 +221,13 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
                     }
                 }
             }
-            
+
             // This value is an optimization, it is not behind a mutex and used on each
             // registration for record purposes.
             *tgt_len = tgt.len();
 
             exec_order.size = *tgt_len;
-            
+
             drop(exec_order);
 
             buffer_hint.store(1, std::sync::atomic::Ordering::Relaxed);
@@ -225,15 +235,18 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
     }
 }
 
-impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverSortingMode<F> 
-    for LiveRecordingResolverSorter<F, Cfg, RW> 
+impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverSortingMode<F>
+    for LiveRecordingResolverSorter<F, Cfg, RW>
 {
     type Arg = (CircuitResolverOpts, RW);
     type Config = RWConfigRecord<GuideLoc>;
     type TrackId = GuideLoc;
 
-    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
-
+    fn new(
+        arg: Self::Arg,
+        comms: Arc<ResolverComms>,
+        debug_track: &[Place],
+    ) -> (Self, Arc<ResolverCommonData<F, Self::TrackId>>) {
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
             let mut values = Vec::with_capacity(size);
@@ -251,9 +264,9 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             max_tracked: -1,
         };
 
-        let exec_order = ExecOrder { 
-            size: 0, 
-            items: Vec::with_capacity(opts.max_variables)
+        let exec_order = ExecOrder {
+            size: 0,
+            items: Vec::with_capacity(opts.max_variables),
         };
 
         let common = ResolverCommonData {
@@ -262,8 +275,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             exec_order: Mutex::new(exec_order),
             awaiters_broker: AwaitersBroker::new(),
         }
-       .to(Arc::new);
-
+        .to(Arc::new);
 
         let s = Self {
             stats: Stats::new(),
@@ -285,7 +297,10 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
     }
 
     fn set_value(&mut self, key: crate::cs::Place, value: F) {
-        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && self.debug_track.contains(&key) && false {
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA)
+            && self.debug_track.contains(&key)
+            && false
+        {
             log!("CR: setting {:?} -> {:?}", key, value);
         }
 
@@ -320,7 +335,14 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
             delayed_resolvers
                 .into_iter()
-                .map(|x| (x, rb.get(x).inputs(), rb.get(x).outputs(), rb.get(x).added_at()))
+                .map(|x| {
+                    (
+                        x,
+                        rb.get(x).inputs(),
+                        rb.get(x).outputs(),
+                        rb.get(x).added_at(),
+                    )
+                })
                 // Safety: No &mut references to `self.common.resolvers`.
                 .for_each(|(r, i, o, a)| self.internalize(r, i, o, a));
         }
@@ -338,15 +360,13 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         // and is the only thread to do so. `push` is the only mutable function
         // on that struct.
         let resolver_ix = unsafe {
-            self.common
-                .resolvers
-                .u_deref_mut()
-                .push(
-                    inputs,
-                    outputs,
-                    self.stats.registrations_added as RegistrationNum,
-                    f,
-                    invocation_binder::<Fn, F>)
+            self.common.resolvers.u_deref_mut().push(
+                inputs,
+                outputs,
+                self.stats.registrations_added as RegistrationNum,
+                f,
+                invocation_binder::<Fn, F>,
+            )
         };
 
         if crate::dag::resolvers::mt::PARANOIA && resolver_ix.0 == 0 {
@@ -412,10 +432,11 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
         if let Ok(resolver_ix) = registrar_answer {
             self.internalize(
-                resolver_ix, 
-                inputs, 
-                outputs, 
-                self.stats.registrations_added as RegistrationNum);
+                resolver_ix,
+                inputs,
+                outputs,
+                self.stats.registrations_added as RegistrationNum,
+            );
         }
 
         self.record.items[self.stats.registrations_added as usize].order_len = self.order_len;
@@ -427,8 +448,8 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         resolver_ix: ResolverIx,
         inputs: &[Place],
         outputs: &[Place],
-        added_at: RegistrationNum) 
-    {
+        added_at: RegistrationNum,
+    ) {
         let mut resolvers = vec![(resolver_ix, inputs, outputs, added_at)];
 
         if crate::dag::resolvers::mt::PARANOIA && resolver_ix == ResolverIx::new_resolver(0) {
@@ -458,7 +479,14 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             // The resolver is not yet pushed to the resolution window.
             new_resolvers
                 .into_iter()
-                .map(|x| unsafe { (x, rb.get(x).inputs(), rb.get(x).outputs(), rb.get(x).added_at()) })
+                .map(|x| unsafe {
+                    (
+                        x,
+                        rb.get(x).inputs(),
+                        rb.get(x).outputs(),
+                        rb.get(x).added_at(),
+                    )
+                })
                 .to(|x| resolvers.extend(x));
         }
     }
@@ -498,7 +526,10 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             );
         }
 
-        if crate::dag::resolvers::mt::PARANOIA && resolver_ix == ResolverIx::new_resolver(0) && false {
+        if crate::dag::resolvers::mt::PARANOIA
+            && resolver_ix == ResolverIx::new_resolver(0)
+            && false
+        {
             self.guide.tracing = true;
         }
 
@@ -506,19 +537,18 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             println!("CR: resolver_ix {} pushed to guide.", resolver_ix.0);
         }
 
-        let (guide_loc, order) = self
-            .guide
-            .push(
-                resolver_ix,
-                deps.map(|x| x.tracker).reduce(std::cmp::max),
-                // This stat represents the registration in which this registration
-                // had all its dependencies tracked and safe to use. Thus, once we
-                // reach this registration in playback, the resolution window can
-                // consume this resolver.
-                // In recording mode we don't yet know what is the actual order index
-                // the registration will have at this point.
-                added_at,
-                self.stats.registrations_added as RegistrationNum);
+        let (guide_loc, order) = self.guide.push(
+            resolver_ix,
+            deps.map(|x| x.tracker).reduce(std::cmp::max),
+            // This stat represents the registration in which this registration
+            // had all its dependencies tracked and safe to use. Thus, once we
+            // reach this registration in playback, the resolution window can
+            // consume this resolver.
+            // In recording mode we don't yet know what is the actual order index
+            // the registration will have at this point.
+            added_at,
+            self.stats.registrations_added as RegistrationNum,
+        );
 
         Self::write_order(
             &self.common.exec_order,
@@ -526,7 +556,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
             &mut self.order_len,
             &self.common.resolvers,
             &order,
-            &self.comms.exec_order_buffer_hint
+            &self.comms.exec_order_buffer_hint,
         );
 
         values.track_values(outputs, guide_loc);
@@ -543,12 +573,11 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         }
     }
 
-
     fn flush(&mut self) {
-
         let order = self.guide.flush();
 
-        Self::write_order(&self.common.exec_order,
+        Self::write_order(
+            &self.common.exec_order,
             &mut self.record,
             &mut self.order_len,
             &self.common.resolvers,
@@ -560,17 +589,20 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
         // `max` is here cause some tests aren't registering any resolvers.
         // Since flushing is an extremely rare operation, we just fix it here.
-        self.record.items[std::cmp::max(1, self.stats.registrations_added) as usize - 1].order_len = self.order_len;
+        self.record.items[std::cmp::max(1, self.stats.registrations_added) as usize - 1]
+            .order_len = self.order_len;
     }
 
     fn final_flush(&mut self) {
-
         assert!(self.registrar.is_empty());
         // assert!(self.registrar.is_empty(), "Registrar is not empty: has {:?}", self.registrar.peek_vars());
 
         self.flush();
 
-        self.record.items.resize_with(self.stats.registrations_added as usize, ResolutionRecordItem::default);
+        self.record.items.resize_with(
+            self.stats.registrations_added as usize,
+            ResolutionRecordItem::default,
+        );
 
         for (i, item) in self.record.items[..].iter_mut().enumerate() {
             debug_assert_eq!(i, item.added_at as usize);
@@ -585,7 +617,6 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         }
         self.record.values_count = 1 + unsafe { self.common.values.u_deref().max_tracked } as usize;
         self.record.registrations_count = self.stats.registrations_added as usize;
-
 
         if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             log!(

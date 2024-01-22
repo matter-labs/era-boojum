@@ -629,7 +629,12 @@ impl<
         )
     }
 
-    fn build<'b, GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder, ARG: Into<Self::BuildParams<'b>>>(
+    fn build<
+        'b,
+        GC: GateConfigurationHolder<F>,
+        TB: StaticToolboxHolder,
+        ARG: Into<Self::BuildParams<'b>>,
+    >(
         builder: CsBuilder<Self, F, GC, TB>,
         _params: ARG,
     ) -> Self::Final<GC, TB> {

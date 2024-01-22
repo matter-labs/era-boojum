@@ -1114,12 +1114,8 @@ mod test {
             builder
         }
 
-        let builder_impl = 
-            CsReferenceImplementationBuilder::<F, P, DevCSConfig>
-            ::new(
-                geometry,
-                max_trace_len,
-            );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
@@ -1400,10 +1396,8 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::< F, P, DevCSConfig> ::new(
-            geometry,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
@@ -1593,10 +1587,8 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, DevCSConfig> ::new(
-                geometry,
-                max_trace_len,
-            );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);

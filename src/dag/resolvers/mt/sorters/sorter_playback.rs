@@ -1,4 +1,8 @@
-use std::{marker::PhantomData, sync::{Arc, Mutex}, cell::UnsafeCell };
+use std::{
+    cell::UnsafeCell,
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     config::CSResolverConfig,
@@ -14,12 +18,11 @@ use crate::{
     utils::{PipeOp, UnsafeCellEx},
 };
 
-use super::{ResolverSortingMode, ResolutionRecordItem, ResolutionRecordSource, ResolutionRecord};
-
+use super::{ResolutionRecord, ResolutionRecordItem, ResolutionRecordSource, ResolverSortingMode};
 
 struct OrderBufferItem {
     resolver_ix: ResolverIx,
-    record_item: ResolutionRecordItem
+    record_item: ResolutionRecordItem,
 }
 
 pub struct PlaybackResolverSorter<F, Rrs: ResolutionRecordSource, Cfg> {
@@ -31,7 +34,9 @@ pub struct PlaybackResolverSorter<F, Rrs: ResolutionRecordSource, Cfg> {
     phantom: PhantomData<Cfg>,
 }
 
-impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> PlaybackResolverSorter<F, Rrs, Cfg> {
+impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig>
+    PlaybackResolverSorter<F, Rrs, Cfg>
+{
     #[inline(always)]
     fn write_buffer(&mut self, size_override: Option<usize>) {
         let mut exec_order = self.common.exec_order.lock().unwrap();
@@ -39,40 +44,46 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Playback
         for i in &self.exec_order_buffer {
             exec_order.items[usize::from(i.record_item.order_ix)] = OrderInfo::new(
                 i.resolver_ix,
-                GuideMetadata::new(i.record_item.parallelism, 0, 0))
+                GuideMetadata::new(i.record_item.parallelism, 0, 0),
+            )
         }
 
-
         exec_order.size = match size_override {
-            None => 
-                match self.registrations_added == self.record.get().registrations_count {
-                    false => self.record.get().items[self.registrations_added - 1].order_len,
-                    true => self.record.get().registrations_count
-                },
-            Some(x) => x
+            None => match self.registrations_added == self.record.get().registrations_count {
+                false => self.record.get().items[self.registrations_added - 1].order_len,
+                true => self.record.get().registrations_count,
+            },
+            Some(x) => x,
         };
 
-        self.comms.exec_order_buffer_hint.store(1, std::sync::atomic::Ordering::Relaxed);
+        self.comms
+            .exec_order_buffer_hint
+            .store(1, std::sync::atomic::Ordering::Relaxed);
 
         if crate::dag::resolvers::mt::PARANOIA {
             println!(
                 "RS_P: buffer written, {} item, size: {}",
                 self.exec_order_buffer.len(),
-                exec_order.size);
+                exec_order.size
+            );
         }
 
         self.exec_order_buffer.clear();
     }
 }
 
-impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> ResolverSortingMode<F> 
-    for PlaybackResolverSorter<F, Rrs, Cfg> 
+impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> ResolverSortingMode<F>
+    for PlaybackResolverSorter<F, Rrs, Cfg>
 {
     type Arg = Rrs;
     type Config = crate::dag::resolvers::mt::resolution_window::RWConfigPlayback<OrderIx>;
     type TrackId = OrderIx;
 
-    fn new(arg: Self::Arg, comms: Arc<ResolverComms>, _debug_track: &[Place]) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
+    fn new(
+        arg: Self::Arg,
+        comms: Arc<ResolverComms>,
+        _debug_track: &[Place],
+    ) -> (Self, Arc<ResolverCommonData<F, OrderIx>>) {
         fn new_values<V>(size: usize, default: fn() -> V) -> Box<[V]> {
             // TODO: ensure mem-page multiple capacity.
             let mut values = Vec::with_capacity(size);
@@ -97,13 +108,12 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
 
         let exec_order = ExecOrder {
             size: 0,
-            items:
-                Vec::with_capacity(record.registrations_count) 
-                .op(|x| x.resize(
+            items: Vec::with_capacity(record.registrations_count).op(|x| {
+                x.resize(
                     record.items.len(),
-                    OrderInfo::new(
-                        ResolverIx::default(),
-                        GuideMetadata::default())))
+                    OrderInfo::new(ResolverIx::default(), GuideMetadata::default()),
+                )
+            }),
         };
 
         let common = ResolverCommonData {
@@ -114,8 +124,7 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         }
         .to(Arc::new);
 
-        let buf_size = 
-            std::env::var("BOOJUM_PRS_BUF_SIZE")
+        let buf_size = std::env::var("BOOJUM_PRS_BUF_SIZE")
             .map_err(|_| "")
             .and_then(|x| x.parse().map_err(|_| ""))
             .unwrap_or(1 << 10);
@@ -144,31 +153,36 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         values.set_value(key, value);
     }
 
-    fn add_resolution<Fn>(&mut self, inputs: &[crate::cs::Place], outputs: &[crate::cs::Place], f: Fn)
-    where
-        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync {
-
+    fn add_resolution<Fn>(
+        &mut self,
+        inputs: &[crate::cs::Place],
+        outputs: &[crate::cs::Place],
+        f: Fn,
+    ) where
+        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync,
+    {
         let record = &self.record.get().items[self.registrations_added];
-        
+
         let values = unsafe { self.common.values.u_deref_mut() };
 
         // Safety: This thread is the only one to use `push` on the resolvers
         // and is the only thread to do so. `push` is the only mutable function
         // on that struct.
         let resolver_ix = unsafe {
-            self.common
-                .resolvers
-                .u_deref_mut()
-                .push(
-                    inputs,
-                    outputs,
-                    self.registrations_added as RegistrationNum,
-                    f,
-                    invocation_binder::<Fn, F>)
+            self.common.resolvers.u_deref_mut().push(
+                inputs,
+                outputs,
+                self.registrations_added as RegistrationNum,
+                f,
+                invocation_binder::<Fn, F>,
+            )
         };
 
         // TODO: Change OrderInfo such that unrelated data is not stored along.
-        self.exec_order_buffer.push(OrderBufferItem { resolver_ix, record_item: record.clone() });
+        self.exec_order_buffer.push(OrderBufferItem {
+            resolver_ix,
+            record_item: record.clone(),
+        });
 
         // Without the additions, awaiters for 0th resolver would resolve immediately.
         values.track_values(outputs, record.order_ix + 1);
@@ -181,15 +195,15 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         if self.exec_order_buffer.len() == self.exec_order_buffer.capacity() {
             self.write_buffer(None);
         }
-
     }
 
     fn internalize(
-        &mut self, 
+        &mut self,
         _resolver_ix: ResolverIx,
-        _inputs: &[crate::cs::Place], 
+        _inputs: &[crate::cs::Place],
         _outputs: &[crate::cs::Place],
-        _added_at: RegistrationNum) {
+        _added_at: RegistrationNum,
+    ) {
         todo!()
     }
 
@@ -198,11 +212,10 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         _resolver_ix: ResolverIx,
         _inputs: &[crate::cs::Place],
         _outputs: &[crate::cs::Place],
-        _added_at: RegistrationNum
+        _added_at: RegistrationNum,
     ) -> Vec<ResolverIx> {
         todo!()
     }
-
 
     fn flush(&mut self) {
         self.write_buffer(None);
@@ -216,5 +229,5 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         self.record.get()
     }
 
-    fn write_sequence(&mut self) { }
+    fn write_sequence(&mut self) {}
 }

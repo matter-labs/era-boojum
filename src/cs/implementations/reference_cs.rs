@@ -13,7 +13,8 @@ use std::marker::PhantomData;
 use std::sync::atomic::AtomicU32;
 use std::sync::RwLock;
 
-pub type CSDevelopmentAssembly<F, GC, T, CR> = CSReferenceImplementation<F, F, DevCSConfig, GC, T, CR>;
+pub type CSDevelopmentAssembly<F, GC, T, CR> =
+    CSReferenceImplementation<F, F, DevCSConfig, GC, T, CR>;
 pub type CSSetupAssembly<F, GC, T, CR> = CSReferenceImplementation<F, F, SetupCSConfig, GC, T, CR>;
 
 pub const PADDING_LOOKUP_TABLE_ID_VALUE: u32 = 0;
@@ -25,7 +26,10 @@ pub struct CSReferenceImplementation<
     CFG: CSConfig,
     GC: GateConfigurationHolder<F>,
     T: StaticToolboxHolder,
-    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<F, <CFG as CSConfig>::ResolverConfig>,
+    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<
+        F,
+        <CFG as CSConfig>::ResolverConfig,
+    >,
 > {
     pub(crate) parameters: CSGeometry,
     pub(crate) lookup_parameters: LookupParameters,
@@ -77,7 +81,10 @@ pub struct CSReferenceAssembly<
     F: SmallField, // over which we define a circuit
     P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>, // over whatever we evaluate gates. It can be vectorized type, or circuit variables
     CFG: CSConfig,
-    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<F, <CFG as CSConfig>::ResolverConfig>,
+    CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<
+        F,
+        <CFG as CSConfig>::ResolverConfig,
+    >,
 > {
     phantom: PhantomData<CFG>,
     pub parameters: CSGeometry,
@@ -114,7 +121,7 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-        CR: CircuitResolver<F, CFG::ResolverConfig>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
     > CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     pub(crate) fn lookups_tables_total_len(&self) -> usize {

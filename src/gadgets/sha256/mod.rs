@@ -108,6 +108,7 @@ pub fn sha256<F: SmallField, CS: ConstraintSystem<F>>(
 mod test {
     use super::*;
     use crate::{
+        config::CSConfig,
         cs::{
             gates::{ConstantsAllocatorGate, NopGate, ReductionGate},
             implementations::{
@@ -117,6 +118,7 @@ mod test {
             oracle::TreeHasher,
             CSGeometry,
         },
+        dag::CircuitResolverOpts,
         field::goldilocks::GoldilocksField,
         gadgets::tables::{
             ch4::{create_ch4_table, Ch4Table},
@@ -124,7 +126,7 @@ mod test {
             maj4::{create_maj4_table, Maj4Table},
             trixor4::{create_tri_xor_table, TriXor4Table},
         },
-        log, dag::{CircuitResolverOpts}, config::CSConfig,
+        log,
     };
     use blake2::Digest;
     type F = GoldilocksField;
@@ -375,10 +377,8 @@ mod test {
             use crate::config::DevCSConfig;
             type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
-            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(
-                geometry,
-                max_trace_len,
-            );
+            let builder_impl =
+                CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, max_trace_len);
             let builder = new_builder::<_, F>(builder_impl);
 
             let builder = configure(builder);
@@ -421,10 +421,8 @@ mod test {
 
         type RCfgS = <SetupCSConfig as CSConfig>::ResolverConfig;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, SetupCSConfig>::new(
-            geometry,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, SetupCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
@@ -467,10 +465,8 @@ mod test {
         use crate::config::ProvingCSConfig;
         type RCfgP = <ProvingCSConfig as CSConfig>::ResolverConfig;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
-            geometry,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);

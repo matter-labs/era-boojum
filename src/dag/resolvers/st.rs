@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, cell::UnsafeCell, collections::VecDeque};
+use std::{cell::UnsafeCell, collections::VecDeque, marker::PhantomData};
 
 use smallvec::SmallVec;
 
@@ -19,7 +19,7 @@ use crate::{
 };
 
 pub struct StCircuitResolverParams {
-    pub max_variables: usize
+    pub max_variables: usize,
 }
 
 #[derive(Default)]
@@ -39,8 +39,10 @@ pub struct StCircuitResolver<F, CFG: CSResolverConfig> {
 unsafe impl<F: SmallField, CFG: CSResolverConfig> Send for StCircuitResolver<F, CFG> {}
 unsafe impl<F: SmallField, CFG: CSResolverConfig> Sync for StCircuitResolver<F, CFG> {}
 
-impl<F, CFG> WitnessSource<F> for StCircuitResolver<F, CFG> 
-    where F: SmallField, CFG: CSResolverConfig 
+impl<F, CFG> WitnessSource<F> for StCircuitResolver<F, CFG>
+where
+    F: SmallField,
+    CFG: CSResolverConfig,
 {
     const PRODUCES_VALUES: bool = true;
 
@@ -48,7 +50,7 @@ impl<F, CFG> WitnessSource<F> for StCircuitResolver<F, CFG>
         let (v, md) = self.values.get_item_ref(variable);
 
         match md.is_resolved() {
-            true  => Some(*v),
+            true => Some(*v),
             false => None,
         }
     }
@@ -67,14 +69,18 @@ impl<F, CFG> WitnessSource<F> for StCircuitResolver<F, CFG>
     }
 }
 
-impl<F, CFG> WitnessSourceAwaitable<F> for StCircuitResolver<F, CFG> 
-    where F: SmallField, CFG: CSResolverConfig 
+impl<F, CFG> WitnessSourceAwaitable<F> for StCircuitResolver<F, CFG>
+where
+    F: SmallField,
+    CFG: CSResolverConfig,
 {
     type Awaiter<'a> = ImmediateAwaiter;
 
     fn get_awaiter<const N: usize>(&mut self, vars: [crate::cs::Place; N]) -> Self::Awaiter<'_> {
         if CFG::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            assert!(vars.iter().all(|x| self.values.get_item_ref(*x).1.is_resolved()));
+            assert!(vars
+                .iter()
+                .all(|x| self.values.get_item_ref(*x).1.is_resolved()));
         }
 
         // TODO: check registrar is empty
@@ -83,20 +89,30 @@ impl<F, CFG> WitnessSourceAwaitable<F> for StCircuitResolver<F, CFG>
     }
 }
 
-impl<F, CFG> CSWitnessSource<F> for StCircuitResolver<F, CFG> 
-    where F: SmallField, CFG: CSResolverConfig {}
+impl<F, CFG> CSWitnessSource<F> for StCircuitResolver<F, CFG>
+where
+    F: SmallField,
+    CFG: CSResolverConfig,
+{
+}
 
 impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
-    fn defer<Fn>(&mut self, inputs: &[crate::cs::Place], outputs: &[crate::cs::Place], f: Fn) -> Place
+    fn defer<Fn>(
+        &mut self,
+        inputs: &[crate::cs::Place],
+        outputs: &[crate::cs::Place],
+        f: Fn,
+    ) -> Place
     where
-        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync 
+        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync,
     {
         let resolver_ix = self.resolver_box.push(
             inputs,
             outputs,
             self.stats.resolvers_added,
             f,
-            invocation_binder::<Fn, F>);
+            invocation_binder::<Fn, F>,
+        );
 
         let place = inputs.iter().max_by_key(|x| x.0).unwrap();
 
@@ -105,28 +121,33 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
         *place
     }
 
-    fn invoke_closure<Fn>(&mut self, inputs: &[crate::cs::Place], outputs: &[crate::cs::Place], f: Fn)
-    where
-        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync 
+    fn invoke_closure<Fn>(
+        &mut self,
+        inputs: &[crate::cs::Place],
+        outputs: &[crate::cs::Place],
+        f: Fn,
+    ) where
+        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync,
     {
-        let ins_vs: SmallVec<[_; 8]> =
-            inputs
+        let ins_vs: SmallVec<[_; 8]> = inputs
             .iter()
             .map(|x| self.values.get_item_ref(*x).0)
             .collect();
 
-        let (mut out_vs, out_mds): (SmallVec<[_; 8]>, SmallVec<[_; 8]>) = 
-            outputs
+        let (mut out_vs, out_mds): (SmallVec<[_; 8]>, SmallVec<[_; 8]>) = outputs
             .iter()
-            .map(|x| unsafe { self.values.get_item_ref_mut(*x)} )
+            .map(|x| unsafe { self.values.get_item_ref_mut(*x) })
             .map(|(v, md)| (v, md))
             .unzip();
 
         f(
             ins_vs.as_slice(),
-            &mut DstBuffer::MutSliceIndirect(out_vs.as_mut_slice(), false, 0));
+            &mut DstBuffer::MutSliceIndirect(out_vs.as_mut_slice(), false, 0),
+        );
 
-        out_mds.into_iter().for_each(|x| *x = Metadata::new_resolved());
+        out_mds
+            .into_iter()
+            .for_each(|x| *x = Metadata::new_resolved());
         drop(out_vs);
         self.values.advance_track();
     }
@@ -136,8 +157,7 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
         let ins_ixs = resolver.inputs();
         let out_ixs = resolver.outputs();
 
-        let ins_vs: SmallVec<[_; 8]> =
-            ins_ixs
+        let ins_vs: SmallVec<[_; 8]> = ins_ixs
             .iter()
             .map(|x| {
                 let (v, md) = self.values.get_item_ref(*x);
@@ -150,8 +170,7 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
             })
             .collect();
 
-        let (mut out_vs, out_mds): (SmallVec<[_; 8]>, SmallVec<[_; 8]>) = 
-            out_ixs
+        let (mut out_vs, out_mds): (SmallVec<[_; 8]>, SmallVec<[_; 8]>) = out_ixs
             .iter()
             .map(|x| {
                 let (v, md) = self.values.get_item_ref_mut(*x);
@@ -169,14 +188,18 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
         );
         bind_fn(resolver, ins_vs.as_slice(), out_vs.as_mut_slice(), false);
 
-        out_mds.into_iter().for_each(|x| *x = Metadata::new_resolved());
+        out_mds
+            .into_iter()
+            .for_each(|x| *x = Metadata::new_resolved());
         drop(out_vs);
         self.values.advance_track();
     }
 
     fn advance(&mut self) {
-        while let Some(resolver_ix) = self.deferrer.try_take(Place(self.values.max_tracked as u64)) {
-            
+        while let Some(resolver_ix) = self
+            .deferrer
+            .try_take(Place(self.values.max_tracked as u64))
+        {
             // Safety: `resolver_ix` is provided from the deferrer which got it in the from the
             // resolver_box in the `defer` function.
             let resolver = unsafe { self.resolver_box.get(resolver_ix) };
@@ -195,7 +218,7 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
 
     fn resolve<Fn>(&mut self, inputs: &[crate::cs::Place], outputs: &[crate::cs::Place], f: Fn)
     where
-        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync 
+        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync,
     {
         self.invoke_closure(inputs, outputs, f);
 
@@ -208,12 +231,12 @@ impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for StCircuit
 
     fn new(opts: Self::Arg) -> Self {
         let values = Values {
-            variables:
-                Vec::with_capacity(opts.max_variables)
-                .op(|x| x.resize_with(
-                    opts.max_variables,
-                    || { UnsafeCell::new((F::from_u64_unchecked(0), Metadata::default())) }
-                ))
+            variables: Vec::with_capacity(opts.max_variables)
+                .op(|x| {
+                    x.resize_with(opts.max_variables, || {
+                        UnsafeCell::new((F::from_u64_unchecked(0), Metadata::default()))
+                    })
+                })
                 .to(|x| x.into_boxed_slice()),
             max_tracked: -1,
         };
@@ -233,21 +256,24 @@ impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for StCircuit
         self.advance();
     }
 
-    fn add_resolution<Fn>(&mut self, inputs: &[crate::cs::Place], outputs: &[crate::cs::Place], f: Fn)
-    where
-        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync 
+    fn add_resolution<Fn>(
+        &mut self,
+        inputs: &[crate::cs::Place],
+        outputs: &[crate::cs::Place],
+        f: Fn,
+    ) where
+        Fn: FnOnce(&[F], &mut crate::cs::traits::cs::DstBuffer<'_, '_, F>) + Send + Sync,
     {
         let mut input_packs = inputs.iter().map(|x| self.values.get_item_ref(*x));
 
         if CFG::DebugConfig::PERFORM_RUNTIME_ASSERTS {
-            assert!(
-                outputs
+            assert!(outputs
                 .iter()
                 .all(|x| x.as_any_index() < self.options.max_variables as u64));
 
             assert!(inputs.iter().all(|i| outputs.contains(i) == false));
         }
-        
+
         if input_packs.any(|(_, md)| md.is_resolved() == false) {
             self.defer(inputs, outputs, f);
         } else {
@@ -261,19 +287,17 @@ impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for StCircuit
         // TODO: check registrar is empty
     }
 
-    fn clear(&mut self) {
-
-    }
+    fn clear(&mut self) {}
 }
 
 struct Deferrer {
-    resolvers: VecDeque<(Place, ResolverIx)>
+    resolvers: VecDeque<(Place, ResolverIx)>,
 }
 
 impl Deferrer {
     fn new() -> Self {
         Self {
-            resolvers: VecDeque::new()
+            resolvers: VecDeque::new(),
         }
     }
 
@@ -283,23 +307,30 @@ impl Deferrer {
 
     fn try_take(&mut self, max_place: Place) -> Option<ResolverIx> {
         match self.resolvers.front() {
-            Some((place, _)) if *place <= max_place => { Some(self.resolvers.pop_front().unwrap().1) },
-            _ => None
+            Some((place, _)) if *place <= max_place => Some(self.resolvers.pop_front().unwrap().1),
+            _ => None,
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{config::{DevCSConfig, CSConfig}, field::{goldilocks::GoldilocksField, U64Representable}, dag::CircuitResolver, cs::{traits::cs::DstBuffer, Place}};
     use crate::dag::*;
+    use crate::{
+        config::{CSConfig, DevCSConfig},
+        cs::{traits::cs::DstBuffer, Place},
+        dag::CircuitResolver,
+        field::{goldilocks::GoldilocksField, U64Representable},
+    };
 
     use super::StCircuitResolver;
 
     type F = GoldilocksField;
     type Cfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
-    fn new_f(x: u64) -> F { F::from_u64_unchecked(x) }
+    fn new_f(x: u64) -> F {
+        F::from_u64_unchecked(x)
+    }
 
     #[test]
     fn resolves_init() {
@@ -341,7 +372,6 @@ mod test {
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);
         };
-
 
         resolver.add_resolution(&[Place(0)], &[Place(1)], res_fn);
         resolver.add_resolution(&[Place(1)], &[Place(2)], res_fn);

@@ -1,12 +1,11 @@
 use std::cell::UnsafeCell;
-use std::ops::{Sub, Add, AddAssign};
+use std::ops::{Add, AddAssign, Sub};
 
 use crate::cs::{Place, Variable};
 use crate::utils::PipeOp as _;
 
-use super::TrackId;
 use super::guide::OrderInfo;
-
+use super::TrackId;
 
 pub struct Values<V, T: Default> {
     pub(crate) variables: Box<[UnsafeCell<(V, Metadata<T>)>]>,
@@ -71,18 +70,16 @@ impl<V, T: Default + Copy> Values<V, T> {
     pub(crate) fn advance_track(&mut self) {
         for i in (self.max_tracked + 1)..self.variables.len() as i64 {
             // TODO: switch to the following on next dev iteration.
-            if  i
-                .to(std::convert::TryInto::<u64>::try_into)
+            if i.to(std::convert::TryInto::<u64>::try_into)
                 .unwrap()
                 .to(Variable::from_variable_index)
                 .to(Place::from_variable)
                 .to(|x| self.get_item_ref(x))
-                .1.is_tracked() 
+                .1
+                .is_tracked()
             {
                 self.max_tracked = i;
-            } 
-            else 
-            {
+            } else {
                 break;
             }
         }
@@ -151,18 +148,23 @@ impl<T: Default> std::fmt::Debug for Metadata<T> {
         };
         let tracker: u64;
         unsafe {
-            if      size_of::<T>() == size_of::<u64>() { tracker = transmute_copy::<_, u64>(&self.tracker) }
-            else if size_of::<T>() == size_of::<u32>() { tracker = transmute_copy::<_, u32>(&self.tracker) as u64 }
-            else { tracker = 0 }
+            if size_of::<T>() == size_of::<u64>() {
+                tracker = transmute_copy::<_, u64>(&self.tracker)
+            } else if size_of::<T>() == size_of::<u32>() {
+                tracker = transmute_copy::<_, u32>(&self.tracker) as u64
+            } else {
+                tracker = 0
+            }
         };
-        f.debug_struct("Metadata").field("data", &mdh).field("tracker", &tracker).finish()
+        f.debug_struct("Metadata")
+            .field("data", &mdh)
+            .field("tracker", &tracker)
+            .finish()
     }
 }
 
-
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Default, Clone, Copy)]
 pub struct OrderIx(u32);
-
 
 impl From<u32> for OrderIx {
     fn from(value: u32) -> Self {
@@ -210,7 +212,7 @@ impl From<OrderIx> for isize {
     }
 }
 
-impl TrackId for OrderIx { }
+impl TrackId for OrderIx {}
 
 impl Add<i32> for OrderIx {
     type Output = Self;
@@ -236,11 +238,10 @@ impl Add<u32> for OrderIx {
 }
 
 impl AddAssign<u32> for OrderIx {
-        fn add_assign(&mut self, rhs: u32) {
+    fn add_assign(&mut self, rhs: u32) {
         *self = *self + rhs;
     }
 }
-
 
 impl Add<usize> for OrderIx {
     type Output = Self;
@@ -265,9 +266,8 @@ pub struct ExecOrder {
     pub size: usize,
     /// The order itself. The `len` of the vector behaves differently in record and playback mode.
     /// Code agnostic to the mode can't rely on it.
-    pub items: Vec<OrderInfo<ResolverIx>>
+    pub items: Vec<OrderInfo<ResolverIx>>,
 }
-
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ResolverIx(pub u32);

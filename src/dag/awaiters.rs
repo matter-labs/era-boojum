@@ -8,9 +8,9 @@ use std::thread::yield_now;
 use crate::log;
 use crate::utils::{PipeOp, UnsafeCellEx};
 
-use super::TrackId;
 use super::primitives::Metadata;
 use super::resolvers::mt::ResolverComms;
+use super::TrackId;
 
 #[derive(Debug)]
 pub(crate) struct AwaiterStats {
@@ -22,7 +22,7 @@ pub struct AwaitersBroker<T> {
     /// Tracks the maximum resolved location.
     max_resolved: AtomicU64,
     pub(crate) stats: UnsafeCell<AwaiterStats>,
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 impl<T: TrackId> AwaitersBroker<T> {
@@ -34,16 +34,13 @@ impl<T: TrackId> AwaitersBroker<T> {
             stats: UnsafeCell::new(AwaiterStats {
                 total_registered: 0,
             }),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 
     pub(crate) fn notify(&self, resolved: T) {
         // TODO: Remove once the system is stable.
-        let max_resolved = self
-            .max_resolved
-            .load(Ordering::Relaxed)
-            .to(T::from);
+        let max_resolved = self.max_resolved.load(Ordering::Relaxed).to(T::from);
         assert!(
             resolved >= max_resolved,
             "Resolved location less than the maximum resolved location: {:?} > {:?}",
@@ -51,8 +48,7 @@ impl<T: TrackId> AwaitersBroker<T> {
             max_resolved
         );
 
-        self.max_resolved
-            .store(resolved.into(), Ordering::Relaxed);
+        self.max_resolved.store(resolved.into(), Ordering::Relaxed);
     }
 
     pub(crate) fn register<'a>(&'a self, comms: &'a ResolverComms, md: &Metadata<T>) -> Awaiter<T> {
@@ -90,13 +86,7 @@ impl<'a, T: TrackId> crate::dag::Awaiter<'a> for Awaiter<'a, T> {
         let iterations = 0;
 
         loop {
-            if self
-                .broker
-                .max_resolved
-                .load(Ordering::Relaxed)
-                .to(T::from)
-                >= self.track_id
-            {
+            if self.broker.max_resolved.load(Ordering::Relaxed).to(T::from) >= self.track_id {
                 break;
             }
 
@@ -124,8 +114,8 @@ impl<'a, T: TrackId> crate::dag::Awaiter<'a> for Awaiter<'a, T> {
 }
 
 /// An awaiter that is always considered resolved. Used by the single threaded resolver.
-pub struct ImmediateAwaiter { }
+pub struct ImmediateAwaiter {}
 
 impl<'a> crate::dag::Awaiter<'a> for ImmediateAwaiter {
-    fn wait(&self) { }
+    fn wait(&self) {}
 }

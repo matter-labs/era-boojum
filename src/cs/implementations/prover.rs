@@ -78,7 +78,7 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-        CR: CircuitResolver<F, CFG::ResolverConfig>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
     > CSReferenceAssembly<F, P, CFG, CR>
 {
     pub fn take_witness(&mut self, worker: &Worker) -> WitnessSet<F> {

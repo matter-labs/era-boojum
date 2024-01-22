@@ -2196,7 +2196,7 @@ mod test {
     use super::*;
     use crate::algebraic_props::round_function::AbsorptionModeOverwrite;
     use crate::algebraic_props::sponge::GoldilocksPoseidon2Sponge;
-    use crate::config::{DevCSConfig, CSConfig};
+    use crate::config::{CSConfig, DevCSConfig};
     use crate::cs::cs_builder::new_builder;
     use crate::cs::cs_builder_reference::CsReferenceImplementationBuilder;
     use crate::cs::cs_builder_verifier::CsVerifierBuilder;

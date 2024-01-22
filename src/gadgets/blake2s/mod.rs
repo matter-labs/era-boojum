@@ -138,12 +138,14 @@ pub fn blake2s<F: SmallField, CS: ConstraintSystem<F>>(
 mod test {
     use super::*;
     use crate::{
+        config::CSConfig,
         cs::{gates::ConstantsAllocatorGate, CSGeometry},
+        dag::CircuitResolverOpts,
         field::goldilocks::GoldilocksField,
         gadgets::tables::{
             byte_split::{create_byte_split_table, ByteSplitTable},
             xor8::{create_xor8_table, Xor8Table},
-        }, dag::{CircuitResolverOpts}, config::CSConfig,
+        },
     };
     use blake2::Digest;
     type F = GoldilocksField;
@@ -201,11 +203,7 @@ mod test {
         type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<
-                F,
-                F,
-                DevCSConfig>
-            ::new(geometry, 1 << 17);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 17);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
