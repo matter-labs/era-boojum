@@ -249,12 +249,6 @@ impl<
             placement_strategies.insert(*gate_type_id, placement_strategy);
         }
 
-        // we can also drop resolver to have no memory reserved by it
-        // regardless of the initial settings
-        let opts = crate::dag::CircuitResolverOpts {
-            max_variables: 1,
-            desired_parallelism: 1,
-        };
         let variables_storage = std::sync::RwLock::new(NullCircuitResolver::new(()));
 
         CSReferenceAssembly::<F, P, CFG, NullCircuitResolver<F, CFG::ResolverConfig>> {

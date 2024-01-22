@@ -20,7 +20,7 @@ use crate::cs::traits::cs::{ConstraintSystem, DstBuffer};
 use crate::cs::traits::evaluator::*;
 use crate::cs::traits::gate::Gate;
 
-use crate::dag::{CSWitnessValues, WitnessSource, WitnessSourceAwaitable};
+use crate::dag::CSWitnessValues;
 
 use crate::cs::implementations::reference_cs::*;
 
