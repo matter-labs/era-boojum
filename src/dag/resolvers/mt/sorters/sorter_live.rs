@@ -5,7 +5,24 @@ use std::{marker::PhantomData, sync::{Arc, Mutex, atomic::AtomicIsize}, cell::Un
 
 use itertools::Itertools;
 
-use crate::{config::CSResolverConfig, field::SmallField, cs::{VariableType, Variable, Place, traits::cs::DstBuffer}, log, dag::{primitives::{Values, Metadata, ExecOrder, ResolverIx}, resolver_box::{invocation_binder, ResolverBox}, CircuitResolverOpts, guide::{GuideLoc, RegistrationNum, BufferGuide, GuideOrder, OrderInfo, GuideMetadata}, resolvers::mt::{resolution_window::RWConfigRecord, ResolverComms, registrar::Registrar, ResolverCommonData, sorters::ResolutionRecordItem}, awaiters::AwaitersBroker}, utils::{PipeOp, UnsafeCellEx}};
+use crate::{
+    config::CSResolverConfig,
+    cs::{traits::cs::DstBuffer, Place, Variable, VariableType},
+    dag::{
+        awaiters::AwaitersBroker,
+        guide::{BufferGuide, GuideLoc, GuideMetadata, GuideOrder, OrderInfo, RegistrationNum},
+        primitives::{ExecOrder, Metadata, ResolverIx, Values},
+        resolver_box::{invocation_binder, ResolverBox},
+        resolvers::mt::{
+            registrar::Registrar, resolution_window::RWConfigRecord, sorters::ResolutionRecordItem,
+            ResolverCommonData, ResolverComms,
+        },
+        CircuitResolverOpts,
+    },
+    field::SmallField,
+    log,
+    utils::{PipeOp, UnsafeCellEx},
+};
 
 use super::{ResolverSortingMode, ResolutionRecordWriter, ResolutionRecord};
 

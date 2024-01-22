@@ -1,7 +1,18 @@
-
 use std::{marker::PhantomData, sync::{Arc, Mutex}, cell::UnsafeCell };
 
-use crate::{field::SmallField, config::CSResolverConfig, cs::Place, dag::{resolver_box::{ResolverBox, invocation_binder}, awaiters::AwaitersBroker, guide::{OrderInfo, GuideMetadata, RegistrationNum}, primitives::{Values, Metadata, OrderIx, ExecOrder, ResolverIx}, resolvers::mt::{ResolverComms, ResolverCommonData}}, utils::{PipeOp, UnsafeCellEx}};
+use crate::{
+    config::CSResolverConfig,
+    cs::Place,
+    dag::{
+        awaiters::AwaitersBroker,
+        guide::{GuideMetadata, OrderInfo, RegistrationNum},
+        primitives::{ExecOrder, Metadata, OrderIx, ResolverIx, Values},
+        resolver_box::{invocation_binder, ResolverBox},
+        resolvers::mt::{ResolverCommonData, ResolverComms},
+    },
+    field::SmallField,
+    utils::{PipeOp, UnsafeCellEx},
+};
 
 use super::{ResolverSortingMode, ResolutionRecordItem, ResolutionRecordSource, ResolutionRecord};
 

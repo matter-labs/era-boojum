@@ -2,7 +2,21 @@ use std::{marker::PhantomData, cell::UnsafeCell, collections::VecDeque};
 
 use smallvec::SmallVec;
 
-use crate::{field::SmallField, config::{CSResolverConfig, CSDebugConfig}, dag::{CircuitResolver, WitnessSource, WitnessSourceAwaitable, primitives::{Values, Metadata, OrderIx, ResolverIx}, awaiters::ImmediateAwaiter, resolver_box::{ResolverBox, invocation_binder, Resolver}, CircuitResolverOpts}, cs::{traits::cs::{CSWitnessSource, DstBuffer}, Place}, utils::PipeOp as _};
+use crate::{
+    config::{CSDebugConfig, CSResolverConfig},
+    cs::{
+        traits::cs::{CSWitnessSource, DstBuffer},
+        Place,
+    },
+    dag::{
+        awaiters::ImmediateAwaiter,
+        primitives::{Metadata, OrderIx, ResolverIx, Values},
+        resolver_box::{invocation_binder, Resolver, ResolverBox},
+        CircuitResolver, CircuitResolverOpts, WitnessSource, WitnessSourceAwaitable,
+    },
+    field::SmallField,
+    utils::PipeOp as _,
+};
 
 pub struct StCircuitResolverParams {
     pub max_variables: usize

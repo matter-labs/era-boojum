@@ -27,8 +27,15 @@ use smallvec::SmallVec;
 
 use crate::{
     cs::Place,
+    dag::{
+        guide::{GuideLoc, OrderInfo},
+        primitives::{OrderIx, ResolverIx},
+        resolver_box::Resolver,
+        TrackId,
+    },
     field::SmallField,
-    utils::{DilatoryPrinter, PipeOp, UnsafeCellEx}, dag::{guide::{OrderInfo, GuideLoc}, primitives::{ResolverIx, OrderIx}, TrackId, resolver_box::Resolver}, log,
+    log,
+    utils::{DilatoryPrinter, PipeOp, UnsafeCellEx},
 };
 
 use super::{ResolverComms, ResolverCommonData};
@@ -1041,5 +1048,3 @@ impl LockStepWorker {
         self.channel.die_order.load(Relaxed)
     }
 }
-
-

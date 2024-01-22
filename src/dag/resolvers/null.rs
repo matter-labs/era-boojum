@@ -1,6 +1,14 @@
 use std::marker::PhantomData;
 
-use crate::{dag::{CircuitResolver, WitnessSource, WitnessSourceAwaitable, awaiters::Awaiter, primitives::OrderIx}, field::SmallField, config::CSResolverConfig, cs::traits::cs::CSWitnessSource};
+use crate::{
+    config::CSResolverConfig,
+    cs::traits::cs::CSWitnessSource,
+    dag::{
+        awaiters::Awaiter, primitives::OrderIx, CircuitResolver, WitnessSource,
+        WitnessSourceAwaitable,
+    },
+    field::SmallField,
+};
 
 pub struct NullCircuitResolver<F, CFG> {
     phantom: PhantomData<(F, CFG)>
