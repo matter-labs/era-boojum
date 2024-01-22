@@ -12,7 +12,7 @@ use crate::{
         awaiters::ImmediateAwaiter,
         primitives::{Metadata, OrderIx, ResolverIx, Values},
         resolver_box::{invocation_binder, Resolver, ResolverBox},
-        CircuitResolver, CircuitResolverOpts, WitnessSource, WitnessSourceAwaitable,
+        CircuitResolver, WitnessSource, WitnessSourceAwaitable,
     },
     field::SmallField,
     utils::PipeOp as _,
@@ -21,6 +21,20 @@ use crate::{
 pub struct StCircuitResolverParams {
     pub max_variables: usize,
 }
+
+impl From<usize> for StCircuitResolverParams {
+    fn from(value: usize) -> Self {
+        Self::new(value)
+    }
+}
+
+impl StCircuitResolverParams {
+    pub fn new(max_variables: usize) -> Self {
+        Self { max_variables }
+    }
+}
+
+
 
 #[derive(Default)]
 struct Stats {
@@ -31,7 +45,7 @@ pub struct StCircuitResolver<F, CFG: CSResolverConfig> {
     values: Values<F, OrderIx>,
     deferrer: Deferrer,
     resolver_box: ResolverBox<F>,
-    options: CircuitResolverOpts,
+    options: StCircuitResolverParams,
     stats: Stats,
     phantom: PhantomData<CFG>,
 }
@@ -227,7 +241,7 @@ impl<F: SmallField, CFG: CSResolverConfig> StCircuitResolver<F, CFG> {
 }
 
 impl<F: SmallField, CFG: CSResolverConfig> CircuitResolver<F, CFG> for StCircuitResolver<F, CFG> {
-    type Arg = CircuitResolverOpts;
+    type Arg = StCircuitResolverParams;
 
     fn new(opts: Self::Arg) -> Self {
         let values = Values {
@@ -316,6 +330,7 @@ impl Deferrer {
 #[cfg(test)]
 mod test {
     use crate::dag::*;
+    use crate::dag::resolvers::StCircuitResolverParams;
     use crate::{
         config::{CSConfig, DevCSConfig},
         cs::{traits::cs::DstBuffer, Place},
@@ -334,7 +349,7 @@ mod test {
 
     #[test]
     fn resolves_init() {
-        let mut resolver = StCircuitResolver::<F, Cfg>::new(CircuitResolverOpts::new(111));
+        let mut resolver = StCircuitResolver::<F, Cfg>::new(StCircuitResolverParams::new(111));
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);
@@ -350,7 +365,7 @@ mod test {
 
     #[test]
     fn resolves_chain() {
-        let mut resolver = StCircuitResolver::<F, Cfg>::new(CircuitResolverOpts::new(111));
+        let mut resolver = StCircuitResolver::<F, Cfg>::new(StCircuitResolverParams::new(111));
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);
@@ -367,7 +382,7 @@ mod test {
 
     #[test]
     fn resolves_delayed_set() {
-        let mut resolver = StCircuitResolver::<F, Cfg>::new(CircuitResolverOpts::new(111));
+        let mut resolver = StCircuitResolver::<F, Cfg>::new(StCircuitResolverParams::new(111));
 
         let res_fn = |ins: &[F], outs: &mut DstBuffer<F>| {
             outs.push(ins[0]);
