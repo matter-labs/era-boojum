@@ -20,16 +20,12 @@ impl<V, T: Default + Copy> Values<V, T> {
     pub(crate) fn get_item_ref(&self, key: Place) -> &(V, Metadata<T>) {
         let vs = self.resolve_type(key);
         unsafe { &(*vs[key.raw_ix()].get()) }
-
-        // TODO: spec unprocessed/untracked items
     }
 
     // Safety: No other mutable references to the same item are allowed.
     pub(crate) unsafe fn get_item_ref_mut(&self, key: Place) -> &mut (V, Metadata<T>) {
         let vs = self.resolve_type(key);
         &mut (*vs[key.raw_ix()].get())
-
-        // TODO: spec unprocessed/untracked items
     }
 
     /// Marks values as tracked and stores the resolution order that those values
@@ -69,7 +65,6 @@ impl<V, T: Default + Copy> Values<V, T> {
 
     pub(crate) fn advance_track(&mut self) {
         for i in (self.max_tracked + 1)..self.variables.len() as i64 {
-            // TODO: switch to the following on next dev iteration.
             if i.to(std::convert::TryInto::<u64>::try_into)
                 .unwrap()
                 .to(Variable::from_variable_index)

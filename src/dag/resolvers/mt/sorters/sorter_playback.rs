@@ -187,8 +187,6 @@ impl<F: SmallField, Rrs: ResolutionRecordSource, Cfg: CSResolverConfig> Resolver
         // Without the additions, awaiters for 0th resolver would resolve immediately.
         values.track_values(outputs, record.order_ix + 1);
 
-        // debug_assert!(self.exec_order_buffer.capacity() == 1);
-
         self.registrations_added += 1;
 
         // TODO: Check if branch hints are needed.

@@ -98,13 +98,10 @@ pub struct ResolverCommonData<V, T: Default> {
 ///    Unsafe to work with.
 
 pub struct MtCircuitResolver<V: SmallField, RS: ResolverSortingMode<V>, CFG: CSResolverConfig> {
-    // registrar: Registrar,
     sorter: RS,
 
     pub(crate) common: Arc<ResolverCommonData<V, RS::TrackId>>,
-    // pub(crate) options: CircuitResolverOpts,
     comms: Arc<ResolverComms>,
-    // pub(crate) guide: BufferGuide<ResolverIx, Cfg>,
     resolution_window_handle: Option<JoinHandle<()>>,
 
     stats: Stats,
@@ -187,11 +184,8 @@ impl<V: SmallField, RS: ResolverSortingMode<V>, CFG: CSResolverConfig>
         let (sorter, common) = RS::new(opts, comms.clone(), &debug_track);
 
         Self {
-            // options: opts,
             call_count: 0,
             sorter,
-            // guide: BufferGuide::new(opts.desired_parallelism),
-            // registrar: Registrar::new(),
             comms: comms.clone(),
 
             resolution_window_handle: ResolutionWindow::<V, RS::TrackId, RS::Config>::run(
@@ -493,7 +487,6 @@ mod test {
 
         let mut storage = MtCircuitResolver::<
             F,
-            // ActiveRecordingResolverSorter<F, CFG, TestRecordStorage>,
             PlaybackResolverSorter<F, TestRecordStorage, Cfg>,
             Cfg,
         >::new(rs);
@@ -696,7 +689,6 @@ mod test {
     }
 
     #[test]
-    // #[ignore = "temp"]
     fn resolves_descendants_playback_mode() {
         let mut storage =
             MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
@@ -839,9 +831,6 @@ mod test {
 
     #[test]
     fn awaiter_returns_for_resolved_value_playback_mode() {
-        // awaiter_returns_for_resolved_value_playback_mode_impl(2, 2);
-        // awaiter_returns_for_resolved_value_playback_mode_impl(2, 20);
-        // awaiter_returns_for_resolved_value_playback_mode_impl(2, 2048);
         awaiter_returns_for_resolved_value_playback_mode_impl(15, 2);
         awaiter_returns_for_resolved_value_playback_mode_impl(15, 20);
         awaiter_returns_for_resolved_value_playback_mode_impl(15, 2048);

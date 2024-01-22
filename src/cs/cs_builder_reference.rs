@@ -29,10 +29,6 @@ pub struct CsReferenceImplementationBuilder<
     F: SmallField,
     P: PrimeFieldLikeVectorized<Base = F>,
     CFG: CSConfig,
-    // CR: CircuitResolver<F, CFG::ResolverConfig> =
-    //     crate::dag::resolvers::MtCircuitResolver<F,
-    //         RuntimeResolverSorter<F,
-    //             <CFG as CSConfig>::ResolverConfig>, <CFG as CSConfig>::ResolverConfig>,
     CR: CircuitResolver<F, CFG::ResolverConfig> = DefaultCircuitResolver<
         F,
         <CFG as CSConfig>::ResolverConfig,
@@ -382,10 +378,6 @@ impl<
             );
 
         let variables_storage = RwLock::new(CR::new(params.into()));
-        // let variables_storage = RwLock::new(CircuitResolver::new(CircuitResolverOpts {
-        //     desired_parallelism: 1 << 12,
-        //     // desired_parallelism: (1 << 15) + 1,
-        // }));
 
         let mut evaluation_data_over_general_purpose_columns =
             evaluation_data_over_general_purpose_columns;

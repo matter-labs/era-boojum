@@ -99,8 +99,6 @@ pub trait Awaiter<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitResolverOpts {
     pub max_variables: usize,
-    //pub witness_columns: usize,
-    //pub max_trace_len: usize,
     pub desired_parallelism: u32,
 }
 

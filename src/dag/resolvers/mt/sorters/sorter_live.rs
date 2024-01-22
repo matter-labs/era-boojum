@@ -595,7 +595,6 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
     fn final_flush(&mut self) {
         assert!(self.registrar.is_empty());
-        // assert!(self.registrar.is_empty(), "Registrar is not empty: has {:?}", self.registrar.peek_vars());
 
         self.flush();
 
@@ -606,14 +605,6 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
         for (i, item) in self.record.items[..].iter_mut().enumerate() {
             debug_assert_eq!(i, item.added_at as usize);
-
-            // When the resolver is accepted at the same registration as it is being added, that
-            // means that it has all dependencies tracked and will be placed in the exec order to
-            // the left of it. If the resolver is accepted at later registration, the order size
-            // for it will be covered by the immediately accepted resolver that it depends on.
-            // if item.added_at == item.accepted_at {
-            //     item.order_len = i + 1;
-            // }
         }
         self.record.values_count = 1 + unsafe { self.common.values.u_deref().max_tracked } as usize;
         self.record.registrations_count = self.stats.registrations_added as usize;
@@ -633,7 +624,6 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         }
     }
 
-    // TODO: delete
     fn retrieve_sequence(&mut self) -> &ResolutionRecord {
         &self.record
     }

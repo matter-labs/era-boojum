@@ -464,8 +464,6 @@ pub(crate) fn invocation_binder<Fn, F: SmallField>(
             );
         }
     }
-
-    // TODO: uninit resolver.
 }
 
 #[cfg(test)]
