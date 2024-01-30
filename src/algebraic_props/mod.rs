@@ -7,3 +7,4 @@ pub mod matrix_parameters;
 pub mod poseidon2_parameters;
 pub mod round_function;
 pub mod sponge;
+pub mod monolith_parameters;

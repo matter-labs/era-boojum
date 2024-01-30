@@ -1,5 +1,6 @@
 pub mod goldilocks;
 pub mod traits;
+pub mod mersenne;
 
 pub use self::traits::field::*;
 pub use self::traits::representation::*;

@@ -11,6 +11,7 @@ pub mod range_check_16_bits;
 pub mod range_check_table;
 pub mod trixor4;
 pub mod xor8;
+pub mod monolith_sbox;
 
 pub use and8::*;
 pub use binop_table::*;
@@ -22,3 +23,4 @@ pub use range_check_16_bits::*;
 pub use range_check_table::*;
 pub use trixor4::*;
 pub use xor8::*;
+pub use monolith_sbox::*;
