@@ -451,6 +451,8 @@ fn poseidon2_goldilocks_not_unrolled_partial_round<CS: ConstraintSystem<Goldiloc
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
 
     use crate::config::CSConfig;
@@ -533,7 +535,7 @@ mod test {
         let worker = Worker::new();
 
         log!("Checking if satisfied");
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 
@@ -615,7 +617,7 @@ mod test {
         let worker = Worker::new();
 
         log!("Checking if satisfied");
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 }

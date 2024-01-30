@@ -1,3 +1,5 @@
+use self::traits::GoodAllocator;
+
 use super::hints::{DenseVariablesCopyHint, DenseWitnessCopyHint};
 use super::polynomial_storage::{SetupBaseStorage, SetupStorage};
 use super::utils::*;
@@ -393,8 +395,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-        CR: CircuitResolver<F, CFG::ResolverConfig>,
-    > CSReferenceAssembly<F, P, CFG, CR>
+        A: GoodAllocator,
+    > CSReferenceAssembly<F, P, CFG, A>
 {
     pub fn create_permutation_polys(
         &self,

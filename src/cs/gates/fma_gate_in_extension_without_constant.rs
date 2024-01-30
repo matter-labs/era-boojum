@@ -478,6 +478,9 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+    use std::alloc::GlobalAlloc;
+
     use crate::dag::CircuitResolverOpts;
     use crate::dag::DefaultCircuitResolver;
     use crate::field::Field;
@@ -553,7 +556,7 @@ mod test {
         let worker = Worker::new();
 
         log!("Checking if satisfied");
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 }

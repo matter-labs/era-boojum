@@ -103,21 +103,9 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-        CR: CircuitResolver<F, CFG::ResolverConfig>,
-    > CSReferenceAssembly<F, P, CFG, CR>
+        A: GoodAllocator,
+    > CSReferenceAssembly<F, P, CFG, A>
 {
-    pub fn wait_for_witness(&mut self) {
-        assert!(
-            CFG::WitnessConfig::EVALUATE_WITNESS,
-            "CS is not configured to have witness available"
-        );
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-    }
-
     pub(crate) fn materialize_witness_polynomials(
         &mut self,
         worker: &Worker,
@@ -149,15 +137,6 @@ impl<
             result.push(poly.clone_respecting_allignment::<P>());
         }
         result.push(poly);
-
-        let now = std::time::Instant::now();
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-
-        log!("Waited for witness to finish over {:?}", now.elapsed());
 
         let storage_ref = &self.variables_storage.read().unwrap();
 
@@ -437,7 +416,7 @@ impl<
         result
     }
 
-    pub fn materialize_witness_vec<A: GoodAllocator>(&mut self) -> WitnessVec<F, A> {
+    pub fn materialize_witness_vec(&mut self) -> WitnessVec<F, A> {
         assert!(
             CFG::WitnessConfig::EVALUATE_WITNESS,
             "CS is not configured to have witness available"
@@ -494,7 +473,7 @@ impl<
         }
     }
 
-    pub fn witness_set_from_witness_vec<A: GoodAllocator>(
+    pub fn witness_set_from_witness_vec(
         &self,
         witness_set: &WitnessVec<F, A>,
         vars_hint: &DenseVariablesCopyHint,

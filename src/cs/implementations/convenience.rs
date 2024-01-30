@@ -29,8 +29,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-        CR: CircuitResolver<F, CFG::ResolverConfig>,
-    > CSReferenceAssembly<F, P, CFG, CR>
+        A: GoodAllocator,
+    > CSReferenceAssembly<F, P, CFG, A>
 {
     pub fn prove_one_shot<
         EXT: FieldExtension<2, BaseField = F>,
@@ -163,7 +163,6 @@ impl<
         TR: Transcript<F>,
         H: TreeHasher<F, Output = TR::CompatibleCap>,
         POW: PoWRunner,
-        A: GoodAllocator,
     >(
         &self,
         witness_vector: &WitnessVec<F, A>,

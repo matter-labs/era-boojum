@@ -106,6 +106,8 @@ pub fn sha256<F: SmallField, CS: ConstraintSystem<F>>(
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
     use crate::{
         config::CSConfig,
@@ -244,8 +246,7 @@ mod test {
 
         drop(cs);
         owned_cs.pad_and_shrink();
-        let mut owned_cs = owned_cs.into_assembly();
-        owned_cs.wait_for_witness();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         use crate::worker::Worker;
         let worker = Worker::new_with_num_threads(8);
         assert!(owned_cs.check_if_satisfied(&worker));
@@ -412,7 +413,7 @@ mod test {
             let _output = sha256(cs, &circuit_input);
             drop(cs);
             let (_, _padding_hint) = owned_cs.pad_and_shrink();
-            let mut owned_cs = owned_cs.into_assembly();
+            let mut owned_cs = owned_cs.into_assembly::<Global>();
             assert!(owned_cs.check_if_satisfied(&worker));
         }
 
@@ -456,7 +457,7 @@ mod test {
         let _output = sha256(cs, &circuit_input);
         drop(cs);
         let (_, padding_hint) = owned_cs.pad_and_shrink();
-        let owned_cs = owned_cs.into_assembly();
+        let owned_cs = owned_cs.into_assembly::<Global>();
         owned_cs.print_gate_stats();
 
         let (base_setup, setup, vk, setup_tree, vars_hint, wits_hint) =
@@ -504,7 +505,7 @@ mod test {
         dbg!(now.elapsed());
         log!("Synthesis for proving is done");
         owned_cs.pad_and_shrink_using_hint(&padding_hint);
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
 
         log!("Proving");
         let witness_set = owned_cs.take_witness_using_hints(&worker, &vars_hint, &wits_hint);

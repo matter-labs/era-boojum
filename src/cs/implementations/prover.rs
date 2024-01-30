@@ -77,12 +77,10 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-        CR: CircuitResolver<F, CFG::ResolverConfig>,
-    > CSReferenceAssembly<F, P, CFG, CR>
+        A: GoodAllocator,
+    > CSReferenceAssembly<F, P, CFG, A>
 {
     pub fn take_witness(&mut self, worker: &Worker) -> WitnessSet<F> {
-        self.wait_for_witness();
-
         // get our columns flattened out
         let variables_columns = self.materialize_variables_polynomials(worker);
         let witness_columns = self.materialize_witness_polynomials(worker);
@@ -100,8 +98,6 @@ impl<
             public_inputs_only_values.push(value);
         }
 
-        // we can cleanup variables storage
-        self.variables_storage.get_mut().unwrap().clear();
 
         WitnessSet {
             public_inputs_values: public_inputs_only_values,
@@ -113,20 +109,11 @@ impl<
     }
 
     pub fn dump_values_set(&mut self) -> Vec<F> {
-        self.wait_for_witness();
         let max_idx = self.next_available_place_idx as usize;
 
-        // we should do memcopy instead later on
         let mut values = Vec::with_capacity(max_idx);
-        for idx in 0..max_idx {
-            let place = Place(idx as u64);
-            let value = self
-                .variables_storage
-                .get_mut()
-                .unwrap()
-                .get_value_unchecked(place);
-            values.push(value);
-        }
+
+        values.copy_from_slice(&self.witness.unwrap().all_values);
 
         values
     }
@@ -137,8 +124,6 @@ impl<
         vars_hint: &DenseVariablesCopyHint,
         wits_hint: &DenseWitnessCopyHint,
     ) -> WitnessSet<F> {
-        self.wait_for_witness();
-
         // get our columns flattened out
         let variables_columns =
             self.materialize_variables_polynomials_from_dense_hint(worker, vars_hint);
@@ -157,9 +142,6 @@ impl<
             public_inputs_with_values.push((column, row, value));
             public_inputs_only_values.push(value);
         }
-
-        // we can cleanup variables storage
-        self.variables_storage.get_mut().unwrap().clear();
 
         WitnessSet {
             public_inputs_values: public_inputs_only_values,

@@ -136,6 +136,8 @@ pub fn blake2s<F: SmallField, CS: ConstraintSystem<F>>(
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
     use crate::{
         config::CSConfig,
@@ -253,7 +255,6 @@ mod test {
         assert_eq!(output, reference_output);
 
         drop(cs);
-        let mut owned_cs = owned_cs.into_assembly();
-        owned_cs.wait_for_witness();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
     }
 }

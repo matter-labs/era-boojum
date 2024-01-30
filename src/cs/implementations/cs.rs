@@ -1048,6 +1048,8 @@ impl<
 #[cfg(test)]
 mod test {
 
+    use std::alloc::Global;
+
     use super::*;
     use crate::algebraic_props::round_function::AbsorptionModeOverwrite;
     use crate::algebraic_props::sponge::GoldilocksPoseidonSponge;
@@ -1163,7 +1165,7 @@ mod test {
         // let worker = Worker::new();
 
         let worker = Worker::new_with_num_threads(1);
-        let cs = cs.into_assembly();
+        let cs = cs.into_assembly::<Global>();
 
         let lde_factor_to_use = 16;
         let proof_config = ProofConfig {
@@ -1323,7 +1325,7 @@ mod test {
         dbg!(&cs.max_trace_len);
 
         let worker = Worker::new();
-        let cs = cs.into_assembly();
+        let cs = cs.into_assembly::<Global>();
 
         let lde_factor_to_use = 16;
         let proof_config = ProofConfig {
@@ -1422,7 +1424,7 @@ mod test {
 
         let worker = Worker::new_with_num_threads(1);
 
-        let cs = cs.into_assembly();
+        let cs = cs.into_assembly::<Global>();
 
         // assert!(cs.check_if_satisfied(&worker));
 
@@ -1648,7 +1650,7 @@ mod test {
 
         let worker = Worker::new_with_num_threads(8);
 
-        let mut cs = cs.into_assembly();
+        let mut cs = cs.into_assembly::<Global>();
 
         assert!(cs.check_if_satisfied(&worker));
 

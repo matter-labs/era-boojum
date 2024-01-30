@@ -1,3 +1,5 @@
+use self::traits::GoodAllocator;
+
 use super::reference_cs::CSReferenceAssembly;
 use super::*;
 
@@ -10,7 +12,10 @@ use crate::dag::CircuitResolver;
 
 type RCFG = <DevCSConfig as CSConfig>::ResolverConfig;
 
-impl<F: SmallField, CR: CircuitResolver<F, RCFG>> CSReferenceAssembly<F, F, DevCSConfig, CR> {
+impl<
+    F: SmallField,
+    A: GoodAllocator
+    > CSReferenceAssembly<F, F, DevCSConfig, A> {
     pub fn check_if_satisfied(&mut self, worker: &Worker) -> bool {
         let (constants, selectors_placement, _) = self.create_constant_setup_polys(worker);
         let (_deg, num_constants_for_general_purpose_columns) = selectors_placement.compute_stats();
