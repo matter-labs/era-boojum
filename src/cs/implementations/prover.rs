@@ -113,7 +113,7 @@ impl<
 
         let mut values = Vec::with_capacity(max_idx);
 
-        values.copy_from_slice(&self.witness.unwrap().all_values);
+        values.copy_from_slice(&self.witness.as_ref().unwrap().all_values);
 
         values
     }
