@@ -11,6 +11,7 @@ use crate::cs::traits::gate::GateRowCleanupFunction;
 use crate::dag::CircuitResolver;
 use crate::dag::DefaultCircuitResolver;
 use crate::dag::NullCircuitResolver;
+use std::alloc::Global;
 use std::any::TypeId;
 use std::marker::PhantomData;
 use std::sync::atomic::AtomicU32;
@@ -83,7 +84,7 @@ pub struct CSReferenceAssembly<
     F: SmallField, // over which we define a circuit
     P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>, // over whatever we evaluate gates. It can be vectorized type, or circuit variables
     CFG: CSConfig,
-    A: GoodAllocator,
+    A: GoodAllocator = Global,
 > {
     phantom: PhantomData<CFG>,
     pub parameters: CSGeometry,
@@ -257,10 +258,13 @@ impl<
     }
 
     pub fn into_assembly<A: GoodAllocator>(mut self) -> CSReferenceAssembly<F, P, CFG, A> {
-        let witness = self.materialize_witness_vec();
+        let witness = match CFG::WitnessConfig::EVALUATE_WITNESS {
+            true => Some(self.materialize_witness_vec()),
+            false => None
+        };
         let mut new = self.into_assembly_base();
 
-        new.witness = Some(witness);
+        new.witness = witness;
 
         new
     }
