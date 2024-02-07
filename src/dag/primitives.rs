@@ -265,7 +265,7 @@ pub struct ExecOrder {
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct ResolverIx(pub u32);
+pub struct ResolverIx(pub usize);
 
 pub enum ResolverIxType {
     Jump,
@@ -276,7 +276,7 @@ impl ResolverIx {
     // Resolver box uses `sizeof` to determine the size of the allocations,
     // and operates on pointers or _size primitives, which always have lsb == 0
     // in their sizes, thus we can use the lsb to store type info.
-    const TYPE_MASK: u32 = 1;
+    const TYPE_MASK: usize = 1;
 
     pub fn get_type(self) -> ResolverIxType {
         match self.0 & Self::TYPE_MASK == 0 {
@@ -285,11 +285,11 @@ impl ResolverIx {
         }
     }
 
-    fn new_jump(value: u32) -> Self {
+    fn new_jump(value: usize) -> Self {
         Self(value | Self::TYPE_MASK)
     }
 
-    pub fn new_resolver(value: u32) -> Self {
+    pub fn new_resolver(value: usize) -> Self {
         Self(value)
     }
 
@@ -305,7 +305,7 @@ impl AddAssign for ResolverIx {
 }
 
 impl Sub for ResolverIx {
-    type Output = u32;
+    type Output = usize;
 
     fn sub(self, origin: Self) -> Self::Output {
         self.0 - origin.0
@@ -314,6 +314,6 @@ impl Sub for ResolverIx {
 
 impl AddAssign<u32> for ResolverIx {
     fn add_assign(&mut self, rhs: u32) {
-        self.0 = rhs;
+        self.0 = rhs as usize;
     }
 }

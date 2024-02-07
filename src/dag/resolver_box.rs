@@ -77,7 +77,7 @@ impl<V> ResolverBox<V> {
             "Allocated more than 4GB or resolvers. Signifies a faulty circuit."
         );
 
-        ResolverIx::new_resolver(loc as u32)
+        ResolverIx::new_resolver(loc)
     }
 
     /// Retrives the resolution from the box.

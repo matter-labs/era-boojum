@@ -72,6 +72,8 @@ pub struct ResolutionRecord {
 
 impl ResolutionRecord {
     fn new(registrations_count: usize, values_count: usize, size: usize) -> Self {
+        let size = size * 2;
+
         Self {
             registrations_count,
             values_count,
