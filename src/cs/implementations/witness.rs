@@ -384,7 +384,6 @@ impl<
         result
     }
 
-
     pub fn witness_set_from_witness_vec(
         &self,
         witness_set: &WitnessVec<F, A>,

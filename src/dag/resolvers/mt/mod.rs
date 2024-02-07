@@ -485,11 +485,8 @@ mod test {
             record: Rc::new(storage.retrieve_sequence().clone()),
         };
 
-        let mut storage = MtCircuitResolver::<
-            F,
-            PlaybackResolverSorter<F, TestRecordStorage, Cfg>,
-            Cfg,
-        >::new(rs);
+        let mut storage =
+            MtCircuitResolver::<F, PlaybackResolverSorter<F, TestRecordStorage, Cfg>, Cfg>::new(rs);
 
         tracks_values_populate(&mut storage, limit);
 

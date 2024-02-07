@@ -34,8 +34,6 @@ impl StCircuitResolverParams {
     }
 }
 
-
-
 #[derive(Default)]
 struct Stats {
     resolvers_added: u32,
@@ -329,8 +327,8 @@ impl Deferrer {
 
 #[cfg(test)]
 mod test {
-    use crate::dag::*;
     use crate::dag::resolvers::StCircuitResolverParams;
+    use crate::dag::*;
     use crate::{
         config::{CSConfig, DevCSConfig},
         cs::{traits::cs::DstBuffer, Place},

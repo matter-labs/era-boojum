@@ -119,7 +119,7 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-        CR: CircuitResolver<F, CFG::ResolverConfig>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
     > CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     fn materialize_witness_vec<A: GoodAllocator>(&mut self) -> WitnessVec<F, A> {
@@ -257,7 +257,7 @@ impl<
     pub fn into_assembly<A: GoodAllocator>(mut self) -> CSReferenceAssembly<F, P, CFG, A> {
         let witness = match CFG::WitnessConfig::EVALUATE_WITNESS {
             true => Some(self.materialize_witness_vec()),
-            false => None
+            false => None,
         };
         let mut new = self.into_assembly_base();
 

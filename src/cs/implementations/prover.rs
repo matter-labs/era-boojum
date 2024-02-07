@@ -97,7 +97,6 @@ impl<
             public_inputs_only_values.push(value);
         }
 
-
         WitnessSet {
             public_inputs_values: public_inputs_only_values,
             public_inputs_with_locations: public_inputs_with_values,
