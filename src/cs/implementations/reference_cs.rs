@@ -56,6 +56,7 @@ pub struct CSReferenceImplementation<
     // NOTE: it's a storage, it knows nothing about GateTool trait to avoid code to go from Box<dyn GateTool> into Box<dyn Any>
     pub(crate) dynamic_tools:
         HashMap<TypeId, (TypeId, Box<dyn std::any::Any + Send + Sync + 'static>)>,
+    pub(crate) variables_storage: RwLock<CR>,
 
     /// Gate layout hints - we create our CS with only "general purpose" columns,
     /// and then if the gate is added in the specialized columns we should extend our
