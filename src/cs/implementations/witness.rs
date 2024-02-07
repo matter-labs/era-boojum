@@ -1,6 +1,5 @@
 use crate::cs::implementations::fast_serialization::MemcopySerializable;
 use crate::cs::traits::GoodAllocator;
-use crate::dag::CircuitResolver;
 use std::alloc::Global;
 use std::sync::atomic::AtomicU32;
 
@@ -385,55 +384,6 @@ impl<
         result
     }
 
-    // pub fn materialize_witness_vec(&mut self) -> WitnessVec<F, A> {
-    //     assert!(
-    //         CFG::WitnessConfig::EVALUATE_WITNESS,
-    //         "CS is not configured to have witness available"
-    //     );
-    //
-    //     let now = std::time::Instant::now();
-    //
-    //     // We do not have trace table(!) yet, but we know locations of inputs in the table, so
-    //     // we copy locations to use them later on
-    //
-    //     let mut public_inputs_locations = Vec::with_capacity(self.public_inputs.len());
-    //     public_inputs_locations.extend_from_slice(&self.public_inputs);
-    //
-    //     // now dump only values
-    //     let max_idx = self.next_available_place_idx as usize;
-    //     assert!(max_idx > 0);
-    //
-    //     // we should do memcopy instead later on
-    //     let mut all_values = Vec::with_capacity_in(max_idx, A::default());
-    //     let storage_ref = &self.variables_storage.read().unwrap();
-    //     for idx in 0..max_idx {
-    //         let place = Place(idx as u64);
-    //         let value = storage_ref.get_value_unchecked(place);
-    //         all_values.push(value);
-    //     }
-    //
-    //     let multiplicities = if self.lookup_parameters.lookup_is_allowed() == false {
-    //         Vec::new_in(A::default())
-    //     } else {
-    //         let mut multiplicities =
-    //             Vec::with_capacity_in(self.lookups_tables_total_len(), A::default());
-    //         for subtable in self.lookup_multiplicities.iter() {
-    //             multiplicities.extend(
-    //                 subtable
-    //                     .iter()
-    //                     .map(|el| el.load(std::sync::atomic::Ordering::Relaxed)),
-    //             );
-    //         }
-    //
-    //         multiplicities
-    //     };
-    //
-    //     WitnessVec {
-    //         public_inputs_locations,
-    //         all_values,
-    //         multiplicities,
-    //     }
-    // }
 
     pub fn witness_set_from_witness_vec(
         &self,

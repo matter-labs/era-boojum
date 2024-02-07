@@ -28,7 +28,6 @@ use crate::cs::implementations::buffering_source::*;
 use crate::cs::implementations::proof::SingleRoundQueries;
 use crate::cs::implementations::transcript::BoolsBuffer;
 use crate::cs::traits::gate::GatePlacementStrategy;
-use crate::dag::CircuitResolver;
 use crate::field::traits::field_like::mul_assign_vectorized_in_extension;
 use std::sync::Arc;
 

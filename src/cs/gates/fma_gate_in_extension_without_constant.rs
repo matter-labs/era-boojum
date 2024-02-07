@@ -479,7 +479,6 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 #[cfg(test)]
 mod test {
     use std::alloc::Global;
-    use std::alloc::GlobalAlloc;
 
     use crate::dag::CircuitResolverOpts;
     use crate::dag::DefaultCircuitResolver;

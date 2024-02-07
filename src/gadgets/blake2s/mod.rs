@@ -255,6 +255,6 @@ mod test {
         assert_eq!(output, reference_output);
 
         drop(cs);
-        let mut owned_cs = owned_cs.into_assembly::<Global>();
+        let owned_cs = owned_cs.into_assembly::<Global>();
     }
 }

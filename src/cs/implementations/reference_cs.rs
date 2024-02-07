@@ -10,7 +10,6 @@ use crate::cs::traits::gate::GatePlacementStrategy;
 use crate::cs::traits::gate::GateRowCleanupFunction;
 use crate::dag::CircuitResolver;
 use crate::dag::DefaultCircuitResolver;
-use crate::dag::NullCircuitResolver;
 use std::alloc::Global;
 use std::any::TypeId;
 use std::marker::PhantomData;
@@ -57,7 +56,6 @@ pub struct CSReferenceImplementation<
     // NOTE: it's a storage, it knows nothing about GateTool trait to avoid code to go from Box<dyn GateTool> into Box<dyn Any>
     pub(crate) dynamic_tools:
         HashMap<TypeId, (TypeId, Box<dyn std::any::Any + Send + Sync + 'static>)>,
-    pub(crate) variables_storage: RwLock<CR>,
 
     /// Gate layout hints - we create our CS with only "general purpose" columns,
     /// and then if the gate is added in the specialized columns we should extend our
@@ -211,7 +209,6 @@ impl<
             constants_for_gates_in_specialized_mode,
             lookup_tables,
             lookup_multiplicities,
-            variables_storage,
             specialized_gates_rough_stats,
             public_inputs,
             gates_configuration,
