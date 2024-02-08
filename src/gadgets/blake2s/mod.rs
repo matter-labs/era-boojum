@@ -136,9 +136,13 @@ pub fn blake2s<F: SmallField, CS: ConstraintSystem<F>>(
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
     use crate::{
+        config::CSConfig,
         cs::{gates::ConstantsAllocatorGate, CSGeometry},
+        dag::CircuitResolverOpts,
         field::goldilocks::GoldilocksField,
         gadgets::tables::{
             byte_split::{create_byte_split_table, ByteSplitTable},
@@ -198,9 +202,10 @@ mod test {
         };
 
         use crate::config::DevCSConfig;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 17);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 17);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -220,7 +225,7 @@ mod test {
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         // add tables
         let table = create_xor8_table();
@@ -250,7 +255,6 @@ mod test {
         assert_eq!(output, reference_output);
 
         drop(cs);
-        let mut owned_cs = owned_cs.into_assembly();
-        owned_cs.wait_for_witness();
+        let _owned_cs = owned_cs.into_assembly::<Global>();
     }
 }

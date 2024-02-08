@@ -1,15 +1,19 @@
+use self::resolvers::mt::sorters::sorter_live::LiveResolverSorter;
+use std::fmt::Debug;
 use std::hint::spin_loop;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use crate::config::CSResolverConfig;
+use crate::cs::traits::cs::{CSWitnessSource, DstBuffer};
+use crate::cs::Place;
 use crate::field::SmallField;
 
 mod awaiters;
 mod guide;
-mod registrar;
-pub(crate) mod resolution_window;
-pub(crate) mod resolver;
+mod primitives;
 mod resolver_box;
+pub mod resolvers;
 
 pub trait TrivialWitnessCastable<F: SmallField, const N: usize>:
     'static + Clone + std::fmt::Debug + Send + Sync
@@ -73,9 +77,8 @@ impl<F: SmallField, const N: usize, S: WitnessSource<F>> CSWitnessValues<F, N, S
     }
 }
 
-use crate::cs::Place;
-
 // we use Arc and interior mutability, so we want Send + Sync just in case
+
 pub trait WitnessSource<F: SmallField>: 'static + Send + Sync {
     const PRODUCES_VALUES: bool;
 
@@ -92,3 +95,54 @@ pub trait WitnessSourceAwaitable<F: SmallField>: WitnessSource<F> {
 pub trait Awaiter<'a> {
     fn wait(&self);
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct CircuitResolverOpts {
+    pub max_variables: usize,
+    pub desired_parallelism: u32,
+}
+
+impl CircuitResolverOpts {
+    pub fn new(max_variables: usize) -> Self {
+        Self {
+            max_variables,
+            desired_parallelism: 1 << 12,
+        }
+    }
+}
+
+impl From<usize> for CircuitResolverOpts {
+    fn from(value: usize) -> Self {
+        Self {
+            max_variables: value,
+            desired_parallelism: 1 << 12,
+        }
+    }
+}
+
+pub trait TrackId:
+    From<u64> + Into<u64> + Into<usize> + Eq + Ord + Debug + Default + Clone + Copy
+{
+}
+
+pub trait CircuitResolver<F: SmallField, Cfg: CSResolverConfig>:
+    WitnessSource<F> + WitnessSourceAwaitable<F> + CSWitnessSource<F> + Send + Sync
+{
+    type Arg;
+
+    fn new(args: Self::Arg) -> Self;
+    fn set_value(&mut self, key: Place, value: F);
+    fn add_resolution<Fn>(&mut self, inputs: &[Place], outputs: &[Place], f: Fn)
+    where
+        Fn: FnOnce(&[F], &mut DstBuffer<'_, '_, F>) + Send + Sync;
+    fn wait_till_resolved(&mut self);
+    fn clear(&mut self);
+}
+
+pub type NullCircuitResolver<F, CFG> = resolvers::NullCircuitResolver<F, CFG>;
+
+pub type StCircuitResolver<F, CFG> = resolvers::StCircuitResolver<F, CFG>;
+pub type MtCircuitResolver<F, CFG> =
+    resolvers::MtCircuitResolver<F, LiveResolverSorter<F, CFG>, CFG>;
+
+pub type DefaultCircuitResolver<F, CFG> = MtCircuitResolver<F, CFG>;

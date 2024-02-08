@@ -451,9 +451,13 @@ fn poseidon2_goldilocks_not_unrolled_partial_round<CS: ConstraintSystem<Goldiloc
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
 
+    use crate::config::CSConfig;
     use crate::cs::gates::*;
+    use crate::dag::CircuitResolverOpts;
     use crate::log;
     use crate::worker::Worker;
 
@@ -469,9 +473,10 @@ mod test {
         };
 
         use crate::config::DevCSConfig;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -490,7 +495,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         let cs = &mut owned_cs;
 
@@ -530,7 +535,7 @@ mod test {
         let worker = Worker::new();
 
         log!("Checking if satisfied");
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 
@@ -544,9 +549,10 @@ mod test {
         };
 
         use crate::config::DevCSConfig;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -571,7 +577,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         let cs = &mut owned_cs;
 
@@ -611,7 +617,7 @@ mod test {
         let worker = Worker::new();
 
         log!("Checking if satisfied");
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 }

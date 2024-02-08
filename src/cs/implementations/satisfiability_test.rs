@@ -1,3 +1,5 @@
+use self::traits::GoodAllocator;
+
 use super::reference_cs::CSReferenceAssembly;
 use super::*;
 
@@ -7,7 +9,9 @@ use crate::cs::implementations::polynomial_storage::SatisfiabilityCheckRowView;
 use crate::cs::traits::evaluator::GatePlacementType;
 use crate::cs::traits::gate::GatePlacementStrategy;
 
-impl<F: SmallField> CSReferenceAssembly<F, F, DevCSConfig> {
+type RCFG = <DevCSConfig as CSConfig>::ResolverConfig;
+
+impl<F: SmallField, A: GoodAllocator> CSReferenceAssembly<F, F, DevCSConfig, A> {
     pub fn check_if_satisfied(&mut self, worker: &Worker) -> bool {
         let (constants, selectors_placement, _) = self.create_constant_setup_polys(worker);
         let (_deg, num_constants_for_general_purpose_columns) = selectors_placement.compute_stats();

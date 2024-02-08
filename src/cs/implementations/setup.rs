@@ -1,3 +1,5 @@
+use self::traits::GoodAllocator;
+
 use super::hints::{DenseVariablesCopyHint, DenseWitnessCopyHint};
 use super::polynomial_storage::{SetupBaseStorage, SetupStorage};
 use super::utils::*;
@@ -13,6 +15,7 @@ use crate::cs::oracle::merkle_tree::MerkleTreeWithCap;
 use crate::cs::oracle::TreeHasher;
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::toolboxes::static_toolbox::StaticToolboxHolder;
+use crate::dag::CircuitResolver;
 use crate::utils::*;
 use std::alloc::Global;
 use std::collections::HashSet;
@@ -90,7 +93,8 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-    > CSReferenceImplementation<F, P, CFG, GC, T>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
+    > CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     pub fn pad_and_shrink(&mut self) -> (usize, FinalizationHintsForProver) {
         // first we pad-cleanup all the gates
@@ -391,7 +395,8 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        A: GoodAllocator,
+    > CSReferenceAssembly<F, P, CFG, A>
 {
     pub fn create_permutation_polys(
         &self,

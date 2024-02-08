@@ -106,8 +106,11 @@ pub fn sha256<F: SmallField, CS: ConstraintSystem<F>>(
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
     use crate::{
+        config::CSConfig,
         cs::{
             gates::{ConstantsAllocatorGate, NopGate, ReductionGate},
             implementations::{
@@ -117,6 +120,7 @@ mod test {
             oracle::TreeHasher,
             CSGeometry,
         },
+        dag::CircuitResolverOpts,
         field::goldilocks::GoldilocksField,
         gadgets::tables::{
             ch4::{create_ch4_table, Ch4Table},
@@ -178,9 +182,10 @@ mod test {
         };
 
         use crate::config::DevCSConfig;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -207,7 +212,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         // add tables
         let table = create_tri_xor_table();
@@ -241,8 +246,7 @@ mod test {
 
         drop(cs);
         owned_cs.pad_and_shrink();
-        let mut owned_cs = owned_cs.into_assembly();
-        owned_cs.wait_for_witness();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         use crate::worker::Worker;
         let worker = Worker::new_with_num_threads(8);
         assert!(owned_cs.check_if_satisfied(&worker));
@@ -372,16 +376,14 @@ mod test {
         {
             // satisfiability check
             use crate::config::DevCSConfig;
+            type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
-            let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(
-                geometry,
-                max_variables,
-                max_trace_len,
-            );
+            let builder_impl =
+                CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, max_trace_len);
             let builder = new_builder::<_, F>(builder_impl);
 
             let builder = configure(builder);
-            let mut owned_cs = builder.build(());
+            let mut owned_cs = builder.build(CircuitResolverOpts::new(max_variables));
 
             // add tables
             let table = create_tri_xor_table();
@@ -411,22 +413,21 @@ mod test {
             let _output = sha256(cs, &circuit_input);
             drop(cs);
             let (_, _padding_hint) = owned_cs.pad_and_shrink();
-            let mut owned_cs = owned_cs.into_assembly();
+            let mut owned_cs = owned_cs.into_assembly::<Global>();
             assert!(owned_cs.check_if_satisfied(&worker));
         }
 
         use crate::cs::cs_builder_reference::*;
         use crate::cs::cs_builder_verifier::*;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, SetupCSConfig>::new(
-            geometry,
-            max_variables,
-            max_trace_len,
-        );
+        type RCfgS = <SetupCSConfig as CSConfig>::ResolverConfig;
+
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, SetupCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         // add tables
         let table = create_tri_xor_table();
@@ -456,23 +457,21 @@ mod test {
         let _output = sha256(cs, &circuit_input);
         drop(cs);
         let (_, padding_hint) = owned_cs.pad_and_shrink();
-        let owned_cs = owned_cs.into_assembly();
+        let owned_cs = owned_cs.into_assembly::<Global>();
         owned_cs.print_gate_stats();
 
         let (base_setup, setup, vk, setup_tree, vars_hint, wits_hint) =
             owned_cs.get_full_setup::<T>(&worker, quotient_lde_degree, cap_size);
 
         use crate::config::ProvingCSConfig;
+        type RCfgP = <ProvingCSConfig as CSConfig>::ResolverConfig;
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
-            geometry,
-            max_variables,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         // add tables
         let table = create_tri_xor_table();
@@ -506,7 +505,7 @@ mod test {
         dbg!(now.elapsed());
         log!("Synthesis for proving is done");
         owned_cs.pad_and_shrink_using_hint(&padding_hint);
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
 
         log!("Proving");
         let witness_set = owned_cs.take_witness_using_hints(&worker, &vars_hint, &wits_hint);

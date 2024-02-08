@@ -395,9 +395,14 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
         )
     }
 
-    fn build<GC: GateConfigurationHolder<F>, TB: StaticToolboxHolder>(
+    fn build<
+        'a,
+        GC: GateConfigurationHolder<F>,
+        TB: StaticToolboxHolder,
+        ARG: Into<Self::BuildParams<'a>>,
+    >(
         builder: CsBuilder<Self, F, GC, TB>,
-        _params: Self::BuildParams<'_>,
+        _params: ARG,
     ) -> Self::Final<GC, TB> {
         let this = builder.implementation;
 

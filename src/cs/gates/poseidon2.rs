@@ -883,12 +883,16 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use crate::cs::gates::testing_tools::test_evaluator;
+    use crate::dag::CircuitResolverOpts;
     use crate::field::Field;
 
     use super::*;
     use crate::worker::Worker;
     type F = crate::field::goldilocks::GoldilocksField;
+    type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
     use crate::implementations::poseidon2::Poseidon2Goldilocks;
 
     type Poseidon2Gate = Poseidon2FlattenedGate<F, 8, 12, 4, Poseidon2Goldilocks>;
@@ -903,8 +907,7 @@ mod test {
             max_allowed_constraint_degree: 8,
         };
 
-        let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 128, 8);
+        let builder_impl = CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 8);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = Poseidon2Gate::configure_builder(
@@ -918,7 +921,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(128));
 
         let cs = &mut owned_cs;
 
@@ -957,7 +960,7 @@ mod test {
         let worker = Worker::new();
 
         log!("Checking if satisfied");
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 

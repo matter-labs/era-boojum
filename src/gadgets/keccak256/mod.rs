@@ -5,6 +5,8 @@ use crate::cs::Variable;
 use crate::gadgets::u8::UInt8;
 use std::mem::MaybeUninit;
 
+type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+
 pub mod round_function;
 
 pub const LANE_WIDTH: usize = 5;
@@ -109,12 +111,15 @@ pub fn keccak256<F: SmallField, CS: ConstraintSystem<F>>(
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
     use crate::{
         cs::{
             gates::{ConstantsAllocatorGate, FmaGateInBaseFieldWithoutConstant, ReductionGate},
             CSGeometry,
         },
+        dag::CircuitResolverOpts,
         field::goldilocks::GoldilocksField,
         gadgets::tables::{
             and8::{create_and8_table, And8Table},
@@ -175,7 +180,7 @@ mod test {
 
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -200,7 +205,7 @@ mod test {
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         // add tables
         let table = create_xor8_table();
@@ -239,7 +244,6 @@ mod test {
         assert_eq!(output, reference_output);
 
         drop(cs);
-        let mut owned_cs = owned_cs.into_assembly();
-        owned_cs.wait_for_witness();
+        let _owned_cs = owned_cs.into_assembly::<Global>();
     }
 }

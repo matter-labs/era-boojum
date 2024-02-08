@@ -13,14 +13,14 @@ use crate::utils::PipeOp;
 use std::any::TypeId;
 use std::sync::atomic::AtomicU32;
 
-use crate::dag::resolver::CircuitResolver;
+use crate::dag::CircuitResolver;
 
 use crate::cs::toolboxes::gate_config::GateConfigurationHolder;
 use crate::cs::traits::cs::{ConstraintSystem, DstBuffer};
 use crate::cs::traits::evaluator::*;
 use crate::cs::traits::gate::Gate;
 
-use crate::dag::{CSWitnessValues, WitnessSource, WitnessSourceAwaitable};
+use crate::dag::CSWitnessValues;
 
 use crate::cs::implementations::reference_cs::*;
 
@@ -30,10 +30,11 @@ impl<
         CFG: CSConfig,
         GC: GateConfigurationHolder<F>,
         T: StaticToolboxHolder,
-    > ConstraintSystem<F> for CSReferenceImplementation<F, P, CFG, GC, T>
+        CR: CircuitResolver<F, CFG::ResolverConfig>,
+    > ConstraintSystem<F> for CSReferenceImplementation<F, P, CFG, GC, T, CR>
 {
     type Config = CFG;
-    type WitnessSource = CircuitResolver<F, CFG::ResolverConfig>;
+    type WitnessSource = CR;
     type GatesConfig = GC;
     type StaticToolbox = T;
 
@@ -1047,6 +1048,8 @@ impl<
 #[cfg(test)]
 mod test {
 
+    use std::alloc::Global;
+
     use super::*;
     use crate::algebraic_props::round_function::AbsorptionModeOverwrite;
     use crate::algebraic_props::sponge::GoldilocksPoseidonSponge;
@@ -1059,6 +1062,7 @@ mod test {
     use crate::cs::implementations::prover::ProofConfig;
     use crate::cs::implementations::transcript::GoldilocksPoisedonTranscript;
 
+    use crate::dag::CircuitResolverOpts;
     use crate::field::goldilocks::GoldilocksExt2;
 
     use crate::{
@@ -1071,6 +1075,7 @@ mod test {
     #[test]
     fn prove_simple() {
         type P = GoldilocksField;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         // type P = MixedGL;
 
         let geometry = CSGeometry {
@@ -1111,15 +1116,12 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(
-            geometry,
-            max_variables,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut cs = builder.build(());
+        let mut cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         let mut previous = None;
 
@@ -1163,7 +1165,7 @@ mod test {
         // let worker = Worker::new();
 
         let worker = Worker::new_with_num_threads(1);
-        let cs = cs.into_assembly();
+        let cs = cs.into_assembly::<Global>();
 
         let lde_factor_to_use = 16;
         let proof_config = ProofConfig {
@@ -1209,6 +1211,7 @@ mod test {
 
         type P = GoldilocksField;
         // type P = MixedGL;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
         pub fn create_test_table<F: SmallField>() -> LookupTable<F, 3> {
             let mut all_keys = Vec::with_capacity(64);
@@ -1289,9 +1292,9 @@ mod test {
             GoldilocksField,
             P,
             DevCSConfig,
-        >::new(geometry, 512, 128));
+        >::new(geometry, 128));
         let builder = configure(builder);
-        let mut cs = builder.build(());
+        let mut cs = builder.build(CircuitResolverOpts::new(512));
 
         let table = create_test_table();
         let table_id = cs.add_lookup_table::<TestTableMarker, 3>(table);
@@ -1322,7 +1325,7 @@ mod test {
         dbg!(&cs.max_trace_len);
 
         let worker = Worker::new();
-        let cs = cs.into_assembly();
+        let cs = cs.into_assembly::<Global>();
 
         let lde_factor_to_use = 16;
         let proof_config = ProofConfig {
@@ -1362,6 +1365,7 @@ mod test {
     fn prove_simple_specialized() {
         type P = GoldilocksField;
         // type P = MixedGL;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
         let geometry = CSGeometry {
             num_columns_under_copy_permutation: 0,
@@ -1394,15 +1398,12 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(
-            geometry,
-            max_variables,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut cs = builder.build(());
+        let mut cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         for _i in 0..50 {
             let a = cs.alloc_single_variable_from_witness(GoldilocksField::from_u64_unchecked(1));
@@ -1423,7 +1424,7 @@ mod test {
 
         let worker = Worker::new_with_num_threads(1);
 
-        let cs = cs.into_assembly();
+        let cs = cs.into_assembly::<Global>();
 
         // assert!(cs.check_if_satisfied(&worker));
 
@@ -1475,6 +1476,7 @@ mod test {
 
         type P = GoldilocksField;
         // type P = MixedGL;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
 
         fn create_test_table<F: SmallField>() -> LookupTable<F, 3> {
             let mut all_keys = Vec::with_capacity(64);
@@ -1587,15 +1589,12 @@ mod test {
             builder
         }
 
-        let builder_impl = CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(
-            geometry,
-            max_variables,
-            max_trace_len,
-        );
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, max_trace_len);
         let builder = new_builder::<_, F>(builder_impl);
 
         let builder = configure(builder);
-        let mut cs = builder.build(());
+        let mut cs = builder.build(CircuitResolverOpts::new(max_variables));
 
         let table = create_test_table();
         let table_id = cs.add_lookup_table::<TestTableMarker, 3>(table);
@@ -1651,7 +1650,7 @@ mod test {
 
         let worker = Worker::new_with_num_threads(8);
 
-        let mut cs = cs.into_assembly();
+        let mut cs = cs.into_assembly::<Global>();
 
         assert!(cs.check_if_satisfied(&worker));
 

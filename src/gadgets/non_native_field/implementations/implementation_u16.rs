@@ -1148,11 +1148,14 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> Selectable<F>
 
 #[cfg(test)]
 mod test {
+    use std::alloc::Global;
+
     use super::*;
     use crate::cs::*;
 
     use crate::cs::gates::*;
     use crate::cs::traits::gate::GatePlacementStrategy;
+    use crate::dag::CircuitResolverOpts;
     use crate::field::goldilocks::GoldilocksField;
     use crate::gadgets::tables::range_check_16_bits::{
         create_range_check_16_bits_table, RangeCheck16BitsTable,
@@ -1175,9 +1178,10 @@ mod test {
         };
 
         use crate::config::DevCSConfig;
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
         use crate::cs::cs_builder_reference::*;
         let builder_impl =
-            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20, 1 << 18);
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
         use crate::cs::cs_builder::new_builder;
         let builder = new_builder::<_, F>(builder_impl);
 
@@ -1216,7 +1220,7 @@ mod test {
         let builder =
             NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-        let mut owned_cs = builder.build(());
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
         // add tables
         let table = create_range_check_16_bits_table();
@@ -1246,7 +1250,7 @@ mod test {
 
         drop(cs);
         owned_cs.pad_and_shrink();
-        let mut owned_cs = owned_cs.into_assembly();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
         assert!(owned_cs.check_if_satisfied(&worker));
     }
 }

@@ -1,6 +1,5 @@
 use crate::cs::implementations::fast_serialization::MemcopySerializable;
 use crate::cs::traits::GoodAllocator;
-use crate::dag::WitnessSource;
 use std::alloc::Global;
 use std::sync::atomic::AtomicU32;
 
@@ -103,20 +102,9 @@ impl<
         F: SmallField,
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         CFG: CSConfig,
-    > CSReferenceAssembly<F, P, CFG>
+        A: GoodAllocator,
+    > CSReferenceAssembly<F, P, CFG, A>
 {
-    pub fn wait_for_witness(&mut self) {
-        assert!(
-            CFG::WitnessConfig::EVALUATE_WITNESS,
-            "CS is not configured to have witness available"
-        );
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-    }
-
     pub(crate) fn materialize_witness_polynomials(
         &mut self,
         worker: &Worker,
@@ -143,25 +131,16 @@ impl<
         let storage = initialize_with_alignment_of::<_, P>(F::ZERO, self.max_trace_len);
         let poly = Polynomial::from_storage(storage);
 
-        let mut result = Vec::with_capacity(capacity);
+        let mut polies = Vec::with_capacity(capacity);
         for _ in 0..(capacity - 1) {
-            result.push(poly.clone_respecting_allignment::<P>());
+            polies.push(poly.clone_respecting_allignment::<P>());
         }
-        result.push(poly);
+        polies.push(poly);
 
-        let now = std::time::Instant::now();
+        let witness_ref = &self.witness.as_ref().unwrap().all_values;
 
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-
-        log!("Waited for witness to finish over {:?}", now.elapsed());
-
-        let storage_ref = &self.variables_storage.read().unwrap();
-
-        worker.scope(result.len(), |scope, chunk_size| {
-            for (dst, src) in result
+        worker.scope(polies.len(), |scope, chunk_size| {
+            for (dst, src) in polies
                 .chunks_mut(chunk_size)
                 .zip(self.witness_placement_data.chunks(chunk_size))
             {
@@ -169,8 +148,7 @@ impl<
                     for (dst, src) in dst.iter_mut().zip(src.iter()) {
                         for (dst, src) in dst.storage.iter_mut().zip(src.iter()) {
                             if src.is_placeholder() == false {
-                                let place = Place::from_witness(*src);
-                                *dst = storage_ref.get_value_unchecked(place);
+                                *dst = witness_ref[src.0 as usize];
                             }
                         }
                     }
@@ -178,7 +156,7 @@ impl<
             }
         });
 
-        result
+        polies
     }
 
     pub(crate) fn materialize_variables_polynomials(
@@ -216,16 +194,7 @@ impl<
         }
         result.push(poly);
 
-        let now = std::time::Instant::now();
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-
-        log!("Waited for variables to finish over {:?}", now.elapsed());
-
-        let storage_ref = &self.variables_storage.read().unwrap();
+        let witness_ref = &self.witness.as_ref().unwrap().all_values;
 
         // we copy column-wise
         worker.scope(result.len(), |scope, chunk_size| {
@@ -239,8 +208,7 @@ impl<
                     for (vars_column, poly) in vars_chunk.iter().zip(polys_chunk.iter_mut()) {
                         for (var, dst) in vars_column.iter().zip(poly.storage.iter_mut()) {
                             if var.is_placeholder() == false {
-                                let place = Place::from_variable(*var);
-                                *dst = storage_ref.get_value_unchecked(place);
+                                *dst = witness_ref[var.0 as usize];
                             } else {
                                 // we can use 0 as a substitue for all undefined variables,
                                 // or add ZK into them
@@ -332,16 +300,7 @@ impl<
         }
         result.push(poly);
 
-        let now = std::time::Instant::now();
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-
-        log!("Waited for witness to finish over {:?}", now.elapsed());
-
-        let storage_ref = &self.variables_storage.read().unwrap();
+        let witness_ref = &self.witness.as_ref().unwrap().all_values;
 
         worker.scope(result.len(), |scope, chunk_size| {
             for (dst, src) in result
@@ -352,8 +311,7 @@ impl<
                     for (dst, src) in dst.iter_mut().zip(src.iter()) {
                         for (dst, src) in dst.storage.iter_mut().zip(src.iter()) {
                             if src.is_placeholder() == false {
-                                let place = Place::from_witness(*src);
-                                *dst = storage_ref.get_value_unchecked(place);
+                                *dst = witness_ref[src.0 as usize];
                             }
                         }
                     }
@@ -398,16 +356,7 @@ impl<
         }
         result.push(poly);
 
-        let now = std::time::Instant::now();
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-
-        log!("Waited for variables to finish over {:?}", now.elapsed());
-
-        let storage_ref = &self.variables_storage.read().unwrap();
+        let witness_ref = &self.witness.as_ref().unwrap().all_values;
 
         // we copy column-wise (each worker to it's independent set of columns)
         worker.scope(result.len(), |scope, chunk_size| {
@@ -421,8 +370,7 @@ impl<
                     for (vars_column, poly) in vars_chunk.iter().zip(polys_chunk.iter_mut()) {
                         for (var, dst) in vars_column.iter().zip(poly.storage.iter_mut()) {
                             if var.is_placeholder() == false {
-                                let place = Place::from_variable(*var);
-                                *dst = storage_ref.get_value_unchecked(place);
+                                *dst = witness_ref[var.0 as usize];
                             } else {
                                 // we can use 0 as a substitue for all undefined variables,
                                 // or add ZK into them
@@ -436,64 +384,7 @@ impl<
         result
     }
 
-    pub fn materialize_witness_vec<A: GoodAllocator>(&mut self) -> WitnessVec<F, A> {
-        assert!(
-            CFG::WitnessConfig::EVALUATE_WITNESS,
-            "CS is not configured to have witness available"
-        );
-
-        let now = std::time::Instant::now();
-
-        self.variables_storage
-            .get_mut()
-            .unwrap()
-            .wait_till_resolved();
-
-        log!("Waited for all witness for {:?}", now.elapsed());
-
-        // We do not have trace table(!) yet, but we know locations of inputs in the table, so
-        // we copy locations to use them later on
-
-        let mut public_inputs_locations = Vec::with_capacity(self.public_inputs.len());
-        public_inputs_locations.extend_from_slice(&self.public_inputs);
-
-        // now dump only values
-        let max_idx = self.next_available_place_idx as usize;
-        assert!(max_idx > 0);
-
-        // we should do memcopy instead later on
-        let mut all_values = Vec::with_capacity_in(max_idx, A::default());
-        let storage_ref = &self.variables_storage.read().unwrap();
-        for idx in 0..max_idx {
-            let place = Place(idx as u64);
-            let value = storage_ref.get_value_unchecked(place);
-            all_values.push(value);
-        }
-
-        let multiplicities = if self.lookup_parameters.lookup_is_allowed() == false {
-            Vec::new_in(A::default())
-        } else {
-            let mut multiplicities =
-                Vec::with_capacity_in(self.lookups_tables_total_len(), A::default());
-            for subtable in self.lookup_multiplicities.iter() {
-                multiplicities.extend(
-                    subtable
-                        .iter()
-                        .map(|el| el.load(std::sync::atomic::Ordering::Relaxed)),
-                );
-            }
-
-            multiplicities
-        };
-
-        WitnessVec {
-            public_inputs_locations,
-            all_values,
-            multiplicities,
-        }
-    }
-
-    pub fn witness_set_from_witness_vec<A: GoodAllocator>(
+    pub fn witness_set_from_witness_vec(
         &self,
         witness_set: &WitnessVec<F, A>,
         vars_hint: &DenseVariablesCopyHint,
