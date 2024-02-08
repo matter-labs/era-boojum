@@ -146,7 +146,6 @@ impl<
 
         // now dump only values
         let max_idx = self.next_available_place_idx as usize;
-        assert!(max_idx > 0);
 
         // we should do memcopy instead later on
         let mut all_values = Vec::with_capacity_in(max_idx, A::default());
