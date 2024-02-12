@@ -10,9 +10,9 @@ pub mod state_generic_impl;
 pub use state_generic_impl::*;
 
 #[cfg(target_feature = "avx512f")]
-pub mod state_avx512_impl;
+pub mod state24_avx512_impl;
 #[cfg(target_feature = "avx512f")]
-pub use state_avx512_impl::*;
+pub use state24_avx512_impl::*;
 
 use crate::algebraic_props::round_function::*;
 use crate::field::traits::field::Field;
