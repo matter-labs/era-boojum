@@ -145,4 +145,4 @@ pub type StCircuitResolver<F, CFG> = resolvers::StCircuitResolver<F, CFG>;
 pub type MtCircuitResolver<F, CFG> =
     resolvers::MtCircuitResolver<F, LiveResolverSorter<F, CFG>, CFG>;
 
-pub type DefaultCircuitResolver<F, CFG> = MtCircuitResolver<F, CFG>;
+pub type DefaultCircuitResolver<F, CFG> = StCircuitResolver<F, CFG>;
