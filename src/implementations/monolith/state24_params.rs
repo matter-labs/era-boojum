@@ -29,6 +29,7 @@ impl Monolith<24> for MersenneField {
         _ => panic!("Unsupported lookup size"),
     };
 
+    // THIS IS NOT MDS MATRIX! WAITING FOR THE CIRCULANT MDS MATRIX 24X24 TO BE PUBLISHED
     const MDS: [[u32; 24]; 24] = [
         [4, 8, 4, 4, 16, 12, 20, 4, 16384, 32, 32768, 262144, 128, 28, 36, 48, 4, 65536, 4096, 512, 60, 64, 16, 68],
         [68, 4, 8, 4, 4, 16, 12, 20, 4, 16384, 32, 32768, 262144, 128, 28, 36, 48, 4, 65536, 4096, 512, 60, 64, 16],
