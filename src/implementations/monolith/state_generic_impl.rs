@@ -3,7 +3,7 @@
 use unroll::unroll_for_loops;
 
 use crate::field::{
-    Field, U64Representable,
+    Field, U64Representable, mersenne::MersenneField,
 };
 
 // /// Monolith implementation for Mersenne prime field
@@ -294,4 +294,17 @@ pub trait Monolith<const T: usize>: Field + U64Representable
     fn monolith_permutation(input: [Self; T]) -> [Self; T] {
         Self::monolith(input)
     }
+}
+
+#[inline(always)]
+pub fn monolith_permutation(state: &mut [MersenneField; MersenneField::SPONGE_WIDTH]) {
+    *state = Monolith::monolith_permutation(*state);
+}
+
+pub trait State<const T: usize> {
+    const SPONGE_WIDTH: usize = T;
+    fn new() -> Self;
+    fn new_from_u64_array(values: [u64; T]) -> Self;
+    fn new_from_u32_array(values: [u32; T]) -> Self;
+    fn as_u64_array(values: &Self) -> [u64; T];
 }

@@ -7,9 +7,9 @@ pub mod generic_impl;
 #[cfg(not(target_feature = "avx512f"))]
 pub use generic_impl::*;
 
-#[cfg(target_feature = "avx512f")]
+// #[cfg(target_feature = "avx512f")]
 pub mod avx512_impl;
-#[cfg(target_feature = "avx512f")]
+// #[cfg(target_feature = "avx512f")]
 pub use avx512_impl::*;
 
 /// The prime field `F_p` where `p = 2^31 - 1`.
@@ -49,7 +49,7 @@ impl MersenneField{
     pub const RADIX_2_SUBGROUP_GENERATOR: Self = Self(2147483643);
     pub const TWO_ADICITY: usize = 32; // should it be 32?
 
-    fn new(value: u32) -> Self{
+    pub fn new(value: u32) -> Self{
         debug_assert!((value >> 31) == 0);
         
         Self(value)

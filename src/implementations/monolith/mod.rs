@@ -1,10 +1,9 @@
 use super::*;
 use crate::field::mersenne::MersenneField;
-use crate::implementations::monolith::state_generic_impl::Monolith;
+use crate::implementations::monolith::state_generic_impl::{State, Monolith, LOOKUP_BITS, N_ROUNDS};
 
 pub mod state24_params;
 
-#[cfg(not(target_feature = "avx512f"))]
 pub mod state_generic_impl;
 #[cfg(not(target_feature = "avx512f"))]
 pub use state_generic_impl::*;
@@ -31,8 +30,7 @@ impl AlgebraicRoundFunctionWithParams<
 > for MonolithMersenne {
     #[inline(always)]
     fn round_function(&self, state: &mut [MersenneField; MersenneField::SPONGE_WIDTH]) {
-        let res = MersenneField::monolith_permutation(*state);
-        *state = res;
+        monolith_permutation(state);
     }
     #[inline(always)]
     fn initial_state(&self) -> [MersenneField; MersenneField::SPONGE_WIDTH] {
@@ -96,8 +94,7 @@ impl AlgebraicRoundFunction<
 > for MonolithMersenne {
     #[inline(always)]
     fn round_function(state: &mut [MersenneField; MersenneField::SPONGE_WIDTH]) {
-        let res = MersenneField::monolith_permutation(*state);
-        *state = res;
+        monolith_permutation(state);
     }
     #[inline(always)]
     fn initial_state() -> [MersenneField; MersenneField::SPONGE_WIDTH] {

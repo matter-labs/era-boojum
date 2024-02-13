@@ -251,6 +251,21 @@ mod test {
 
     #[test]
     fn test_monolith_not_unrolled_by_matrix_gates() {
+        // #[cfg(target_feature = "avx512f")]
+        // println!("AVX512F is enabled");
+        println!("features:");
+        let mut features = Vec::new();
+        if cfg!(target_feature = "avx2") { features.push("Using avx2"); }
+        if cfg!(target_feature = "avx512bw") { features.push("Using avx512bw"); }
+        if cfg!(target_feature = "avx512cd") { features.push("Using avx512cd"); }
+        if cfg!(target_feature = "avx512dq") { features.push("Using avx512dq"); }
+        if cfg!(target_feature = "avx512f") { features.push("Using avx512f"); }
+        if cfg!(target_feature = "avx512vl") { features.push("Using avx512vl"); }
+        for s in features {
+            println!("{s}");
+        }
+        println!("---");
+
         const SPONGE_WIDTH: usize = 24;
 
         let geometry = CSGeometry {

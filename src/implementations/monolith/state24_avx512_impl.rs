@@ -1,13 +1,16 @@
 use std::arch::x86_64;
 
-use crate::{field::PrimeFieldLike};
-
-use crate::monolith::*;
-use crate::algebra_avx512::MersenneFieldVec;
-use crate::algebra::MersenneField;
+use crate::field::traits::field_like::PrimeFieldLike;
+use crate::field::mersenne::MersenneFieldVec;
+use crate::field::mersenne::MersenneField;
 use unroll::unroll_for_loops;
 use monolithvec_mds_24::mds_multiply_freq;
-use crate::monolith::monolith_vec::{State, MonolithVec};
+use crate::implementations::monolith::State;
+use crate::field::traits::field::Field;
+use crate::implementations::monolith::{Monolith, N_ROUNDS};
+use crate::field::{
+    PrimeField, SmallField, SmallFieldRepresentable, U64RawRepresentable, U64Representable,
+};
 
 // ternary logic is taken from Table 5-1 5-2 
 // https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-2c-manual.pdf
@@ -24,6 +27,56 @@ pub const OR_A_B_C: i32 = 0xfe;
 pub const OR_B_A: i32 = 0xfc;
 pub const XOR_B_A: i32 = 0x3c;
 
+
+/// `Monolith` trait provides all the functions necessary to perform a Monolith permutation
+pub trait MonolithVec<const T: usize>: Sized + State<T> {
+    // Static data
+    /// Number of round constants employed in a full Monolith permutation
+    const N_ROUND_CONSTANTS: usize = Self::SPONGE_WIDTH * (N_ROUNDS + 1);
+    /// All the round constants employed in a full Monolith permutation
+    const ROUND_CONSTANTS: [Self; N_ROUNDS + 1];
+    /// This constant contains the first row of a circulant `SPONGE_WIDTH x SPONGE_WIDTH` MDS matrix
+    /// M. All of the remaining rows of M are rotations of this constant vector. A multiplication
+    /// by M is used in the affine layer of Monolith.
+    // const M: usize = 24;
+    type MatrixType: Default;
+
+    const MDS: Self::MatrixType;
+    const M_POWERS: Self::MatrixType;
+
+    const S_BOX_SHR_1: x86_64::__m512i;
+    const S_BOX_SHR_1_UPPER_LIMB: x86_64::__m512i;
+    const S_BOX_SHL_1: x86_64::__m512i;
+    const S_BOX_SHR_2: x86_64::__m512i;
+    const S_BOX_SHR_2_UPPER_LIMB: x86_64::__m512i;
+    const S_BOX_SHL_2: x86_64::__m512i; 
+    const S_BOX_SHR_3: x86_64::__m512i;
+    const S_BOX_SHL_3: x86_64::__m512i;
+
+    fn new_from_field_state<F: Field + U64Representable>(state: &[F; T]) -> Self {
+        let state_u64 = state.map(|el| el.as_u64());
+        Self::new_from_u64_array(state_u64)
+    }
+
+    fn as_field_state<F: Field + U64Representable>(&self) -> [F; T] {
+        let state_u64 = Self::as_u64_array(self);
+        state_u64.map(|el| F::from_u64(el).unwrap_or_default())
+    }
+
+    fn bars(&'_ mut self) -> &'_ mut Self;
+    fn bricks(&'_ mut self) -> &'_ mut Self;
+    fn concrete(&'_ mut self, rc: &Self) -> &'_ mut Self;
+    fn concrete_in_frequency_domain(&'_ mut self, rc: &Self) -> &'_ mut Self;
+    fn monolith(&'_ mut self) -> Self;
+    fn monolith_in_frequency_domain(&'_ mut self) -> Self;
+
+    fn monolith_ext(self) -> Self {
+        let mut res = self;
+        res.monolith_in_frequency_domain();
+        res
+    }
+}
+
 #[derive(Hash, Clone, Copy, Default)]
 #[repr(C, align(64))]
 pub struct StateVec24(pub [MersenneFieldVec; 3]);
@@ -36,7 +89,6 @@ impl StateVec24 {
             MersenneFieldVec::new([0u64; 8])
         ])
     }
-
     pub const fn new_from_u64_array(values: [u64; 24]) -> Self{
         let mut part0 = [0u64; 8];
         let mut part1 = [0u64; 8];
@@ -54,7 +106,6 @@ impl StateVec24 {
             MersenneFieldVec::new(part2)
         ])
     }
-
     pub const fn new_from_u32_array(values: [u32; 24]) -> Self{
         let mut part0 = [0u64; 8];
         let mut part1 = [0u64; 8];
@@ -72,7 +123,6 @@ impl StateVec24 {
             MersenneFieldVec::new(part2)
         ])
     }
-
     pub const fn as_u64_array(values: &Self) -> [u64; 24]{
         let part0 = values.0[0].0;
         let part1 = values.0[1].0;
@@ -87,7 +137,6 @@ impl StateVec24 {
         }
         result
     }
-
 }
 
 impl State<24> for StateVec24 {
@@ -101,7 +150,7 @@ impl State<24> for StateVec24 {
     fn new_from_u32_array(values: [u32; Self::SPONGE_WIDTH]) -> Self{
         Self::new_from_u32_array(values)
     }
-   fn as_u64_array(values: &Self) -> [u64; Self::SPONGE_WIDTH]{
+    fn as_u64_array(values: &Self) -> [u64; Self::SPONGE_WIDTH]{
         Self::as_u64_array(values)
     }
 }
@@ -203,18 +252,18 @@ impl MonolithVec<24> for StateVec24 {
     #[inline(always)]
     fn bricks(&'_ mut self) -> &'_ mut Self {
         let mut input = self.clone();
-        input.0[0].square();
-        input.0[1].square();
-        input.0[2].square();
+        input.0[0].square(&mut ());
+        input.0[1].square(&mut ());
+        input.0[2].square(&mut ());
         let (square_shifted_0, square_shifted_1, square_shifted_2) = unsafe {
             let square_shifted_0 = x86_64::_mm512_maskz_alignr_epi64(0xfe, input.0[0].to_v(), input.0[1].to_v(), 7);
             let square_shifted_1 = x86_64::_mm512_alignr_epi64(input.0[1].to_v(), input.0[0].to_v(), 7);
             let square_shifted_2 = x86_64::_mm512_alignr_epi64(input.0[2].to_v(), input.0[1].to_v(), 7);
             (MersenneFieldVec::from_v(square_shifted_0), MersenneFieldVec::from_v(square_shifted_1), MersenneFieldVec::from_v(square_shifted_2))
         };
-        self.0[0].add_assign(&square_shifted_0);
-        self.0[1].add_assign(&square_shifted_1);
-        self.0[2].add_assign(&square_shifted_2);
+        self.0[0].add_assign(&square_shifted_0, &mut ());
+        self.0[1].add_assign(&square_shifted_1, &mut ());
+        self.0[2].add_assign(&square_shifted_2, &mut ());
         
         self
     }
@@ -235,9 +284,9 @@ impl MonolithVec<24> for StateVec24 {
                 let el_idx = row & 7;
                 res.0[vec_idx].0[el_idx] = x86_64::_mm512_reduce_add_epi64(product) as u64;
             }
-            res.0[0].add_assign(&rc.0[0]);
-            res.0[1].add_assign(&rc.0[1]);
-            res.0[2].add_assign(&rc.0[2]);
+            res.0[0].add_assign(&rc.0[0], &mut ());
+            res.0[1].add_assign(&rc.0[1], &mut ());
+            res.0[2].add_assign(&rc.0[2], &mut ());
             res.0[0] = MersenneFieldVec::from_v(MersenneFieldVec::reduce64(res.0[0].to_v()));
             res.0[1] = MersenneFieldVec::from_v(MersenneFieldVec::reduce64(res.0[1].to_v()));
             res.0[2] = MersenneFieldVec::from_v(MersenneFieldVec::reduce64(res.0[2].to_v()));
@@ -290,10 +339,17 @@ impl MonolithVec<24> for StateVec24 {
 
 }
 
+#[inline(always)]
+pub fn monolith_permutation(state: &mut [MersenneField; MersenneField::SPONGE_WIDTH]) {
+    let mut state_vec = StateVec24::new_from_field_state(state);
+    state_vec.monolith_in_frequency_domain();
+    *state = StateVec24::as_field_state(&state_vec);
+}
+
 mod monolithvec_mds_24 {
     use std::arch::x86_64;
-
-    use crate::{monolith::{monolith_mersenne_t24_avx512::StateVec24}, algebra_avx512::MersenneFieldVec};
+    use crate::field::mersenne::MersenneFieldVec;
+    use crate::implementations::monolith::StateVec24;
 
     const BLOCK2_RE_Y0_MOD: i64 = 62;
     const BLOCK2_RE_Y1_MOD: i64 = 131038;
