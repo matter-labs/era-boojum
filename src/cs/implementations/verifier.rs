@@ -225,6 +225,7 @@ impl<F: PrimeField, P: field::traits::field_like::PrimeFieldLike<Base = F>>
 }
 
 use crate::cs::traits::destination_view::{EvaluationDestination, EvaluationDestinationDrivable};
+use crate::gpu_synthesizer::get_evaluator_name;
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
@@ -462,15 +463,16 @@ pub struct TypeErasedGateEvaluationVerificationFunction<
     F: SmallField,
     EXT: FieldExtension<2, BaseField = F>,
 > {
-    pub(crate) debug_name: String,
-    pub(crate) evaluator_type_id: TypeId,
-    pub(crate) gate_purpose: GatePurpose,
-    pub(crate) max_constraint_degree: usize,
-    pub(crate) num_quotient_terms: usize,
-    pub(crate) num_required_constants: usize,
-    pub(crate) total_quotient_terms_over_all_repetitions: usize,
-    pub(crate) num_repetitions_on_row: usize,
-    pub(crate) placement_type: GatePlacementType,
+    pub debug_name: String,
+    pub unique_name: String,
+    pub evaluator_type_id: TypeId,
+    pub gate_purpose: GatePurpose,
+    pub max_constraint_degree: usize,
+    pub num_quotient_terms: usize,
+    pub num_required_constants: usize,
+    pub total_quotient_terms_over_all_repetitions: usize,
+    pub num_repetitions_on_row: usize,
+    pub placement_type: GatePlacementType,
     #[derivative(Debug = "ignore")]
     pub(crate) columnwise_satisfiability_function: Option<
         Box<
@@ -510,6 +512,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
         placement_strategy: GatePlacementStrategy,
     ) -> (Self, GateBatchEvaluationComparisonFunction) {
         let debug_name = evaluator.instance_name();
+        let unique_name = get_evaluator_name(&evaluator);
         let evaluator_type_id = std::any::TypeId::of::<E>();
         let gate_purpose = E::gate_purpose();
         let max_constraint_degree = E::max_constraint_degree();
@@ -628,6 +631,7 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>>
 
         let new = Self {
             debug_name,
+            unique_name,
             evaluator_type_id,
             gate_purpose,
             max_constraint_degree,
