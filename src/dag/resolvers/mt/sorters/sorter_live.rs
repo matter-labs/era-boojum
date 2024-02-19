@@ -606,7 +606,8 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         for (i, item) in self.record.items[..].iter_mut().enumerate() {
             debug_assert_eq!(i, item.added_at as usize);
         }
-        self.record.values_count = 1 + unsafe { self.common.values.u_deref().max_tracked } as usize;
+
+        self.record.values_count = unsafe { self.common.values.u_deref().max_tracked + 1 } as usize;
         self.record.registrations_count = self.stats.registrations_added as usize;
 
         if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
