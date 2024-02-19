@@ -534,6 +534,16 @@ mod test {
     }
 
     #[test]
+    fn resolves_empty() {
+        let mut storage =
+            MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
+                max_variables: 100,
+                desired_parallelism: 16,
+            });
+        storage.wait_till_resolved();
+    }
+
+    #[test]
     fn resolves_playback_mode() {
         let mut storage =
             MtCircuitResolver::<F, LiveResolverSorter<F, Cfg>, Cfg>::new(CircuitResolverOpts {
