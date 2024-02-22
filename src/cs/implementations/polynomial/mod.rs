@@ -7,6 +7,7 @@ use std::alloc::Global;
 use super::fast_serialization::MemcopySerializable;
 use super::*;
 
+pub mod foldable;
 pub mod lde;
 
 pub trait PolynomialForm:

@@ -1,5 +1,6 @@
 use super::*;
 
+pub mod basefold;
 pub mod buffering_source;
 pub mod convenience;
 pub mod copy_permutation;
