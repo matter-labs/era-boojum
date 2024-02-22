@@ -9,6 +9,8 @@ pub struct GeneratorMatrix<F: SmallField> {
 
 impl<F: SmallField> GeneratorMatrix<F> {
     pub fn new(degree: usize, rate: usize) -> GeneratorMatrix<F> {
+        assert!(F::TWO_ADICITY >= degree);
+
         let mut diagonal_matrices = Vec::with_capacity(degree);
         let mut negated_diagonal_matrices = Vec::with_capacity(degree);
         let mut rng = rand::thread_rng();
@@ -44,6 +46,7 @@ impl<F: SmallField> GeneratorMatrix<F> {
     pub fn encode(&self, mut poly: Vec<F>, degree: usize) -> Vec<F> {
         assert!(poly.len().is_power_of_two());
         assert_eq!(poly.len(), 2i32.pow(degree.try_into().unwrap()) as usize);
+
         if degree != 0 {
             let right_poly = poly.split_off(poly.len() / 2);
             let diag = &self.diagonal_matrices[degree - 1];

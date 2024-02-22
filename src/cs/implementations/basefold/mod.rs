@@ -11,19 +11,20 @@ pub fn do_basefold<F: SmallField, T: Transcript<F>>(
     encoding: Vec<F>,
     degree: usize,
 ) -> (Vec<Vec<F>>, Vec<F>) {
+    assert!(encoding.len().is_power_of_two());
+
     let mut oracles = Vec::with_capacity(degree + 1);
     let mut challenges = Vec::with_capacity(degree);
     let mut current_oracle = encoding;
     oracles.push(current_oracle.clone());
-    let mut size = current_oracle.len() / 2;
+    let mut size = current_oracle.len() >> 1;
     for i in 0..degree {
         let mut new_oracle = Vec::with_capacity(size);
         let alpha = transcript.get_challenge();
         challenges.push(alpha);
+        let diag = &matrices.diagonal_matrices[degree - 1 - i];
+        let diag_neg = &matrices.negated_diagonal_matrices[degree - 1 - i];
         for j in 0..size {
-            let diag = &matrices.diagonal_matrices[degree - 1 - i];
-            let diag_neg = &matrices.negated_diagonal_matrices[degree - 1 - i];
-
             let f_x = interpolate_linear_poly([
                 (diag[j], current_oracle[j]),
                 (diag_neg[j], current_oracle[j + size]),
@@ -33,7 +34,7 @@ pub fn do_basefold<F: SmallField, T: Transcript<F>>(
 
         current_oracle = new_oracle;
         oracles.push(current_oracle.clone());
-        size /= 2;
+        size >>= 1;
     }
 
     (oracles, challenges)
@@ -47,6 +48,8 @@ pub fn query<F: SmallField>(
     oracles: Vec<Vec<F>>,
     challenges: Vec<F>,
 ) -> bool {
+    assert_eq!(challenges.len() + 1, oracles.len());
+
     let mut rng = rand::thread_rng();
     let mut index = rng.gen_range(0..oracles[1].len());
     for (i, challenge) in challenges.iter().enumerate() {
@@ -100,30 +103,23 @@ fn interpolate_linear_poly<F: SmallField>(x_y: [(F, F); 2]) -> [F; 2] {
     };
 
     // L_0(X)f(x_0)
-    let l0 = l0_coeffs
-        .into_iter()
-        .map(|el| {
-            let mut el = el;
-            el.mul_assign(&x_y[0].1);
-            el
-        })
-        .collect::<Vec<F>>();
+    let l0 = l0_coeffs.into_iter().map(|el| {
+        let mut el = el;
+        el.mul_assign(&x_y[0].1);
+        el
+    });
     // L_1(X)f(x_1)
-    let l1 = l1_coeffs
-        .into_iter()
-        .map(|el| {
-            let mut el = el;
-            el.mul_assign(&x_y[1].1);
-            el
-        })
-        .collect::<Vec<F>>();
+    let l1 = l1_coeffs.into_iter().map(|el| {
+        let mut el = el;
+        el.mul_assign(&x_y[1].1);
+        el
+    });
 
     // L_0(X)f(x_0) + L_1(X)f(x_1)
-    l0.into_iter()
-        .zip(l1.iter())
+    l0.zip(l1)
         .map(|(a, b)| {
             let mut r = a;
-            r.add_assign(b);
+            r.add_assign(&b);
             r
         })
         .collect::<Vec<F>>()
