@@ -4,11 +4,13 @@ use crate::field::{rand_from_rng, SmallField};
 pub struct GeneratorMatrix<F: SmallField> {
     pub base_matrix: Vec<Vec<F>>,
     pub diagonal_matrices: Vec<Vec<F>>,
+    pub negated_diagonal_matrices: Vec<Vec<F>>,
 }
 
 impl<F: SmallField> GeneratorMatrix<F> {
     pub fn new(degree: usize, rate: usize) -> GeneratorMatrix<F> {
         let mut diagonal_matrices = Vec::with_capacity(degree);
+        let mut negated_diagonal_matrices = Vec::with_capacity(degree);
         let mut rng = rand::thread_rng();
 
         let mut base_matrix = vec![vec![F::ZERO; 1]; rate];
@@ -18,34 +20,24 @@ impl<F: SmallField> GeneratorMatrix<F> {
             }
         }
 
-        let diag_mul = |mat: &[Vec<F>], diag: Vec<F>| -> Vec<Vec<F>> {
-            let mut mat = mat.clone().to_vec();
-            let depth = mat[0].len();
-            for i in 0..depth {
-                mat.iter_mut()
-                    .zip(&diag)
-                    .for_each(|(m, d)| m[i] = *m[i].mul_assign(d));
-            }
-
-            mat
-        };
-
         let mut size = rate;
-        for i in 0..degree {
-            let (diag, diag_inv) = {
+        for _ in 0..degree {
+            let (diag, diag_neg) = {
                 let mut diag = vec![F::ZERO; size];
                 diag.iter_mut().for_each(|el| *el = rand_from_rng(&mut rng));
-                let mut diag_inv = diag.clone();
-                diag_inv.iter_mut().for_each(|el| *el = *el.negate());
-                (diag, diag_inv)
+                let mut diag_neg = diag.clone();
+                diag_neg.iter_mut().for_each(|el| *el = *el.negate());
+                (diag, diag_neg)
             };
-            diagonal_matrices.push(diag.clone());
+            diagonal_matrices.push(diag);
+            negated_diagonal_matrices.push(diag_neg);
             size *= 2;
         }
 
         GeneratorMatrix {
             base_matrix,
             diagonal_matrices,
+            negated_diagonal_matrices,
         }
     }
 
@@ -109,7 +101,7 @@ mod tests {
 
     #[test]
     fn generate_matrix() {
-        let matrices = GeneratorMatrix::<GoldilocksField>::new(10, 8);
+        let _ = GeneratorMatrix::<GoldilocksField>::new(10, 8);
     }
 
     #[test]

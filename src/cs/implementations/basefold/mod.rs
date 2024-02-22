@@ -11,23 +11,22 @@ pub fn do_basefold<F: SmallField, T: Transcript<F>>(
     encoding: Vec<F>,
     degree: usize,
 ) -> (Vec<Vec<F>>, Vec<F>) {
-    let mut oracles = vec![];
-    let mut challenges = vec![];
+    let mut oracles = Vec::with_capacity(degree + 1);
+    let mut challenges = Vec::with_capacity(degree);
     let mut current_oracle = encoding;
     oracles.push(current_oracle.clone());
     let mut size = current_oracle.len() / 2;
     for i in 0..degree {
-        let mut new_oracle = vec![];
+        let mut new_oracle = Vec::with_capacity(size);
         let alpha = transcript.get_challenge();
         challenges.push(alpha);
         for j in 0..size {
             let diag = &matrices.diagonal_matrices[degree - 1 - i];
-            let mut diag_j_negated = diag[j].clone();
-            diag_j_negated.negate();
+            let diag_neg = &matrices.negated_diagonal_matrices[degree - 1 - i];
 
             let f_x = interpolate_linear_poly([
                 (diag[j], current_oracle[j]),
-                (diag_j_negated, current_oracle[j + size]),
+                (diag_neg[j], current_oracle[j + size]),
             ]);
             new_oracle.push(eval_linear_poly(f_x, &alpha));
         }
@@ -52,12 +51,11 @@ pub fn query<F: SmallField>(
     let mut index = rng.gen_range(0..oracles[1].len());
     for (i, challenge) in challenges.iter().enumerate() {
         let diag = &matrices.diagonal_matrices[challenges.len() - 1 - i];
-        let mut diag_index_negated = diag[index].clone();
-        diag_index_negated.negate();
+        let diag_neg = &matrices.negated_diagonal_matrices[challenges.len() - 1 - i];
 
         let p_x = interpolate_linear_poly([
             (diag[index], oracles[i][index]),
-            (diag_index_negated, oracles[i][index + oracles[i + 1].len()]),
+            (diag_neg[index], oracles[i][index + oracles[i + 1].len()]),
         ]);
 
         let eval = eval_linear_poly(p_x, challenge);
@@ -81,50 +79,50 @@ fn interpolate_linear_poly<F: SmallField>(x_y: [(F, F); 2]) -> [F; 2] {
     // L_0(X) = X - x_1 / x_0 - x_1.
     // This becomes -x_1 * (x_0 - x_1)^-1 + X * (x_0 - x_1)^-1.
     let l0_coeffs = {
-        let mut first = x_y[1].0.clone();
+        let mut first = x_y[1].0;
         first.negate();
-        let mut second = x_y[0].0.clone();
+        let mut second = x_y[0].0;
         second.sub_assign(&x_y[1].0);
         second = second.inverse().unwrap();
         first.mul_assign(&second);
-        vec![first, second]
+        [first, second]
     };
     // L_1(X) = X - x_0 / x_1 - x_0.
     // This becomes -x_0 * (x_1 - x_0)^-1 + X * (x_1 - x_0)^-1.
     let l1_coeffs = {
-        let mut first = x_y[0].0.clone();
+        let mut first = x_y[0].0;
         first.negate();
-        let mut second = x_y[1].0.clone();
+        let mut second = x_y[1].0;
         second.sub_assign(&x_y[0].0);
         second = second.inverse().unwrap();
         first.mul_assign(&second);
-        vec![first, second]
+        [first, second]
     };
 
     // L_0(X)f(x_0)
     let l0 = l0_coeffs
-        .iter()
+        .into_iter()
         .map(|el| {
-            let mut el = el.clone();
+            let mut el = el;
             el.mul_assign(&x_y[0].1);
             el
         })
         .collect::<Vec<F>>();
     // L_1(X)f(x_1)
     let l1 = l1_coeffs
-        .iter()
+        .into_iter()
         .map(|el| {
-            let mut el = el.clone();
+            let mut el = el;
             el.mul_assign(&x_y[1].1);
             el
         })
         .collect::<Vec<F>>();
 
     // L_0(X)f(x_0) + L_1(X)f(x_1)
-    l0.iter()
+    l0.into_iter()
         .zip(l1.iter())
         .map(|(a, b)| {
-            let mut r = a.clone();
+            let mut r = a;
             r.add_assign(b);
             r
         })
@@ -134,7 +132,7 @@ fn interpolate_linear_poly<F: SmallField>(x_y: [(F, F); 2]) -> [F; 2] {
 }
 
 fn eval_linear_poly<F: SmallField>(poly: [F; 2], point: &F) -> F {
-    let mut eval = poly[0].clone();
+    let mut eval = poly[0];
     let mut alpha = point.clone();
     alpha.mul_assign(&poly[1]);
     eval.add_assign(&alpha);
