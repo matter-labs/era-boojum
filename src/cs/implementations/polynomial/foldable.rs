@@ -43,7 +43,10 @@ impl<F: SmallField> GeneratorMatrix<F> {
         }
     }
 
+    // TODO(jules): inefficient, too many collect operations, too much recursion and this encoding
+    // can be parallelized very easily in some sort of tree fashion
     pub fn encode(&self, mut poly: Vec<F>, degree: usize) -> Vec<F> {
+        assert!(degree != 0);
         assert!(poly.len().is_power_of_two());
         assert_eq!(poly.len(), 2i32.pow(degree.try_into().unwrap()) as usize);
 

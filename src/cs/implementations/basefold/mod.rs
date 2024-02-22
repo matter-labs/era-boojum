@@ -5,6 +5,8 @@ use rand::Rng;
 
 // Commit phase for basefold. From an input oracle, we proceed to fold down to an oracle of a
 // single element.
+//
+// TODO(jules): needs to take in encodings in quadratic extension for soundness
 pub fn do_basefold<F: SmallField, T: Transcript<F>>(
     transcript: &mut T,
     matrices: &GeneratorMatrix<F>,
@@ -12,6 +14,7 @@ pub fn do_basefold<F: SmallField, T: Transcript<F>>(
     degree: usize,
 ) -> (Vec<Vec<F>>, Vec<F>) {
     assert!(encoding.len().is_power_of_two());
+    assert!(degree <= matrices.diagonal_matrices.len() - 1);
 
     let mut oracles = Vec::with_capacity(degree + 1);
     let mut challenges = Vec::with_capacity(degree);
@@ -24,6 +27,7 @@ pub fn do_basefold<F: SmallField, T: Transcript<F>>(
         challenges.push(alpha);
         let diag = &matrices.diagonal_matrices[degree - 1 - i];
         let diag_neg = &matrices.negated_diagonal_matrices[degree - 1 - i];
+        // TODO(jules): this can be parallelized and made way more efficient
         for j in 0..size {
             let f_x = interpolate_linear_poly([
                 (diag[j], current_oracle[j]),
@@ -49,9 +53,12 @@ pub fn query<F: SmallField>(
     challenges: Vec<F>,
 ) -> bool {
     assert_eq!(challenges.len() + 1, oracles.len());
+    assert!(challenges.len() <= matrices.diagonal_matrices.len() - 1);
 
     let mut rng = rand::thread_rng();
     let mut index = rng.gen_range(0..oracles[1].len());
+    // TODO(jules): believe this can also be parallelized but it's already quite fast so maybe the
+    // gain is negligible here
     for (i, challenge) in challenges.iter().enumerate() {
         let diag = &matrices.diagonal_matrices[challenges.len() - 1 - i];
         let diag_neg = &matrices.negated_diagonal_matrices[challenges.len() - 1 - i];
@@ -150,46 +157,33 @@ mod tests {
         let rate = 8;
         let now = std::time::Instant::now();
         let matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
-        println!("{:?}", now.elapsed());
+        println!("GENERATING MATRICES {:?}", now.elapsed());
+        let mut poly = vec![GoldilocksField::ZERO; 2i32.pow(degree as u32) as usize];
+        poly.iter_mut().for_each(|el| *el = rand_from_rng(&mut rng));
+        let now = std::time::Instant::now();
+        let result = matrices.encode(poly, degree);
+        println!("ENCODING POLY {:?}", now.elapsed());
+        let mut transcript = GoldilocksPoisedon2Transcript::new(());
+        let now = std::time::Instant::now();
+        let (oracles, challenges) = do_basefold(&mut transcript, &matrices, result, degree);
+        println!("PROVING {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+        assert!(query(&matrices, oracles, challenges));
+        println!("VERIFYING {:?}", now.elapsed());
+    }
+
+    #[test]
+    fn test_commit_query_wrong_matrices() {
+        let mut rng = rand::thread_rng();
+        let degree = 16;
+        let rate = 8;
+        let matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
         let mut poly = vec![GoldilocksField::ZERO; 2i32.pow(degree as u32) as usize];
         poly.iter_mut().for_each(|el| *el = rand_from_rng(&mut rng));
         let result = matrices.encode(poly, degree);
         let mut transcript = GoldilocksPoisedon2Transcript::new(());
-        let now = std::time::Instant::now();
         let (oracles, challenges) = do_basefold(&mut transcript, &matrices, result, degree);
-        println!("{:?}", now.elapsed());
-        assert!(query(&matrices, oracles, challenges));
+        let false_matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
+        assert!(!query(&false_matrices, oracles, challenges));
     }
-
-    //#[test]
-    //fn test_commit_query_wrong_matrices() {
-    //    let mut rng = rand::thread_rng();
-    //    let degree = 16;
-    //    let rate = 8;
-    //    let matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
-    //    let mut poly = vec![GoldilocksField::ZERO; 2i32.pow(degree as u32) as usize];
-    //    poly.iter_mut().for_each(|el| *el = rand_from_rng(&mut rng));
-    //    let result = matrices.encode(poly, degree);
-    //    let mut transcript = GoldilocksPoisedon2Transcript::new(());
-    //    let (oracles, challenges) = do_basefold(&mut transcript, &matrices, result, degree);
-    //    let false_matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
-    //    assert!(!query(&false_matrices, oracles, challenges));
-    //}
-
-    //#[test]
-    //fn test_commit_query_wrong_matrices_2() {
-    //    let mut rng = rand::thread_rng();
-    //    let degree = 16;
-    //    let rate = 8;
-    //    let matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
-    //    let mut poly = vec![GoldilocksField::ZERO; 2i32.pow(degree as u32) as usize];
-    //    poly.iter_mut().for_each(|el| *el = rand_from_rng(&mut rng));
-    //    let result = matrices.encode(poly.clone(), degree);
-    //    let mut transcript = GoldilocksPoisedon2Transcript::new(());
-    //    let false_matrices = GeneratorMatrix::<GoldilocksField>::new(degree, rate);
-    //    let new_result = false_matrices.encode(poly, degree);
-    //    assert_ne!(result, new_result);
-    //    let (oracles, challenges) = do_basefold(&mut transcript, &false_matrices, result, degree);
-    //    assert!(!query(&false_matrices, oracles, challenges));
-    //}
 }
