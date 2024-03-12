@@ -26,7 +26,7 @@ class ProjectivePoint:
 
         return ProjectivePoint(curve, 0, 1, 0)
 
-    def __add__(self, other: ProjectivePoint) -> ProjectivePoint:
+    def add_affine(self, other: tuple[GF, GF]) -> ProjectivePoint:
         """
         Defines the + operation for the point
         """
@@ -84,7 +84,7 @@ class ProjectivePoint:
         
         return result
 
-    def _add_sub_mixed(self, other: ProjectivePoint, subtraction: bool) -> ProjectivePoint:
+    def _add_sub_mixed(self, other: tuple[GF, GF], subtraction: bool) -> ProjectivePoint:
         """
         Adds another ProjectivePoint to the given point (basically, overiding the + operation)
 
@@ -96,12 +96,6 @@ class ProjectivePoint:
             Added point on the curve
         """
 
-        # If one of the points is at infinity, return the other
-        if self._z == 0:
-            return other
-        if other._z == 0:
-            return self
-
         if self._curve.a != 0:
             return self._generic_add_sub(other, subtraction)
         
@@ -112,8 +106,7 @@ class ProjectivePoint:
         y1 = self._y
         z1 = self._z
 
-        x2 = other._x
-        y2 = other._y
+        x2, y2 = other
         if subtraction:
             y2 = -y2
         
@@ -160,7 +153,7 @@ class ProjectivePoint:
 
         return ProjectivePoint(self._curve, x3, y3, z3)
 
-    def _generic_add_sub(self, other: ProjectivePoint, subtraction: bool) -> ProjectivePoint:
+    def _generic_add_sub(self, other: tuple[GF, GF], subtraction: bool) -> ProjectivePoint:
         """
         Adds another ProjectivePoint to the given point (basically, overiding the + operation) 
         using generic add/sub operation
@@ -179,8 +172,7 @@ class ProjectivePoint:
         y1 = self._y
         z1 = self._z
 
-        x2 = other._x
-        y2 = other._y
+        x2, y2 = other
         if subtraction:
             y2 = -y2
 
