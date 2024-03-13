@@ -18,13 +18,14 @@ use crate::{
 };
 
 // GLV constants
-// The value of 2**128 in string format
+/// The value of 2**128 in string format
 const TWO_POW_128: &'static str = "340282366920938463463374607431768211456";
 
-// BETA parameter such that phi(x, y) = (beta*x, y)
-// is a valid isomorphic endomorphism for the curve
+/// BETA parameter such that phi(x, y) = (beta*x, y)
+/// is a valid isomorphic endomorphism for the curve. Note
+/// that it is possible to use one since 3 divides prime order - 1
 const BETA: &'static str =
-    "55594575648329892869085402983802832744385952214688224221778511981742606582254";
+    "2203960485148121921418603742825762020974279258880205651966";
 
 // Secp256k1.p - 1 / 2
 // 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc2f - 0x1 / 0x2
