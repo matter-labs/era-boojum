@@ -16,7 +16,7 @@ lambdas = [root[0] for root in f_roots]
 print('Roots of x^2 + x + 1 are', lambdas)
 
 # Picking one lambda out of roots
-lambd = lambdas[1]
+lambd = lambdas[1] # 4407920970296243842393367215006156084916469457145843978461
 print('Picked lambda =', lambd)
 
 # Verifying that lambd is the root of the polynomial...
@@ -32,7 +32,7 @@ betas = [root[0] for root in g_roots]
 print('Roots of y^3 - 1 are', betas)
 
 # Picking one beta out of roots
-beta = betas[1]
+beta = betas[1] # 2203960485148121921418603742825762020974279258880205651966
 print('Picked beta =', beta)
 
 # Verifying that beta is the root of the polynomial Y^3-1...
