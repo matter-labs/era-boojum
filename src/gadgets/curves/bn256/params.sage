@@ -1,13 +1,11 @@
-
-# Finding lambda parameter such that lambda**2 + lambda + 1 = 0 in Fp...
-# Defining a galois field...
+# Defining prime field Fp for scalar field and Fq for base field
 p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
 Fp = GF(p)
 
 q = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 Fq = GF(q)
 
-# Defining a polynomial ring over Fp 
+# Defining a polynomial ring over Fq
 # and finding the roots of the polynomial X^2+X+1:
 R.<x> = PolynomialRing(Fq)
 f = x^2 + x + 1

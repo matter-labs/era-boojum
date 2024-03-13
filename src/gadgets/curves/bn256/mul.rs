@@ -5,8 +5,6 @@ use ethereum_types::U256;
 use mul::{decomp_table::WnafDecompTable, naf_abs_div2_table::NafAbsDiv2Table};
 use pairing::{ff::PrimeField, CurveAffine};
 
-use super::*;
-
 use crate::{
     cs::traits::cs::ConstraintSystem,
     gadgets::{
@@ -17,7 +15,10 @@ use crate::{
     },
 };
 
+use super::*;
+
 // GLV constants
+
 /// The value of 2**128 in string format
 const TWO_POW_128: &'static str = "340282366920938463463374607431768211456";
 
@@ -32,12 +33,13 @@ const BETA: &'static str =
 const MODULUS_MINUS_ONE_DIV_TWO: &'static str =
     "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
 
-// Decomposition constants
-// Derived through algorithm 3.74 http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
+// Decomposition constants for vectors (a1, b1) and (a2, b2),
+// derived through algorithm 3.74 http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
+// Also see `balanced_representation.sage` file for details
 // NOTE: B2 == A1
-const A1: &'static str = "0x3086d221a7d46bcde86c90e49284eb15";
-const B1: &'static str = "0xe4437ed6010e88286f547fa90abfe4c3";
-const A2: &'static str = "0x114ca50f7a8e2f3f657c1108d9d44cfd8";
+const A1: &'static str = "0x89D3256894D213E3";
+const B1: &'static str = "-0x6F4D8248EEB859FC8211BBEB7D4F1128";
+const A2: &'static str = "0x6F4D8248EEB859FD0BE4E1541221250B";
 
 fn convert_uint256_to_field_element<F, CS, P, const N: usize>(
     cs: &mut CS,
