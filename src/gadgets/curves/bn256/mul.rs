@@ -38,7 +38,7 @@ const MODULUS_MINUS_ONE_DIV_TWO: &'static str =
 // Also see `balanced_representation.sage` file for details
 // NOTE: B2 == A1
 const A1: &'static str = "0x89D3256894D213E3";
-const B1: &'static str = "-0x6F4D8248EEB859FC8211BBEB7D4F1128";
+const B1: &'static str = "0x30644E72E131A029B85045B68181585CB8E665FF8B011694C1D039A872B0EED9";
 const A2: &'static str = "0x6F4D8248EEB859FD0BE4E1541221250B";
 
 fn convert_uint256_to_field_element<F, CS, P, const N: usize>(
