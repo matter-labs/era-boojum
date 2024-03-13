@@ -22,7 +22,7 @@ use crate::{
 const TWO_POW_128: &'static str = "340282366920938463463374607431768211456";
 
 /// BETA parameter such that phi(x, y) = (beta*x, y)
-/// is a valid isomorphic endomorphism for the curve. Note
+/// is a valid endomorphism for the curve. Note
 /// that it is possible to use one since 3 divides prime order - 1
 const BETA: &'static str =
     "2203960485148121921418603742825762020974279258880205651966";
