@@ -1,3 +1,6 @@
+// Short weierstrass projective curve point implementation.
+// Primarily based on the paper: https://eprint.iacr.org/2015/1060.pdf
+
 use super::*;
 
 use crate::gadgets::traits::selectable::Selectable;
@@ -6,8 +9,6 @@ use crate::{
     gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 use pairing::GenericCurveAffine;
-
-// https://eprint.iacr.org/2015/1060.pdf
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
