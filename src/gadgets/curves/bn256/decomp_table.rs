@@ -2,7 +2,7 @@ use crate::cs::implementations::lookup_table::LookupTable;
 use crate::field::SmallField;
 use derivative::*;
 
-const TABLE_NAME: &'static str = "WNAFDECOMP table";
+const TABLE_NAME: &str = "WNAFDECOMP table";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,7 +38,7 @@ where
                         naf -= TABLE_SIZE
                     };
 
-                    let naf_abs = naf.abs() as u8;
+                    let naf_abs = naf.unsigned_abs();
                     if naf < 0 {
                         if carry_bit {
                             a += naf_abs;

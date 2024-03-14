@@ -8,49 +8,67 @@ use pairing::{ff::PrimeField, CurveAffine};
 use crate::{
     cs::traits::cs::ConstraintSystem,
     gadgets::{
-        blake2s::mixing_function::merge_byte_using_table, boolean::Boolean, curves::{sw_projective::SWProjectivePoint, SmallField}, non_native_field::{
+        blake2s::mixing_function::merge_byte_using_table,
+        boolean::Boolean,
+        curves::{sw_projective::SWProjectivePoint, SmallField},
+        non_native_field::{
             implementations::{OverflowTracker, RepresentationForm},
             traits::NonNativeField,
-        }, num::Num, tables::ByteSplitTable, traits::{selectable::Selectable, witnessable::WitnessHookable}, u16::UInt16, u256::UInt256, u32::UInt32, u512::UInt512, u8::UInt8
+        },
+        num::Num,
+        tables::ByteSplitTable,
+        traits::{selectable::Selectable, witnessable::WitnessHookable},
+        u16::UInt16,
+        u256::UInt256,
+        u32::UInt32,
+        u512::UInt512,
+        u8::UInt8,
     },
 };
 
 use super::*;
 
-// GLV constants
-
 /// The value of 2**128 in string format
-const TWO_POW_128: &'static str = "340282366920938463463374607431768211456";
+const TWO_POW_128: &str = "340282366920938463463374607431768211456";
+
+// (BN254 elliptic curve primer order - 1) / 2
+// (0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 - 0x1) / 0x2
+const MODULUS_MINUS_ONE_DIV_TWO: &str =
+    "183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000";
+
+// -- GLV constants --
 
 /// BETA parameter such that phi(x, y) = (beta*x, y)
 /// is a valid endomorphism for the curve. Note
 /// that it is possible to use one since 3 divides prime order - 1.
 /// Detailed explanation can be found in file `params.sage`
-const BETA: &'static str =
-    "2203960485148121921418603742825762020974279258880205651966";
-
-// (BN254 elliptic curve primer order - 1) / 2
-// (0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 - 0x1) / 0x2
-const MODULUS_MINUS_ONE_DIV_TWO: &'static str =
-    "183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000";
+const BETA: &str = "2203960485148121921418603742825762020974279258880205651966";
 
 // Decomposition constants for vectors (a1, b1) and (a2, b2),
 // derived through algorithm 3.74 http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 // Also see `balanced_representation.sage` file for details
 
 /// `a1` component of a short vector `v1=(a1, b1)`.
-const A1: &'static str = "0x89D3256894D213E3";
-/// `-b1` component of a short vector `v1=(a1, b1)`. 
+const A1: &str = "0x89D3256894D213E3";
+/// `-b1` component of a short vector `v1=(a1, b1)`.
 /// Since `b1` is negative, we use `-b1` instead of `b1`.
-const NEGATIVE_B1: &'static str = "0x6f4d8248eeb859fc8211bbeb7d4f1128";
+const B1_NEGATIVE: &str = "0x6f4d8248eeb859fc8211bbeb7d4f1128";
 /// `a2` component of a short vector `v2=(a2, b2)`.
-const A2: &'static str = "0x6F4D8248EEB859FD0BE4E1541221250B";
+const A2: &str = "0x6F4D8248EEB859FD0BE4E1541221250B";
 /// `b2` component of a short vector `v2=(a2, b2)`.
-const B2: &'static str = "0x89D3256894D213E3";
+const B2: &str = "0x89D3256894D213E3";
 
+// -- WNAF parameters --
+
+/// The scalar multiplication window size.
+const GLV_WINDOW_SIZE: usize = 2;
+/// The GLV table length.
+const L: usize = 1 << (GLV_WINDOW_SIZE - 1);
+
+/// Converts the `UInt256<F>` element to a non-native field element over `u16`.
 fn convert_uint256_to_field_element<F, CS, P, const N: usize>(
     cs: &mut CS,
-    elem: &UInt256<F>,
+    value: &UInt256<F>,
     params: &Arc<NonNativeFieldOverU16Params<P, N>>,
 ) -> NonNativeFieldOverU16<F, P, N>
 where
@@ -63,7 +81,7 @@ where
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
 
-    for (dst, src) in limbs.array_chunks_mut::<2>().zip(elem.inner.iter()) {
+    for (dst, src) in limbs.array_chunks_mut::<2>().zip(value.inner.iter()) {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -82,7 +100,7 @@ where
     }
 
     let element = NonNativeFieldOverU16 {
-        limbs: limbs,
+        limbs,
         non_zero_limbs: 16,
         tracker: OverflowTracker { max_moduluses },
         form: RepresentationForm::Normalized,
@@ -93,7 +111,7 @@ where
     element
 }
 
-/// Converts the non-native field eelement over u16 to a UInt256.
+/// Converts the non-native field eelement over `u16` to a `UInt256`.
 /// Note that caller must ensure that the field element is normalized,
 /// otherwise this will fail.
 fn convert_field_element_to_uint256<F, CS, P, const N: usize>(
@@ -123,7 +141,9 @@ where
     UInt256 { inner: limbs }
 }
 
-fn to_wnaf<F: SmallField, CS: ConstraintSystem<F>>(
+/// Converts the specified `BN256ScalarNNField` element to a
+/// WNAF representation using an array of `UInt8<F>` elements.
+fn convert_to_wnaf<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     e: BN256ScalarNNField<F>,
     neg: Boolean<F>,
@@ -207,103 +227,138 @@ fn to_wnaf<F: SmallField, CS: ConstraintSystem<F>>(
     naf
 }
 
-/// Elliptic curve scalar multiplication implementation for 
+/// Converts the hex value to UInt512 element.
+fn convert_hex_to_bigint<F, CS>(cs: &mut CS, hex_value: &str) -> UInt512<F>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    let v = U256::from_str_radix(hex_value, 16).unwrap();
+    UInt512::allocated_constant(cs, (v, U256::zero()))
+}
+
+/// Converts hex in string format to `UInt256` element.
+fn convert_hex_to_u256<F, CS>(cs: &mut CS, hex_value: &str) -> UInt256<F>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    let v = U256::from_str_radix(hex_value, 16).unwrap();
+    UInt256::allocated_constant(cs, v)
+}
+
+/// Struct repesenting the output of [`conduct_scalar_decomposition`] method.
+type ScalarDecomposition<F> = (
+    Boolean<F>,
+    NonNativeFieldOverU16<F, BN256Fr, 17>,
+    Boolean<F>,
+    NonNativeFieldOverU16<F, BN256Fr, 17>,
+);
+
+/// Conducts scalar decomposition for the given scalar using steps
+/// 4-6 of _Algorithm 3.74_ in
+/// http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf.
+fn conduct_scalar_decomposition<F, CS>(
+    cs: &mut CS,
+    mut scalar: BN256ScalarNNField<F>,
+    scalar_field_params: &Arc<BN256ScalarNNFieldParams>,
+) -> ScalarDecomposition<F>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    let k = convert_field_element_to_uint256(cs, scalar.clone());
+
+    // Allocating constants
+    let pow_2_128 = U256::from_dec_str(TWO_POW_128).unwrap();
+    let pow_2_128 = UInt512::allocated_constant(cs, (pow_2_128, U256::zero()));
+    let low_pow_2_128 = pow_2_128.to_low();
+    let modulus_minus_one_div_two = convert_hex_to_bigint(cs, MODULUS_MINUS_ONE_DIV_TWO);
+
+    // Getting vectors (a1, b1) and (a2, b2) from constants in hex format
+    let a1 = convert_hex_to_u256(cs, A1);
+    let b1_negative = convert_hex_to_u256(cs, B1_NEGATIVE);
+    let a2 = convert_hex_to_u256(cs, A2);
+    let b2 = convert_hex_to_u256(cs, B2);
+
+    // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B2
+    // (since it fits in 128 bits).
+    let b2_times_k = k.widening_mul(cs, &b2, 8, 4);
+    let b2_times_k = b2_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
+    let c1 = b2_times_k.0.to_high();
+
+    // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B1
+    // (since it fits in 128 bits).
+    let b1_times_k = k.widening_mul(cs, &b1_negative, 8, 4);
+    let b1_times_k = b1_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
+    let c2 = b1_times_k.0.to_high();
+
+    // Converting to field elements
+    let mut a1 = convert_uint256_to_field_element(cs, &a1, scalar_field_params);
+    let mut b1 = convert_uint256_to_field_element(cs, &b1_negative, scalar_field_params);
+    let mut a2 = convert_uint256_to_field_element(cs, &a2, scalar_field_params);
+    let mut b2 = a1.clone();
+    let mut c1 = convert_uint256_to_field_element(cs, &c1, scalar_field_params);
+    let mut c2 = convert_uint256_to_field_element(cs, &c2, scalar_field_params);
+
+    let mut c1_times_a1 = c1.mul(cs, &mut a1);
+    let mut c2_times_a2 = c2.mul(cs, &mut a2);
+    let mut k1 = scalar.sub(cs, &mut c1_times_a1).sub(cs, &mut c2_times_a2);
+    k1.normalize(cs);
+
+    let mut c2_times_b2 = c2.mul(cs, &mut b2);
+    let mut k2 = c1.mul(cs, &mut b1).sub(cs, &mut c2_times_b2);
+    k2.normalize(cs);
+
+    let k1_u256 = convert_field_element_to_uint256(cs, k1.clone());
+    let k2_u256 = convert_field_element_to_uint256(cs, k2.clone());
+
+    let (_, is_k1_negative) = k1_u256.overflowing_sub(cs, &low_pow_2_128);
+    let k1_negated = k1.negated(cs);
+    let k1 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
+        cs,
+        is_k1_negative,
+        &k1,
+        &k1_negated,
+    );
+
+    let (_, is_k2_negative) = k2_u256.overflowing_sub(cs, &low_pow_2_128);
+    let k2_negated = k2.negated(cs);
+    let k2 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
+        cs,
+        is_k2_negative,
+        &k2,
+        &k2_negated,
+    );
+
+    (is_k1_negative, k1, is_k2_negative, k2)
+}
+
+/// Elliptic curve scalar multiplication implementation for
 /// BN256 curve using efficiently computable endomorphism
-/// phi(x, y) = (beta*x, y) where beta is a constant.
-/// For more details, see Algorithm 3.77 in 
+/// `phi(x, y) = (beta*x, y)` where `beta` is a constant.
+/// For more details, see _Algorithm 3.77_ in
 /// http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
-fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
+fn wnaf_ec_scalar_mul<F, CS>(
     cs: &mut CS,
     mut point: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
     mut scalar: BN256ScalarNNField<F>,
     base_field_params: &Arc<BN256BaseNNFieldParams>,
     scalar_field_params: &Arc<BN256ScalarNNFieldParams>,
-) -> SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>> {
+) -> SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
     scalar.enforce_reduced(cs);
-    
-    let pow_2_128 = U256::from_dec_str(TWO_POW_128).unwrap();
-    let pow_2_128 = UInt512::allocated_constant(cs, (pow_2_128, U256::zero()));
-
-    let beta = BN256Fq::from_str(BETA).unwrap();
-    let mut beta = BN256BaseNNField::allocated_constant(cs, beta, &base_field_params);
-
-    let bigint_from_hex_str = |cs: &mut CS, s: &str| -> UInt512<F> {
-        let v = U256::from_str_radix(s, 16).unwrap();
-        UInt512::allocated_constant(cs, (v, U256::zero()))
-    };
-
-    let modulus_minus_one_div_two = bigint_from_hex_str(cs, MODULUS_MINUS_ONE_DIV_TWO);
 
     // Scalar decomposition
-    let (k1_neg, k1, k2_neg, k2) = {
-        let u256_from_hex_str = |cs: &mut CS, s: &str| -> UInt256<F> {
-            let v = U256::from_str_radix(s, 16).unwrap();
-            UInt256::allocated_constant(cs, v)
-        };
+    let (is_k1_negative, k1, is_k2_negative, k2) =
+        conduct_scalar_decomposition(cs, scalar, scalar_field_params);
 
-        let a1 = u256_from_hex_str(cs, A1);
-        let negative_b1 = u256_from_hex_str(cs, NEGATIVE_B1);
-        let a2 = u256_from_hex_str(cs, A2);
-        let b2 = u256_from_hex_str(cs, B2);
-
-        let k = convert_field_element_to_uint256(cs, scalar.clone());
-
-        // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B2
-        // (since it fits in 128 bits).
-        let b2_times_k = k.widening_mul(cs, &b2, 8, 4);
-        let b2_times_k = b2_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
-        let c1 = b2_times_k.0.to_high();
-
-        // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B1
-        // (since it fits in 128 bits).
-        let b1_times_k = k.widening_mul(cs, &negative_b1, 8, 4);
-        let b1_times_k = b1_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
-        let c2 = b1_times_k.0.to_high();
-
-        let mut a1 = convert_uint256_to_field_element(cs, &a1, &scalar_field_params);
-        let mut b1 = convert_uint256_to_field_element(cs, &negative_b1, &scalar_field_params);
-        let mut a2 = convert_uint256_to_field_element(cs, &a2, &scalar_field_params);
-        let mut b2 = a1.clone();
-        let mut c1 = convert_uint256_to_field_element(cs, &c1, &scalar_field_params);
-        let mut c2 = convert_uint256_to_field_element(cs, &c2, &scalar_field_params);
-
-        let mut c1_times_a1 = c1.mul(cs, &mut a1);
-        let mut c2_times_a2 = c2.mul(cs, &mut a2);
-        let mut k1 = scalar.sub(cs, &mut c1_times_a1).sub(cs, &mut c2_times_a2);
-        k1.normalize(cs);
-        let mut c2_times_b2 = c2.mul(cs, &mut b2);
-        let mut k2 = c1.mul(cs, &mut b1).sub(cs, &mut c2_times_b2);
-        k2.normalize(cs);
-
-        let k1_u256 = convert_field_element_to_uint256(cs, k1.clone());
-        let k2_u256 = convert_field_element_to_uint256(cs, k2.clone());
-        let low_pow_2_128 = pow_2_128.to_low();
-        let (_res, k1_neg) = k1_u256.overflowing_sub(cs, &low_pow_2_128);
-        let k1_negated = k1.negated(cs);
-        let k1 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
-            cs,
-            k1_neg,
-            &k1,
-            &k1_negated,
-        );
-        let (_res, k2_neg) = k2_u256.overflowing_sub(cs, &low_pow_2_128);
-        let k2_negated = k2.negated(cs);
-        let k2 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
-            cs,
-            k2_neg,
-            &k2,
-            &k2_negated,
-        );
-
-        (k1_neg, k1, k2_neg, k2)
-    };
-
-    // WNAF
-    // The scalar multiplication window size.
-    const GLV_WINDOW_SIZE: usize = 2;
-
-    // The GLV table length.
-    const L: usize = 1 << (GLV_WINDOW_SIZE - 1);
+    // Defining beta
+    let beta = BN256Fq::from_str(BETA).unwrap();
+    let mut beta = BN256BaseNNField::allocated_constant(cs, beta, base_field_params);
 
     let mut t1 = Vec::with_capacity(L);
     // We use `convert_to_affine_or_default`, but we don't need to worry about returning 1, since
@@ -312,6 +367,7 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
         .double(cs)
         .convert_to_affine_or_default(cs, BN256Affine::one());
     t1.push(point.clone());
+
     for i in 1..L {
         let next = t1[i - 1].add_mixed(cs, &mut double);
         t1.push(next);
@@ -319,13 +375,14 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
 
     let t1 = t1
         .iter_mut()
-        .map(|el| el.convert_to_affine_or_default(cs, BN256Affine::one()).0)
+        .map(|point| point.convert_to_affine_or_default(cs, BN256Affine::one()).0)
         .collect::<Vec<_>>();
 
+    // Applying endomorphism
     let t2 = t1
         .clone()
         .into_iter()
-        .map(|mut el| (el.0.mul(cs, &mut beta), el.1))
+        .map(|mut point| (point.0.mul(cs, &mut beta), point.1))
         .collect::<Vec<_>>();
 
     let overflow_checker = UInt8::allocated_constant(cs, 2u8.pow(7));
@@ -335,7 +392,6 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
     let byte_split_id = cs
         .get_table_id_for_marker::<ByteSplitTable<4>>()
         .expect("table should exist");
-
     let naf_abs_div2_table_id = cs
         .get_table_id_for_marker::<NafAbsDiv2Table>()
         .expect("table must exist");
@@ -358,24 +414,26 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
                     coords.0.clone(),
                     coords.1.clone(),
                 );
-            let (_, naf_is_positive) = naf.overflowing_sub(cs, &overflow_checker);
+            let (_, is_naf_positive) = naf.overflowing_sub(cs, &overflow_checker);
             let p_1_neg = p_1.negated(cs);
-            p_1 = Selectable::conditionally_select(cs, naf_is_positive, &p_1, &p_1_neg);
+            p_1 = Selectable::conditionally_select(cs, is_naf_positive, &p_1, &p_1_neg);
+
             let acc_added = acc.add_mixed(cs, &mut (p_1.x, p_1.y));
-            *acc = Selectable::conditionally_select(cs, is_zero, &acc, &acc_added);
+            *acc = Selectable::conditionally_select(cs, is_zero, acc, &acc_added);
         };
 
-    let naf1 = to_wnaf(cs, k1, k1_neg, decomp_id, byte_split_id);
-    let naf2 = to_wnaf(cs, k2, k2_neg, decomp_id, byte_split_id);
-    let mut acc =
-        SWProjectivePoint::<F, BN256Affine, BN256BaseNNField<F>>::zero(cs, &base_field_params);
+    let naf1 = convert_to_wnaf(cs, k1, is_k1_negative, decomp_id, byte_split_id);
+    let naf2 = convert_to_wnaf(cs, k2, is_k2_negative, decomp_id, byte_split_id);
+    let mut result =
+        SWProjectivePoint::<F, BN256Affine, BN256BaseNNField<F>>::zero(cs, base_field_params);
+
     for i in (0..129).rev() {
-        naf_add(cs, &t1, naf1[i], &mut acc);
-        naf_add(cs, &t2, naf2[i], &mut acc);
+        naf_add(cs, &t1, naf1[i], &mut result);
+        naf_add(cs, &t2, naf2[i], &mut result);
         if i != 0 {
-            acc = acc.double(cs);
+            result = result.double(cs);
         }
     }
 
-    acc
+    result
 }

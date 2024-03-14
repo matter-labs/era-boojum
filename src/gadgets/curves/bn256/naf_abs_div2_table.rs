@@ -2,7 +2,7 @@ use crate::cs::implementations::lookup_table::LookupTable;
 use crate::field::SmallField;
 use derivative::*;
 
-const TABLE_NAME: &'static str = "NAFABSDIV2 table";
+const TABLE_NAME: &str = "NAFABSDIV2 table";
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, PartialEq, Eq)]
