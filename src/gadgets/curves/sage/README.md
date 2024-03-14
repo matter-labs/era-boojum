@@ -8,8 +8,8 @@ Below, we describe the structure of the folder:
 
 | File/Folder | Description |
 |-------------|-------------|
-| [`endomorphism.sage`](endomorphism.sage) | SageMath code for getting $\lambda$ and $\beta$ parameters for BN254 curve used in useful endomorphism. |
-| [`balanced_representation.sage`](balanced_representation.sage) | SageMath code for getting short vectors $(a_1,b_1)$ and $(a_2,b_2)$ used for further balanced representation of a scalar in wnaf. |
+| [`endomorphism.sage`](./endomorphism.sage) | SageMath code for getting $\lambda$ and $\beta$ parameters for BN254 curve used in useful endomorphism. |
+| [`balanced_representation.sage`](./balanced_representation.sage) | SageMath code for getting short vectors $(a_1,b_1)$ and $(a_2,b_2)$ used for further balanced representation of a scalar in wnaf. |
 
 The majority of material (including wnaf multiplication implementation) is based on the "Guide to Elliptic Curve Cryptography" [1].
 
