@@ -41,7 +41,7 @@ const MODULUS_MINUS_ONE_DIV_TWO: &str =
 /// BETA parameter such that phi(x, y) = (beta*x, y)
 /// is a valid endomorphism for the curve. Note
 /// that it is possible to use one since 3 divides prime order - 1.
-/// Detailed explanation can be found in file `params.sage`
+/// Detailed explanation can be found in file `endomorphism.sage` in `sage` folder.
 const BETA: &str = "2203960485148121921418603742825762020974279258880205651966";
 
 // Decomposition constants for vectors (a1, b1) and (a2, b2),
