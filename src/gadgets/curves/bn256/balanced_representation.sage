@@ -1,4 +1,4 @@
-def find_short_vectors(q: int, lambd: int) -> tuple[GF, GF, GF, GF]:
+def find_short_vectors(q: int, lambd: int, verbose: bool = False) -> tuple[GF, GF, GF, GF]:
     """
     Finds the shirt vectors for the elliptic curve. Vectors are in the form
     v1 = (a1, b1) and v2 = (a2, b2)
@@ -6,12 +6,13 @@ def find_short_vectors(q: int, lambd: int) -> tuple[GF, GF, GF, GF]:
     Params:
         q: GF - base field
         lambd: GF - lambda parameter (root of X^2-X-1 in Fq)
+        verbose: bool (optional, defaults to False) - if True, prints the Euclidean algorithm trace
 
     Returns:
         tuple[GF, GF, GF, GF] - short vectors
     """
 
-    trace = _extended_euclidean_alg_trace(q, lambd)
+    trace = _extended_euclidean_alg_trace(q, lambd, verbose=verbose)
     
     # Finding the greatest l s.t. r_l > sqrt(n)
     for i, entry in enumerate(trace):
@@ -33,7 +34,7 @@ def find_short_vectors(q: int, lambd: int) -> tuple[GF, GF, GF, GF]:
     return (a1, b1, a2, b2)
 
 
-def _extended_euclidean_alg_trace(a: GF, b: GF) -> list[tuple[GF, GF, GF]]:
+def _extended_euclidean_alg_trace(a: GF, b: GF, verbose: bool = False) -> list[tuple[GF, GF, GF]]:
     """
     Extended Euclidean algorithm which outputs the trace of computations in
     a form of array (s_i, t_i, r_i) where s_i*a + t_i*b = r_i based
@@ -59,7 +60,9 @@ def _extended_euclidean_alg_trace(a: GF, b: GF) -> list[tuple[GF, GF, GF]]:
     trace = []
 
     while u != 0:
-        print(f's_i*n + t_i*lambd = r: {x1}*{a} + {y1}*{b} = {r}')
+        if verbose:
+            print(f's_i*n + t_i*lambd = r: {x1}*{a} + {y1}*{b} = {r}')
+
         trace.append((x1, y1, r))
         q = v // u
         r = v - q*u
@@ -81,12 +84,33 @@ def _extended_euclidean_alg_trace(a: GF, b: GF) -> list[tuple[GF, GF, GF]]:
 # http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 q = 1461501637330902918203687013445034429194588307251
 lambd = 903860042511079968555273866340564498116022318806
-a1, b1, a2, b2 = find_short_vectors(q, lambd)
+a1, b1, a2, b2 = find_short_vectors(q, lambd, verbose=False)
+
+print("Short vectors (a1, b1) and (a2, b2) for the curve from the book are:")
+print('a1 =', hex(a1))
+print('b1 =', hex(b1))
+print('a2 =', hex(a2))
+print('b2 =', hex(b2))
 
 assert a1 == 788919430192407951782190, 'a1 is incorrect'
 assert b1 == -602889891024722752429129, 'b1 is incorrect'
 assert a2 == 602889891024722752429129, 'a2 is incorrect'
 assert b2 == 1391809321217130704211319, 'b2 is incorrect'
+
+# Validating the values for secp256k1
+q = Integer("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
+lambd = Integer("0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72")
+a1, b1, a2, b2 = find_short_vectors(q, lambd, verbose=False)
+print("\nShort vectors (a1, b1) and (a2, b2) for secp256k1 are:")
+print('a1 =', hex(a1))
+print('b1 =', hex(b1))
+print('a2 =', hex(a2))
+print('b2 =', hex(b2))
+
+assert a1 == Integer("0x3086d221a7d46bcde86c90e49284eb15")
+assert b1 == Integer("-0xe4437ed6010e88286f547fa90abfe4c3")
+assert a2 == Integer("0x114ca50f7a8e2f3f657c1108d9d44cfd8")
+assert b2 == a1
 
 # Now, calculating the value for BN254 curve
 
@@ -98,8 +122,10 @@ lambd = 4407920970296243842393367215006156084916469457145843978461
 
 # Displaying the short vectors. Note that we use Fq to convert the result
 # to the finite field
-a1, b1, a2, b2 = find_short_vectors(q, lambd)
-print('a1 =', Fq(a1)) # 9931322734385697763
-print('b1 =', Fq(b1)) # 21888242871839275222246405745257275088400417643534245024697439155772005084889
-print('a2 =', Fq(a2)) # 147946756881789319010696353538189108491
-print('b2 =', Fq(b2)) # 9931322734385697763
+a1, b1, a2, b2 = find_short_vectors(q, lambd, verbose=False)
+print('\nShort vectors (a1, b1) and (a2, b2) for BN256 are:')
+print('a1 =', a1.hex()) # 0x89d3256894d213e3
+print('b1 =', b1.hex()) # -0x6f4d8248eeb859fc8211bbeb7d4f1128
+print('a2 =', a2.hex()) # 0x6f4d8248eeb859fd0be4e1541221250b
+print('b2 =', b2.hex()) # 0x89d3256894d213e3
+

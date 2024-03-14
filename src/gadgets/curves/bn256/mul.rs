@@ -24,22 +24,29 @@ const TWO_POW_128: &'static str = "340282366920938463463374607431768211456";
 
 /// BETA parameter such that phi(x, y) = (beta*x, y)
 /// is a valid endomorphism for the curve. Note
-/// that it is possible to use one since 3 divides prime order - 1
+/// that it is possible to use one since 3 divides prime order - 1.
+/// Detailed explanation can be found in file `params.sage`
 const BETA: &'static str =
     "2203960485148121921418603742825762020974279258880205651966";
 
-// Secp256k1.p - 1 / 2
-// 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc2f - 0x1 / 0x2
+// (BN254 elliptic curve primer order - 1) / 2
+// (0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 - 0x1) / 0x2
 const MODULUS_MINUS_ONE_DIV_TWO: &'static str =
-    "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0";
+    "183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000";
 
 // Decomposition constants for vectors (a1, b1) and (a2, b2),
 // derived through algorithm 3.74 http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 // Also see `balanced_representation.sage` file for details
-// NOTE: B2 == A1
+
+/// `a1` component of a short vector `v1=(a1, b1)`.
 const A1: &'static str = "0x89D3256894D213E3";
-const B1: &'static str = "0x30644E72E131A029B85045B68181585CB8E665FF8B011694C1D039A872B0EED9";
+/// `-b1` component of a short vector `v1=(a1, b1)`. 
+/// Since `b1` is negative, we use `-b1` instead of `b1`.
+const NEGATIVE_B1: &'static str = "0x6f4d8248eeb859fc8211bbeb7d4f1128";
+/// `a2` component of a short vector `v2=(a2, b2)`.
 const A2: &'static str = "0x6F4D8248EEB859FD0BE4E1541221250B";
+/// `b2` component of a short vector `v2=(a2, b2)`.
+const B2: &'static str = "0x89D3256894D213E3";
 
 fn convert_uint256_to_field_element<F, CS, P, const N: usize>(
     cs: &mut CS,
@@ -200,6 +207,11 @@ fn to_wnaf<F: SmallField, CS: ConstraintSystem<F>>(
     naf
 }
 
+/// Elliptic curve scalar multiplication implementation for 
+/// BN256 curve using efficiently computable endomorphism
+/// phi(x, y) = (beta*x, y) where beta is a constant.
+/// For more details, see Algorithm 3.77 in 
+/// http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     mut point: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
@@ -208,7 +220,7 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
     scalar_field_params: &Arc<BN256ScalarNNFieldParams>,
 ) -> SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>> {
     scalar.enforce_reduced(cs);
-
+    
     let pow_2_128 = U256::from_dec_str(TWO_POW_128).unwrap();
     let pow_2_128 = UInt512::allocated_constant(cs, (pow_2_128, U256::zero()));
 
@@ -230,9 +242,9 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
         };
 
         let a1 = u256_from_hex_str(cs, A1);
-        let b1 = u256_from_hex_str(cs, B1);
+        let negative_b1 = u256_from_hex_str(cs, NEGATIVE_B1);
         let a2 = u256_from_hex_str(cs, A2);
-        let b2 = a1.clone();
+        let b2 = u256_from_hex_str(cs, B2);
 
         let k = convert_field_element_to_uint256(cs, scalar.clone());
 
@@ -244,12 +256,12 @@ fn wnaf_ec_scalar_mul<F: SmallField, CS: ConstraintSystem<F>>(
 
         // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B1
         // (since it fits in 128 bits).
-        let b1_times_k = k.widening_mul(cs, &b1, 8, 4);
+        let b1_times_k = k.widening_mul(cs, &negative_b1, 8, 4);
         let b1_times_k = b1_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
         let c2 = b1_times_k.0.to_high();
 
         let mut a1 = convert_uint256_to_field_element(cs, &a1, &scalar_field_params);
-        let mut b1 = convert_uint256_to_field_element(cs, &b1, &scalar_field_params);
+        let mut b1 = convert_uint256_to_field_element(cs, &negative_b1, &scalar_field_params);
         let mut a2 = convert_uint256_to_field_element(cs, &a2, &scalar_field_params);
         let mut b2 = a1.clone();
         let mut c1 = convert_uint256_to_field_element(cs, &c1, &scalar_field_params);
