@@ -12,7 +12,7 @@ use std::mem::MaybeUninit;
 // Unfortunately we can not do it (unless we prove the opposite later on) due to e.g. https://www.youtube.com/watch?v=0DHoxCAsick - parallel repetition
 
 // So when we get presumably RS codes from quotening operation (f(x) - f(z))/(x - z) and linear combination of such terms,
-// we immediatelly pull challenges for such linear combination from quadratic extension, so our initial oracle for FRI containes Fp2 elements in the leafs.
+// we immediately pull challenges for such linear combination from quadratic extension, so our initial oracle for FRI containes Fp2 elements in the leafs.
 // Then on every step of interpolation we will take another challenge from Fp2 and continue
 
 // Another things is FRI soundness bound. FRI (not DEEP-FRI) is sound up to Johnson bound IF code size is much smaller

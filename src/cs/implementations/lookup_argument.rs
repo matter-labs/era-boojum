@@ -218,7 +218,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
         let aggregated_lookup_columns_inversed =
             P::vec_from_base_vec(aggregated_lookup_columns_inversed);
 
-        // we follow the same aproach as above - first prepare chunks, and then work over them
+        // we follow the same approach as above - first prepare chunks, and then work over them
 
         assert_eq!(
             variables_columns

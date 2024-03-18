@@ -6,7 +6,7 @@ use super::*;
 // Even though it can be achieved by manual crafting of quotient terms,
 // we would like to make our lives easier. This gate ALWAYS adds 0, 1 and -1 as
 // constants, and can add an arbitrary set. Largely powers of two would be a good case,
-// even though they can be produced by just having FMA gate (that also shares coeffients) like 2 * 1 * 1 -> 2,
+// even though they can be produced by just having FMA gate (that also shares coefficients) like 2 * 1 * 1 -> 2,
 // 2 * 2 * 1 -> 4, etc
 
 #[derive(Derivative)]
