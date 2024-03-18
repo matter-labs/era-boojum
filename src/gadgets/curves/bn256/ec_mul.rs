@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crypto_bigint::{Zero, U1024};
+use ec_mul::{decomp_table::WnafDecompTable, naf_abs_div2_table::NafAbsDiv2Table};
 use ethereum_types::U256;
-use mul::{decomp_table::WnafDecompTable, naf_abs_div2_table::NafAbsDiv2Table};
 use pairing::{ff::PrimeField, CurveAffine};
 
 use crate::{
