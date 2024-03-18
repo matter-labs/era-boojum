@@ -2,7 +2,7 @@ use super::*;
 use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
 
 /// BN256Fq2Params represents a pair of elements in the extension field Fq2 = Fq[X] / (X^2 - beta)
-/// where beta^2 = -2.
+/// where beta^2 = -1.
 pub struct BN256Fq2Params<F, CS>
 where
     F: SmallField,
@@ -30,6 +30,24 @@ where
         Self::new(c0, c1)
     }
 
+    pub fn double(&mut self, cs: &mut CS) -> Self {
+        let c0 = self.c0.double(cs);
+        let c1 = self.c1.double(cs);
+        Self::new(c0, c1)
+    }
+
+    pub fn square(&mut self, cs: &mut CS) -> Self {
+        // (a+bi)^2 = a^2 - b^2 + (2ab)i
+        let mut c0 = self.c0.square(cs);
+        let mut c1_squared = self.c1.square(cs);
+        let c0 = c0.sub(cs, &mut c1_squared);
+
+        let mut c1 = self.c0.mul(cs, &mut self.c1);
+        let c1 = c1.double(cs);
+
+        Self::new(c0, c1)
+    }
+
     pub fn sub(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let c0 = self.c0.sub(cs, &mut other.c0);
         let c1 = self.c1.sub(cs, &mut other.c1);
@@ -43,14 +61,13 @@ where
     }
 
     pub fn mul(&mut self, cs: &mut CS, other: &mut Self) -> Self {
-        // (a+bi)(c+di) = ac - 2*bd + (ad + bc)i
+        // (a+bi)(c+di) = ac - bd + (ad + bc)i
 
         let mut ac = self.c0.mul(cs, &mut other.c0);
         let mut bd = self.c1.mul(cs, &mut other.c1);
-        let mut bd2 = bd.double(cs);
         let mut ad = self.c0.mul(cs, &mut other.c1);
         let mut bc = self.c1.mul(cs, &mut other.c0);
-        let c0 = ac.sub(cs, &mut bd2);
+        let c0 = ac.sub(cs, &mut bd);
         let c1 = ad.add(cs, &mut bc);
         Self::new(c0, c1)   
     }
