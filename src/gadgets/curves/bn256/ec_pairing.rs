@@ -2,11 +2,13 @@ use pairing::ff::PrimeField;
 
 use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
 
-use super::*;
 use super::fr2::{BN256Fq2Params, BN256Fq2ProjectiveCurvePoint};
+use super::*;
 
-const B_TWIST_COEFF_REAL: &str = "19485874751759354771024239261021720505790618469301721065564631296452457478373";
-const B_TWIST_COEFF_IMAGINARY: &str = "266929791119991161246907387137283842545076965332900288569378510910307636690";
+const B_TWIST_COEFF_REAL: &str =
+    "19485874751759354771024239261021720505790618469301721065564631296452457478373";
+const B_TWIST_COEFF_IMAGINARY: &str =
+    "266929791119991161246907387137283842545076965332900288569378510910307636690";
 
 pub struct LineFunctionEvaluation<F, CS>
 where
@@ -68,9 +70,10 @@ where
         let params = X.c0.params.clone();
         let b_twist_real = BN256Fq::from_str(B_TWIST_COEFF_REAL).unwrap();
         let b_twist_real = BN256BaseNNField::allocated_constant(cs, b_twist_real, &params);
-    
+
         let b_twist_imaginary = BN256Fq::from_str(B_TWIST_COEFF_IMAGINARY).unwrap();
-        let b_twist_imaginary = BN256BaseNNField::allocated_constant(cs, b_twist_imaginary, &params);
+        let b_twist_imaginary =
+            BN256BaseNNField::allocated_constant(cs, b_twist_imaginary, &params);
 
         let mut b_twist = BN256Fq2Params::new(b_twist_real, b_twist_imaginary);
 

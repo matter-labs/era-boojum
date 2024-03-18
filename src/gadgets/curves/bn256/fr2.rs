@@ -6,7 +6,7 @@ use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
 pub struct BN256Fq2Params<F, CS>
 where
     F: SmallField,
-    CS: ConstraintSystem<F>
+    CS: ConstraintSystem<F>,
 {
     pub c0: BN256BaseNNField<F>,
     pub c1: BN256BaseNNField<F>,
@@ -21,7 +21,11 @@ where
     CS: ConstraintSystem<F>,
 {
     pub fn new(c0: BN256BaseNNField<F>, c1: BN256BaseNNField<F>) -> Self {
-        Self { c0, c1, _marker: std::marker::PhantomData }
+        Self {
+            c0,
+            c1,
+            _marker: std::marker::PhantomData,
+        }
     }
 
     pub fn add(&mut self, cs: &mut CS, other: &mut Self) -> Self {
@@ -69,7 +73,7 @@ where
         let mut bc = self.c1.mul(cs, &mut other.c0);
         let c0 = ac.sub(cs, &mut bd);
         let c1 = ad.add(cs, &mut bc);
-        Self::new(c0, c1)   
+        Self::new(c0, c1)
     }
 
     pub fn mul_fq(&mut self, cs: &mut CS, other: &mut BN256BaseNNField<F>) -> Self {

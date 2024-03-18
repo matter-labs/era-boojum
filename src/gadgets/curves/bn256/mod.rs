@@ -13,8 +13,8 @@ use pairing::bn256::G1Affine as BN256Affine;
 pub mod decomp_table;
 pub mod ec_mul;
 pub mod ec_pairing;
-pub mod naf_abs_div2_table;
 pub mod fr2;
+pub mod naf_abs_div2_table;
 
 // 17 bits * 16 bits in u16 = 272 bits > 254 bits used in BN254
 type BN256BaseNNFieldParams = NonNativeFieldOverU16Params<BN256Fq, 17>;
