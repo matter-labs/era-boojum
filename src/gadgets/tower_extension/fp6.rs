@@ -1,3 +1,5 @@
+use std::{mem, sync::Arc};
+
 use super::fp2::Fp2;
 
 use crate::{
@@ -5,14 +7,31 @@ use crate::{
     gadgets::non_native_field::traits::NonNativeField,
 };
 
-pub struct Fp6<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> {
+/// `Fp6` field extension implementation in the constraint system. It is implemented
+/// as `Fp2[v]/(v^3-xi)` where `xi=9+u`. In other words,
+/// it is a set of quadratic polynomials of a form `c0+c1*v+c2*v^2`,
+///  where `c0`, `c1`, `c2` are elements of `Fp2`.
+/// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
+/// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
+pub struct Fp6<F, T, NN>
+where
+    F: SmallField,
+    T: pairing::ff::PrimeField,
+    NN: NonNativeField<F, T>,
+{
     pub c0: Fp2<F, T, NN>,
     pub c1: Fp2<F, T, NN>,
     pub c2: Fp2<F, T, NN>,
-    _marker: std::marker::PhantomData<(F, T)>, // Question: what to put here?
+    _marker: std::marker::PhantomData<(F, T)>,
 }
 
-impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp6<F, T, NN> {
+impl<F, T, NN> Fp6<F, T, NN>
+where
+    F: SmallField,
+    T: pairing::ff::PrimeField,
+    NN: NonNativeField<F, T>,
+{
+    /// Creates a new `Fp6` element from three `Fp2` components.
     pub fn new(c0: Fp2<F, T, NN>, c1: Fp2<F, T, NN>, c2: Fp2<F, T, NN>) -> Self {
         Self {
             c0,
@@ -22,56 +41,217 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp6<F,
         }
     }
 
+    /// Creates a new zero `Fp6` in a form `0+0*v+0*v^2`
+    pub fn zero<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let zero = Fp2::zero(cs, params);
+        Self::new(zero, zero, zero)
+    }
+
+    /// Creates a unit `Fp6` in a form `1+0*v+0*v^2`
+    pub fn one<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let one = Fp2::one(cs, params);
+        let zero = Fp2::zero(cs, params);
+        Self::new(one, zero, zero)
+    }
+
+    /// Adds two elements of `Fp6` by adding their components elementwise.
     #[must_use]
-    pub fn add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
+    pub fn add<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
         let c0 = self.c0.add(cs, &mut other.c0);
         let c1 = self.c1.add(cs, &mut other.c1);
         let c2 = self.c2.add(cs, &mut other.c2);
         Self::new(c0, c1, c2)
     }
 
+    /// Doubles the element of `Fp6` by doubling its components.
     #[must_use]
-    pub fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
+    pub fn double<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
         let c0 = self.c0.double(cs);
         let c1 = self.c1.double(cs);
         let c2 = self.c2.double(cs);
         Self::new(c0, c1, c2)
     }
 
+    /// Negates the element of `Fp6` by negating its components.
     #[must_use]
-    pub fn negated<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
+    pub fn negated<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
         let c0 = self.c0.negated(cs);
         let c1 = self.c1.negated(cs);
         let c2 = self.c2.negated(cs);
         Self::new(c0, c1, c2)
     }
 
+    /// Subtracts two elements of `Fp6` by subtracting their components elementwise.
     #[must_use]
-    pub fn sub<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
+    pub fn sub<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
         let c0 = self.c0.sub(cs, &mut other.c0);
         let c1 = self.c1.sub(cs, &mut other.c1);
         let c2 = self.c2.sub(cs, &mut other.c2);
         Self::new(c0, c1, c2)
     }
 
-    #[must_use]
-    pub fn mul<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
-        todo!()
+    /// Multiplies the element in `Fp6` by a non-residue `xi=9+u`.
+    pub fn mul_by_nonresidue<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // c0, c1, c2 -> c2, c0, c1
+        mem::swap(&mut self.c0, &mut self.c1);
+        mem::swap(&mut self.c1, &mut self.c2);
+        // c2 -> xi*c2
+        self.c0.mul_by_nonresidue(cs);
+        *self
     }
 
+    /// Multiplies two elements `a=a0+a1*v+a2*v^2`
+    /// and `b=b0+b1*v+b2*v^2` in `Fp6` using Karatsuba multiplication.
+    #[must_use]
+    pub fn mul<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // v0 <- a0*b0, v1 <- a1*b1, v2 <- a2*b2
+        let mut v0 = self.c0.mul(cs, &mut other.c0);
+        let mut v1 = self.c1.mul(cs, &mut other.c1);
+        let mut v2 = self.c2.mul(cs, &mut other.c2);
+
+        // c0 <- v0 + xi*((a1 + a2)(b1 + b2) - v1 - v2)
+        let mut a1_plus_a2 = self.c1.add(cs, &mut self.c2);
+        let mut b1_plus_b2 = other.c1.add(cs, &mut other.c2);
+        let mut a1_plus_a2_b1_plus_b2 = a1_plus_a2.mul(cs, &mut b1_plus_b2);
+        let mut c0 = a1_plus_a2_b1_plus_b2.mul(cs, &mut b1_plus_b2);
+        let mut c0 = c0.sub(cs, &mut v1);
+        let mut c0 = c0.sub(cs, &mut v2);
+        let mut c0 = c0.add(cs, &mut v0);
+
+        // c1 <- (a0 + a1)(b0 + b1) - v0 - v1 + xi*v2
+        let mut a0_plus_a1 = self.c0.add(cs, &mut self.c1);
+        let mut b0_plus_b1 = other.c0.add(cs, &mut other.c1);
+        let mut c1 = a0_plus_a1.mul(cs, &mut b0_plus_b1);
+        let mut c1 = c1.sub(cs, &mut v0);
+        let mut c1 = c1.add(cs, &mut v1);
+        let mut xi_v2 = v2.mul_by_nonresidue(cs);
+        let mut c1 = c1.add(cs, &mut xi_v2);
+
+        // c2 <- (a0 + a2)(b0 + b2) - v0 + v1 - v2
+        let mut a0_plus_a2 = self.c0.add(cs, &mut self.c2);
+        let mut b0_plus_b2 = other.c0.add(cs, &mut other.c2);
+        let mut c2 = a0_plus_a2.mul(cs, &mut b0_plus_b2);
+        let mut c2 = c2.sub(cs, &mut v0);
+        let mut c2 = c2.add(cs, &mut v1);
+        let mut c2 = c2.sub(cs, &mut v2);
+
+        Self::new(c0, c1, c2)
+    }
+
+    /// Squares the element `a=a0+a1*v+a2*v^2` in `Fp6` using Karatsuba squaring.
     #[must_use]
     pub fn square<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
-        todo!()
+        // v0 <- a0^2, v1 <- a1^2, v2 <- a2^2
+        let mut v0 = self.c0.square(cs);
+        let mut v1 = self.c1.square(cs);
+        let mut v2 = self.c2.square(cs);
+
+        // c0 <- v0 + xi*((a1 + a2)^2 - v1 - v2)
+        let mut a1_plus_a2 = self.c1.add(cs, &mut self.c2);
+        let mut c0 = a1_plus_a2.square(cs);
+        let mut c0 = c0.sub(cs, &mut v1);
+        let mut c0 = c0.sub(cs, &mut v2);
+        let mut c0 = c0.mul_by_nonresidue(cs);
+        let mut c0 = c0.add(cs, &mut v0);
+
+        // c1 <- (a0 + a1)^2 - v0 - v1 + xi*v2
+        let mut a0_plus_a1 = self.c0.add(cs, &mut self.c1);
+        let mut c1 = a0_plus_a1.square(cs);
+        let mut c1 = c1.sub(cs, &mut v0);
+        let mut c1 = c1.sub(cs, &mut v1);
+        let mut xi_v2 = v2.mul_by_nonresidue(cs);
+        let mut c1 = c1.add(cs, &mut xi_v2);
+
+        // c2 <- (a0 + a2)^2 - v0 + v1 - v2
+        let mut a0_plus_a2 = self.c0.add(cs, &mut self.c2);
+        let mut c2 = a0_plus_a2.square(cs);
+        let mut c2 = c2.sub(cs, &mut v0);
+        let mut c2 = c2.add(cs, &mut v1);
+        let mut c2 = c2.sub(cs, &mut v2);
+
+        Self::new(c0, c1, c2)
     }
 
-    #[must_use]
-    pub fn inverse<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
-        todo!()
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fp6` by the element `b = b1*v`
+    pub fn mul_by_c1<CS>(&mut self, cs: &mut CS, c1: &mut Fp2<F, T, NN>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let mut b_b = self.c1.mul(cs, c1);
+        let mut t1 = *c1;
+        let mut tmp = self.c1;
+        let mut tmp = tmp.add(cs, &mut self.c2);
+
+        let mut t1 = t1.mul(cs, &mut tmp);
+        let mut t1 = t1.sub(cs, &mut b_b);
+        let mut t1 = t1.mul_by_nonresidue(cs);
+
+        let mut t2 = *c1;
+        let mut tmp = self.c0;
+        let mut tmp = tmp.add(cs, &mut self.c1);
+        let mut t2 = t2.mul(cs, &mut tmp);
+        let mut t2 = t2.sub(cs, &mut b_b);
+
+        Self::new(t1, t2, b_b)
     }
 
-    #[must_use]
-    pub fn div<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
-        let mut inv = other.inverse(cs);
-        self.mul(cs, &mut inv)
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fp6` by the element `b = b0+b1*v`
+    pub fn mul_by_c0c1<CS>(
+        &mut self,
+        cs: &mut CS,
+        c0: &mut Fp2<F, T, NN>,
+        c1: &mut Fp2<F, T, NN>,
+    ) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let mut a_a = self.c0.mul(cs, c0);
+        let mut b_b = self.c1.mul(cs, c1);
+
+        let mut t1 = *c1;
+        let mut tmp = self.c1.add(cs, &mut self.c2);
+        let mut t1 = t1.mul(cs, &mut tmp);
+        let mut t1 = t1.sub(cs, &mut b_b);
+        let mut t1 = t1.mul_by_nonresidue(cs);
+        let mut t1 = t1.add(cs, &mut a_a);
+
+        let mut t3 = *c0;
+        let mut tmp = self.c0.add(cs, &mut self.c2);
+        let mut t3 = t3.mul(cs, &mut tmp);
+        let mut t3 = t3.sub(cs, &mut a_a);
+        let mut t3 = t3.add(cs, &mut b_b);
+
+        let mut t2 = *c0;
+        let mut t2 = t2.add(cs, c1);
+        let mut tmp = self.c0.add(cs, &mut self.c1);
+        let mut t2 = t2.mul(cs, &mut tmp);
+        let mut t2 = t2.sub(cs, &mut a_a);
+        let mut t2 = t2.sub(cs, &mut b_b);
+
+        Self::new(t1, t2, t3)
     }
 }

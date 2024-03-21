@@ -14,3 +14,33 @@ print('im_part =', im_part)
 print('\nIn hex format:')
 print('re_part =', re_part.hex())
 print('im_part =', im_part.hex())
+
+# Curve parameter u and the value of [log2(u)] - 1:
+u = Integer(4965661367192848881)
+log2_u = N(log(u, 2))
+print('\nCurve parameter u =', u)
+print('log2(u) =', log2_u)
+print('[log2(u)] - 1 =', floor(log2_u) - 1)
+print('Binary form: ', u.binary())
+
+# Converting in WNAF form:
+def wnaf(k: Integer) -> list[Integer]:
+    coefficients = []
+    while k >= 1:
+        if k % 2 == 1:
+            k_i = 2 - (k % 4)
+            k = k - k_i
+            coefficients.append(k_i)
+        else:
+            k_i = 0
+            coefficients.append(k_i)
+        
+        k = k // 2
+    
+    return coefficients
+
+print('\nCurve in WNAF format: {}', list(reversed(wnaf(u))))
+
+# Verifying that the decomposition is indeed correct:
+u_wnaf = sum([k_i * 2**i for i, k_i in enumerate(wnaf(u))])
+assert u_wnaf == u

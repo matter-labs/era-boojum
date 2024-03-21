@@ -5,11 +5,24 @@ use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
 use super::fr2::{BN256Fq2Params, BN256Fq2ProjectiveCurvePoint};
 use super::*;
 
+// The twist coefficient for the BN256 curve
 const B_TWIST_COEFF_REAL: &str =
     "19485874751759354771024239261021720505790618469301721065564631296452457478373";
 const B_TWIST_COEFF_IMAGINARY: &str =
     "266929791119991161246907387137283842545076965332900288569378510910307636690";
 
+// Curve parameter for the BN256 curve
+const CURVE_PARAMETER: &str = "4965661367192848881";
+const CURVE_PARAMETER_WNAF: [i8; 63] = [
+    1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 1, 0, -1, 0, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, 1, 0,
+    0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0,
+    0, 1,
+];
+
+/// Struct for the line function evaluation for the BN256 curve.
+/// The line function is used in the Miller loop of the pairing function.
+/// Implementation is primarily based on paper https://eprint.iacr.org/2019/077.pdf,
+/// section 3: line functions.
 pub struct LineFunctionEvaluation<F, CS>
 where
     F: SmallField,
@@ -20,17 +33,25 @@ where
     c2: BN256Fq2Params<F, CS>,
 }
 
-/// This is an implementation of the line function evaluation for the BN256 curve.
-/// The line function is used in the Miller loop of the pairing function.
-/// Implementation is primarily based on paper https://eprint.iacr.org/2019/077.pdf,
-/// section 3: line functions.
 impl<F, CS> LineFunctionEvaluation<F, CS>
 where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
+    pub fn new() -> Self {
+        Self {
+            c0: BN256Fq2Params::zero(),
+            c1: BN256Fq2Params::zero(),
+            c2: BN256Fq2Params::zero(),
+        }
+    }
+
+    /// This function computes the line function evaluation for the BN256 curve
+    /// `l_{P,Q}(R)` when `P` and `Q` are distinct points on the twisted curve
+    /// `E'(F_{p^2})` and `R` is a point on the regular curve `E(F_p)`.
     #[allow(non_snake_case)]
-    pub fn construct_distinct_points(
+    pub fn at_line(
+        mut self,
         cs: &mut CS,
         point1: BN256Fq2ProjectiveCurvePoint<F, CS>,
         point2: BN256Fq2ProjectiveCurvePoint<F, CS>,
@@ -55,11 +76,18 @@ where
         let mut c2 = y_sub_z_y2.negated(cs);
         let c2 = c2.mul_fq(cs, &mut at.x);
 
-        Self { c0, c1, c2 }
+        self.c0 = c0;
+        self.c1 = c1;
+        self.c2 = c2;
+        self
     }
 
+    /// This function computes the line function evaluation for the BN256 curve
+    /// `l_{P,P}(R)` when `P` is a point on the twisted curve `E'(F_{p^2})` and
+    /// `R` is a point on the regular curve `E(F_p)`.
     #[allow(non_snake_case)]
-    pub fn construct_tangent(
+    pub fn at_tangent(
+        mut self,
         cs: &mut CS,
         point: BN256Fq2ProjectiveCurvePoint<F, CS>,
         mut at: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
@@ -97,6 +125,63 @@ where
         let mut c2 = c2.double(cs);
         let c2 = c2.add(cs, &mut x2);
 
-        Self { c0, c1, c2 }
+        self.c0 = c1;
+        self.c1 = c1;
+        self.c2 = c2;
+        self
+    }
+}
+
+pub struct MillerLoopEvaluation<F, CS>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    c0: BN256Fq2Params<F, CS>,
+    c1: BN256Fq2Params<F, CS>,
+    c2: BN256Fq2Params<F, CS>,
+}
+
+pub struct MillerLoopEvaluation<F, CS>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    accumulated_f: BN256Fq12Params<F, CS>,
+}
+
+impl<F, CS> MillerLoopEvaluation<F, CS>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    #[allow(non_snake_case)]
+    pub fn evaluate(
+        cs: &mut CS,
+        p: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
+        q: BN256Fq2ProjectiveCurvePoint<F, CS>,
+    ) -> Self {
+        let mut f1 = BN256Fq12Params::one();
+        let mut r = q;
+
+        for u in CURVE_PARAMETER_WNAF {
+            let mut tangent_fn = LineFunctionEvaluation::new().at_tangent(r, p);
+            f1 = f1.squared();
+            f1 = f1.mul(tangent_fn);
+            r = r.double(cs);
+
+            if u == 1 {
+                let mut line_fn = LineFunctionEvaluation::new().at_line(r, q, p);
+                f1 = f1.mul(line_fn);
+                r = r + q;
+            }
+            if u == -1 {
+                let mut line_fn = LineFunctionEvaluation::new().at_line(r, q.negate(), p);
+                f1 = f1.mul(line_fn);
+                r = r - q;
+            }
+        }
+
+        Self { accumulated_f: f1 }
     }
 }

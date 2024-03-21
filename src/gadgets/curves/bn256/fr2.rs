@@ -1,8 +1,6 @@
 use super::*;
 use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
 
-/// BN256Fq2Params represents a pair of elements in the extension field Fq2 = Fq[X] / (X^2 - beta)
-/// where beta^2 = -1.
 pub struct BN256Fq2Params<F, CS>
 where
     F: SmallField,
@@ -24,6 +22,14 @@ where
         Self {
             c0,
             c1,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            c0: BN256BaseNNField::zero(),
+            c1: BN256BaseNNField::zero(),
             _marker: std::marker::PhantomData,
         }
     }
