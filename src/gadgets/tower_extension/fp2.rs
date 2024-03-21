@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    cs::traits::cs::ConstraintSystem, field::SmallField,
-    gadgets::non_native_field::traits::NonNativeField,
+    cs::traits::cs::ConstraintSystem,
+    field::SmallField,
+    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
@@ -64,6 +65,16 @@ where
         let c0 = self.c0.add(cs, &mut other.c0);
         let c1 = self.c1.add(cs, &mut other.c1);
         Self::new(c0, c1)
+    }
+
+    /// Returns whether the element of `Fp2` is zero.
+    pub fn is_zero<CS>(&mut self, cs: &mut CS) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let is_c0_zero = self.c0.is_zero(cs);
+        let is_c1_zero = self.c1.is_zero(cs);
+        is_c0_zero.and(cs, is_c1_zero)
     }
 
     /// Doubles the element of `Fp2` by doubling its components.

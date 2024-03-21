@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use super::fp6::Fp6;
+use super::{fp2::Fp2, fp6::Fp6};
 
 use crate::{
-    cs::traits::cs::ConstraintSystem, field::SmallField,
-    gadgets::non_native_field::traits::NonNativeField,
+    cs::traits::cs::ConstraintSystem,
+    field::SmallField,
+    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 
 /// `Fp12` field extension implementation in the constraint system. It is implemented
@@ -45,6 +46,16 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
         let one = Fp6::one(cs, params);
         let zero = Fp6::zero(cs, params);
         Self::new(one, zero)
+    }
+
+    /// Returns true if the `Fp12` element is zero.
+    pub fn is_zero<CS>(&mut self, cs: &mut CS) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let is_c0_zero = self.c0.is_zero(cs);
+        let is_c1_zero = self.c1.is_zero(cs);
+        is_c0_zero.and(cs, is_c1_zero)
     }
 
     /// Conjugates the `Fp12` element by negating the `c1` component.
@@ -101,7 +112,19 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
     where
         CS: ConstraintSystem<F>,
     {
-        todo!()
+        let mut aa = self.c0.mul(cs, &mut other.c0);
+        let mut bb = self.c1.mul(cs, &mut other.c1);
+        let mut o = other.c0.add(cs, &mut other.c1);
+
+        let mut c1 = self.c1.add(cs, &mut self.c0);
+        let mut c1 = self.c1.mul(cs, &mut o);
+        let mut c1 = self.c1.sub(cs, &mut aa);
+        let mut c1 = self.c1.sub(cs, &mut bb);
+
+        let mut c0 = bb.mul_by_nonresidue(cs);
+        let mut c0 = c0.add(cs, &mut aa);
+
+        Self::new(c0, c1)
     }
 
     #[must_use]
@@ -109,23 +132,43 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
     where
         CS: ConstraintSystem<F>,
     {
-        todo!()
+        let mut ab = self.c0.mul(cs, &mut self.c1);
+        let mut c0c1 = self.c0.add(cs, &mut self.c1);
+
+        let mut c0 = self.c1.mul_by_nonresidue(cs);
+        let mut c0 = c0.add(cs, &mut self.c0);
+        let mut c0 = c0.mul(cs, &mut c0c1);
+        let mut c0 = c0.sub(cs, &mut ab);
+
+        let mut c1 = ab.add(cs, &mut ab);
+        let mut ab_residue = ab.mul_by_nonresidue(cs);
+        let mut c0 = c0.sub(cs, &mut ab_residue);
+
+        Self::new(c0, c1)
     }
 
-    #[must_use]
-    pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self
+    pub fn mul_by_c0c1c4<CS>(
+        &mut self,
+        cs: &mut CS,
+        c0: &mut Fp2<F, T, NN>,
+        c1: &mut Fp2<F, T, NN>,
+        c4: &mut Fp2<F, T, NN>,
+    ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        todo!()
-    }
+        let mut aa = self.c0.mul_by_c0c1(cs, c0, c1);
+        let mut bb = self.c1.mul_by_c1(cs, c4);
+        let mut o = c1.add(cs, c4);
 
-    #[must_use]
-    pub fn div<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
-    where
-        CS: ConstraintSystem<F>,
-    {
-        let mut inv = other.inverse(cs);
-        self.mul(cs, &mut inv)
+        let mut c1 = self.c1.add(cs, &mut self.c0);
+        let mut c1 = c1.mul_by_c1(cs, &mut o);
+        let mut c1 = c1.sub(cs, &mut aa);
+        let mut c1 = c1.sub(cs, &mut bb);
+
+        let mut c0 = bb.mul_by_nonresidue(cs);
+        let mut c0 = c0.add(cs, &mut aa);
+
+        Self::new(c0, c1)
     }
 }

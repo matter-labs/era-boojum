@@ -3,8 +3,9 @@ use std::{mem, sync::Arc};
 use super::fp2::Fp2;
 
 use crate::{
-    cs::traits::cs::ConstraintSystem, field::SmallField,
-    gadgets::non_native_field::traits::NonNativeField,
+    cs::traits::cs::ConstraintSystem,
+    field::SmallField,
+    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 
 /// `Fp6` field extension implementation in the constraint system. It is implemented
@@ -58,6 +59,17 @@ where
         let one = Fp2::one(cs, params);
         let zero = Fp2::zero(cs, params);
         Self::new(one, zero, zero)
+    }
+
+    /// Returns true if the `Fp6` element is zero.
+    pub fn is_zero<CS>(&mut self, cs: &mut CS) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let is_c0_zero = self.c0.is_zero(cs);
+        let is_c1_zero = self.c1.is_zero(cs);
+        let is_c2_zero = self.c2.is_zero(cs);
+        is_c0_zero.and(cs, is_c1_zero).and(cs, is_c2_zero)
     }
 
     /// Adds two elements of `Fp6` by adding their components elementwise.
