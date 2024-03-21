@@ -1,3 +1,3 @@
-mod fp12;
-mod fp2;
-mod fp6;
+pub mod fp12;
+pub mod fp2;
+pub mod fp6;

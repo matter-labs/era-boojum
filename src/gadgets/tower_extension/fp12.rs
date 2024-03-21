@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use pairing::ff::PrimeField;
+
 use super::{fp2::Fp2, fp6::Fp6};
 
 use crate::{
@@ -13,13 +15,23 @@ use crate::{
 /// linear polynomials in a form `c0+c1*w`, where `c0` and `c1` are elements of `Fp6`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
-pub struct Fp12<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> {
+pub struct Fp12<F, T, NN>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+{
     pub c0: Fp6<F, T, NN>,
     pub c1: Fp6<F, T, NN>,
     _marker: std::marker::PhantomData<(F, T)>,
 }
 
-impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F, T, NN> {
+impl<F, T, NN> Fp12<F, T, NN>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+{
     /// Creates a new `Fp12` element from two `Fp6` components.
     pub fn new(c0: Fp6<F, T, NN>, c1: Fp6<F, T, NN>) -> Self {
         Self {
@@ -35,7 +47,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
         CS: ConstraintSystem<F>,
     {
         let zero = Fp6::zero(cs, params);
-        Self::new(zero, zero)
+        Self::new(zero.clone(), zero)
     }
 
     /// Creates a unit `Fp12` in a form `1+0*w`
@@ -64,7 +76,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
         CS: ConstraintSystem<F>,
     {
         let c1 = self.c1.negated(cs);
-        Self::new(self.c0, c1)
+        Self::new(self.c0.clone(), c1)
     }
 
     #[must_use]
@@ -117,12 +129,12 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
         let mut o = other.c0.add(cs, &mut other.c1);
 
         let mut c1 = self.c1.add(cs, &mut self.c0);
-        let mut c1 = self.c1.mul(cs, &mut o);
-        let mut c1 = self.c1.sub(cs, &mut aa);
-        let mut c1 = self.c1.sub(cs, &mut bb);
+        let mut c1 = c1.mul(cs, &mut o);
+        let mut c1 = c1.sub(cs, &mut aa);
+        let c1 = c1.sub(cs, &mut bb);
 
         let mut c0 = bb.mul_by_nonresidue(cs);
-        let mut c0 = c0.add(cs, &mut aa);
+        let c0 = c0.add(cs, &mut aa);
 
         Self::new(c0, c1)
     }
@@ -140,9 +152,9 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
         let mut c0 = c0.mul(cs, &mut c0c1);
         let mut c0 = c0.sub(cs, &mut ab);
 
-        let mut c1 = ab.add(cs, &mut ab);
+        let c1 = ab.double(cs);
         let mut ab_residue = ab.mul_by_nonresidue(cs);
-        let mut c0 = c0.sub(cs, &mut ab_residue);
+        let c0 = c0.sub(cs, &mut ab_residue);
 
         Self::new(c0, c1)
     }
@@ -164,10 +176,10 @@ impl<F: SmallField, T: pairing::ff::PrimeField, NN: NonNativeField<F, T>> Fp12<F
         let mut c1 = self.c1.add(cs, &mut self.c0);
         let mut c1 = c1.mul_by_c1(cs, &mut o);
         let mut c1 = c1.sub(cs, &mut aa);
-        let mut c1 = c1.sub(cs, &mut bb);
+        let c1 = c1.sub(cs, &mut bb);
 
         let mut c0 = bb.mul_by_nonresidue(cs);
-        let mut c0 = c0.add(cs, &mut aa);
+        let c0 = c0.add(cs, &mut aa);
 
         Self::new(c0, c1)
     }

@@ -1,5 +1,7 @@
 use std::{mem, sync::Arc};
 
+use pairing::ff::PrimeField;
+
 use super::fp2::Fp2;
 
 use crate::{
@@ -14,10 +16,11 @@ use crate::{
 ///  where `c0`, `c1`, `c2` are elements of `Fp2`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
+#[derive(Clone, Debug, Copy)]
 pub struct Fp6<F, T, NN>
 where
     F: SmallField,
-    T: pairing::ff::PrimeField,
+    T: PrimeField,
     NN: NonNativeField<F, T>,
 {
     pub c0: Fp2<F, T, NN>,
@@ -48,7 +51,7 @@ where
         CS: ConstraintSystem<F>,
     {
         let zero = Fp2::zero(cs, params);
-        Self::new(zero, zero, zero)
+        Self::new(zero.clone(), zero.clone(), zero)
     }
 
     /// Creates a unit `Fp6` in a form `1+0*v+0*v^2`
@@ -58,7 +61,7 @@ where
     {
         let one = Fp2::one(cs, params);
         let zero = Fp2::zero(cs, params);
-        Self::new(one, zero, zero)
+        Self::new(one, zero.clone(), zero)
     }
 
     /// Returns true if the `Fp6` element is zero.
@@ -129,8 +132,8 @@ where
         mem::swap(&mut self.c0, &mut self.c1);
         mem::swap(&mut self.c1, &mut self.c2);
         // c2 -> xi*c2
-        self.c0.mul_by_nonresidue(cs);
-        *self
+        let new_c0 = self.c0.mul_by_nonresidue(cs);
+        Self::new(new_c0, self.c1.clone(), self.c2.clone())
     }
 
     /// Multiplies two elements `a=a0+a1*v+a2*v^2`
@@ -152,7 +155,7 @@ where
         let mut c0 = a1_plus_a2_b1_plus_b2.mul(cs, &mut b1_plus_b2);
         let mut c0 = c0.sub(cs, &mut v1);
         let mut c0 = c0.sub(cs, &mut v2);
-        let mut c0 = c0.add(cs, &mut v0);
+        let c0 = c0.add(cs, &mut v0);
 
         // c1 <- (a0 + a1)(b0 + b1) - v0 - v1 + xi*v2
         let mut a0_plus_a1 = self.c0.add(cs, &mut self.c1);
@@ -161,7 +164,7 @@ where
         let mut c1 = c1.sub(cs, &mut v0);
         let mut c1 = c1.add(cs, &mut v1);
         let mut xi_v2 = v2.mul_by_nonresidue(cs);
-        let mut c1 = c1.add(cs, &mut xi_v2);
+        let c1 = c1.add(cs, &mut xi_v2);
 
         // c2 <- (a0 + a2)(b0 + b2) - v0 + v1 - v2
         let mut a0_plus_a2 = self.c0.add(cs, &mut self.c2);
@@ -169,7 +172,7 @@ where
         let mut c2 = a0_plus_a2.mul(cs, &mut b0_plus_b2);
         let mut c2 = c2.sub(cs, &mut v0);
         let mut c2 = c2.add(cs, &mut v1);
-        let mut c2 = c2.sub(cs, &mut v2);
+        let c2 = c2.sub(cs, &mut v2);
 
         Self::new(c0, c1, c2)
     }
@@ -188,7 +191,7 @@ where
         let mut c0 = c0.sub(cs, &mut v1);
         let mut c0 = c0.sub(cs, &mut v2);
         let mut c0 = c0.mul_by_nonresidue(cs);
-        let mut c0 = c0.add(cs, &mut v0);
+        let c0 = c0.add(cs, &mut v0);
 
         // c1 <- (a0 + a1)^2 - v0 - v1 + xi*v2
         let mut a0_plus_a1 = self.c0.add(cs, &mut self.c1);
@@ -196,14 +199,14 @@ where
         let mut c1 = c1.sub(cs, &mut v0);
         let mut c1 = c1.sub(cs, &mut v1);
         let mut xi_v2 = v2.mul_by_nonresidue(cs);
-        let mut c1 = c1.add(cs, &mut xi_v2);
+        let c1 = c1.add(cs, &mut xi_v2);
 
         // c2 <- (a0 + a2)^2 - v0 + v1 - v2
         let mut a0_plus_a2 = self.c0.add(cs, &mut self.c2);
         let mut c2 = a0_plus_a2.square(cs);
         let mut c2 = c2.sub(cs, &mut v0);
         let mut c2 = c2.add(cs, &mut v1);
-        let mut c2 = c2.sub(cs, &mut v2);
+        let c2 = c2.sub(cs, &mut v2);
 
         Self::new(c0, c1, c2)
     }
@@ -214,19 +217,15 @@ where
         CS: ConstraintSystem<F>,
     {
         let mut b_b = self.c1.mul(cs, c1);
-        let mut t1 = *c1;
-        let mut tmp = self.c1;
-        let mut tmp = tmp.add(cs, &mut self.c2);
+        let mut tmp = self.c1.add(cs, &mut self.c2);
 
-        let mut t1 = t1.mul(cs, &mut tmp);
+        let mut t1 = self.c1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut b_b);
-        let mut t1 = t1.mul_by_nonresidue(cs);
+        let t1 = t1.mul_by_nonresidue(cs);
 
-        let mut t2 = *c1;
-        let mut tmp = self.c0;
-        let mut tmp = tmp.add(cs, &mut self.c1);
-        let mut t2 = t2.mul(cs, &mut tmp);
-        let mut t2 = t2.sub(cs, &mut b_b);
+        let mut tmp = self.c0.add(cs, &mut self.c1);
+        let mut t2 = c1.mul(cs, &mut tmp);
+        let t2 = t2.sub(cs, &mut b_b);
 
         Self::new(t1, t2, b_b)
     }
@@ -244,25 +243,22 @@ where
         let mut a_a = self.c0.mul(cs, c0);
         let mut b_b = self.c1.mul(cs, c1);
 
-        let mut t1 = *c1;
         let mut tmp = self.c1.add(cs, &mut self.c2);
-        let mut t1 = t1.mul(cs, &mut tmp);
+        let mut t1 = c1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut b_b);
         let mut t1 = t1.mul_by_nonresidue(cs);
-        let mut t1 = t1.add(cs, &mut a_a);
+        let t1 = t1.add(cs, &mut a_a);
 
-        let mut t3 = *c0;
         let mut tmp = self.c0.add(cs, &mut self.c2);
-        let mut t3 = t3.mul(cs, &mut tmp);
+        let mut t3 = c0.mul(cs, &mut tmp);
         let mut t3 = t3.sub(cs, &mut a_a);
-        let mut t3 = t3.add(cs, &mut b_b);
+        let t3 = t3.add(cs, &mut b_b);
 
-        let mut t2 = *c0;
-        let mut t2 = t2.add(cs, c1);
+        let mut t2 = c0.add(cs, c1);
         let mut tmp = self.c0.add(cs, &mut self.c1);
         let mut t2 = t2.mul(cs, &mut tmp);
         let mut t2 = t2.sub(cs, &mut a_a);
-        let mut t2 = t2.sub(cs, &mut b_b);
+        let t2 = t2.sub(cs, &mut b_b);
 
         Self::new(t1, t2, t3)
     }

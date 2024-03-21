@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use pairing::ff::PrimeField;
+
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -9,10 +11,11 @@ use crate::{
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
 /// https://eprint.iacr.org/2006/471.pdf.
+#[derive(Clone, Debug, Copy)]
 pub struct Fp2<F, T, NN>
 where
     F: SmallField,
-    T: pairing::ff::PrimeField,
+    T: PrimeField,
     NN: NonNativeField<F, T>,
 {
     pub c0: NN,
@@ -23,7 +26,7 @@ where
 impl<F, T, NN> Fp2<F, T, NN>
 where
     F: SmallField,
-    T: pairing::ff::PrimeField,
+    T: PrimeField,
     NN: NonNativeField<F, T>,
 {
     /// Creates a new `Fp2` element from two `Fp` components.
@@ -42,7 +45,7 @@ where
     {
         let zero = NN::allocated_constant(cs, T::zero(), params);
 
-        Self::new(zero, zero)
+        Self::new(zero.clone(), zero)
     }
 
     /// Creates a new `Fp2` in a form `1+0*u`
@@ -105,9 +108,8 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let c0 = self.c0;
         let c1 = self.c1.negated(cs);
-        Self::new(c0, c1)
+        Self::new(self.c0.clone(), c1)
     }
 
     /// Subtracts two elements of `Fp2` by subtracting their components elementwise.
@@ -168,14 +170,14 @@ where
 
     /// Multiply the element `a=a0+a1*u` by the element in the base field `Fp`.
     #[must_use]
-    pub fn mul_fp<CS>(&mut self, cs: &mut CS, other: &mut NN) -> Self
+    pub fn mul_c0<CS>(&mut self, cs: &mut CS, c0: &mut NN) -> Self
     where
         CS: ConstraintSystem<F>,
     {
         // a*f = (a0 + a1*u)*f = (a0*f) + (a1*f)*u
-        let c0 = self.c0.mul(cs, other);
-        let c1 = self.c1.mul(cs, other);
-        Self::new(c0, c1)
+        let new_c0 = self.c0.mul(cs, c0);
+        let new_c1 = self.c1.mul(cs, c0);
+        Self::new(new_c0, new_c1)
     }
 
     /// Finds the inverse of the element `a=a0+a1*u` in the extension field `Fp2`.
@@ -211,21 +213,18 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let mut t0 = self.c0;
-        let mut t1 = self.c1;
-
         // Finding 8(a0 + a1*u)
         let mut new = self.double(cs);
         new = new.double(cs);
         new = new.double(cs);
 
         // c0 <- 9*c0 - c1
-        let mut c0 = new.c0.add(cs, &mut t0);
-        let c0 = c0.sub(cs, &mut t1);
+        let mut c0 = new.c0.add(cs, &mut self.c0);
+        let c0 = c0.sub(cs, &mut self.c1);
 
         // c1 <- c0 + 9*c1
-        let mut c1 = new.c1.add(cs, &mut t1);
-        let c1 = c1.add(cs, &mut t0);
+        let mut c1 = new.c1.add(cs, &mut self.c1);
+        let c1 = c1.add(cs, &mut self.c0);
 
         Self::new(c0, c1)
     }
