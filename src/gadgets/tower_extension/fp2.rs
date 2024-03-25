@@ -5,7 +5,11 @@ use pairing::ff::PrimeField;
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
-    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
+    gadgets::{
+        boolean::Boolean,
+        non_native_field::traits::NonNativeField,
+        traits::{allocatable::CSAllocatable, witnessable::WitnessHookable},
+    },
 };
 
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
@@ -229,3 +233,74 @@ where
         Self::new(c0, c1)
     }
 }
+
+impl<F, T, NN> CSAllocatable<F> for Fp2<F, T, NN>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+{
+    type Witness = (NN::Witness, NN::Witness);
+
+    #[inline(always)]
+    fn placeholder_witness() -> Self::Witness {
+        (NN::placeholder_witness(), NN::placeholder_witness())
+    }
+
+    #[inline(always)]
+    fn allocate_without_value<CS>(cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = NN::allocate_without_value(cs);
+        let c1 = NN::allocate_without_value(cs);
+
+        Self::new(c0, c1)
+    }
+
+    #[inline(always)]
+    fn allocate<CS>(cs: &mut CS, witness: Self::Witness) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = witness;
+
+        let c0 = NN::allocate(cs, c0);
+        let c1 = NN::allocate(cs, c1);
+
+        Self::new(c0, c1)
+    }
+
+    #[inline(always)]
+    fn allocate_constant<CS>(cs: &mut CS, witness: Self::Witness) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = witness;
+
+        let c0 = NN::allocate_constant(cs, c0);
+        let c1 = NN::allocate_constant(cs, c1);
+
+        Self::new(c0, c1)
+    }
+}
+
+impl<F, T, NN> WitnessHookable<F> for Fp2<F, T, NN>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+{
+    fn witness_hook<CS>(&self, cs: &CS) -> Box<dyn FnOnce() -> Option<Self::Witness> + 'static>
+    where
+        CS: ConstraintSystem<F>,
+    { 
+        Box::new(move || {
+            let c0 = self.c0;
+            let c1 = self.c1;
+
+            Some(Self::new(c0, c1))
+        })
+    }
+}
+

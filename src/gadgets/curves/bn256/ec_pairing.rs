@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use pairing::ff::PrimeField;
 
-use crate::{
-    cs::traits::cs::ConstraintSystem,
-    gadgets::{curves::SmallField, non_native_field::traits::NonNativeField},
-};
+use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
 
 use super::*;
 
@@ -59,12 +56,17 @@ where
     pub fn at_line(
         mut self,
         cs: &mut CS,
-        point1: BN256Fp2ProjectiveCurvePoint<F>,
-        point2: BN256Fp2ProjectiveCurvePoint<F>,
-        mut at: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
+        point1: &BN256Fp2ProjectiveCurvePoint<F>,
+        point2: &BN256Fp2ProjectiveCurvePoint<F>,
+        at: &mut SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
     ) -> Self {
-        let [mut X2, mut Y2, _] = point1;
-        let [mut X, mut Y, mut Z] = point2;
+        let mut X2 = &point1[0];
+        let mut Y2 = &point1[1];
+        let mut Z2 = &point2[2];
+
+        let mut X = &point2[0];
+        let mut Y = &point2[1];
+        let mut Z = &point2[2];
 
         // c0 <- (X - Z * X2) * y_P
         let mut z_x2 = X2.mul(cs, &mut Z);
@@ -95,10 +97,13 @@ where
     pub fn at_tangent(
         mut self,
         cs: &mut CS,
-        point: BN256Fp2ProjectiveCurvePoint<F>,
-        mut at: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
+        p: &BN256Fp2ProjectiveCurvePoint<F>,
+        point: &BN256Fp2ProjectiveCurvePoint<F>,
+        at: &mut SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
     ) -> Self {
-        let [mut X, mut Y, mut Z] = point;
+        let mut X = &point[0];
+        let mut Y = &point[1];
+        let mut Z = &point[2];
 
         // Defining b' - the twist coefficient
         let params = X.c0.params.clone();
@@ -136,54 +141,61 @@ where
         self.c2 = c2;
         self
     }
+
+    pub fn as_tuple(&self) -> (BN256Fp2NNField<F>, BN256Fp2NNField<F>, BN256Fp2NNField<F>) {
+        (self.c0.clone(), self.c1.clone(), self.c2.clone())
+    }
 }
 
-
-pub struct MillerLoopEvaluation<F, T, NN, CS>
+pub struct MillerLoopEvaluation<F, CS>
 where
     F: SmallField,
-    T: PrimeField,
-    NN: NonNativeField<F, T>,
     CS: ConstraintSystem<F>,
 {
     accumulated_f: BN256Fp12NNField<F>,
-    _marker: std::marker::PhantomData<(T, NN, CS)>,
+    _marker: std::marker::PhantomData<CS>,
 }
 
-impl<F, T, NN, CS> MillerLoopEvaluation<F, T, NN, CS>
+impl<F, CS> MillerLoopEvaluation<F, CS>
 where
     F: SmallField,
-    T: PrimeField,
-    NN: NonNativeField<F, T>,
     CS: ConstraintSystem<F>,
 {
-    // #[allow(non_snake_case)]
-    // pub fn evaluate(
-    //     cs: &mut CS,
-    //     p: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
-    //     q: BN256Fq2ProjectiveCurvePoint<F, CS>,
-    // ) -> Self {
-    //     let mut f1 = BN256Fq12Params::one();
-    //     let mut r = q;
+    #[allow(non_snake_case)]
+    pub fn evaluate(
+        cs: &mut CS,
+        p: &BN256Fp2ProjectiveCurvePoint<F>,
+        q: &BN256Fp2ProjectiveCurvePoint<F>,
+    ) -> Self {
+        let params = p.x.params.clone();
+        let mut f1 = BN256Fp12NNField::one(cs, &params);
+        let r = q;
 
-    //     for u in CURVE_PARAMETER_WNAF {
-    //         let mut tangent_fn = LineFunctionEvaluation::new().at_tangent(r, p);
-    //         f1 = f1.squared();
-    //         f1 = f1.mul(tangent_fn);
-    //         r = r.double(cs);
+        for u in CURVE_PARAMETER_WNAF {
+            let tangent_fn = LineFunctionEvaluation::new(cs, &params).at_tangent(cs, &r, p);
+            let (mut c0, mut c1, mut c4) = tangent_fn.as_tuple();
+            f1 = f1.square(cs);
+            f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
+            // r = r.double(cs);
 
-    //         if u == 1 {
-    //             let mut line_fn = LineFunctionEvaluation::new().at_line(r, q, p);
-    //             f1 = f1.mul(line_fn);
-    //             r = r + q;
-    //         }
-    //         if u == -1 {
-    //             let mut line_fn = LineFunctionEvaluation::new().at_line(r, q.negate(), p);
-    //             f1 = f1.mul(line_fn);
-    //             r = r - q;
-    //         }
-    //     }
+            if u == 1 {
+                let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &r, &q, p);
+                let (mut c0, mut c1, mut c4) = line_fn.as_tuple();
+                f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
+                // r = r.add(q);
+            }
+            if u == -1 {
+                // q negated
+                let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &r, &q, p);
+                let (mut c0, mut c1, mut c4) = line_fn.as_tuple();
+                f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
+                // r = r.sub(q);
+            }
+        }
 
-    //     Self { accumulated_f: f1 }
-    // }
+        Self {
+            accumulated_f: f1,
+            _marker: std::marker::PhantomData::<CS>,
+        }
+    }
 }
