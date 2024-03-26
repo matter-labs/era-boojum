@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use pairing::ff::PrimeField;
 
-use super::{fp2::Fp2, fp6::Fp6};
+use super::{fq2::Fq2, fq6::Fq6};
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -10,30 +10,30 @@ use crate::{
     gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 
-/// `Fp12` field extension implementation in the constraint system. It is implemented
-/// as `Fp6[w]/(w^2-v)` where `w^6=9+u`. In other words, it is a set of
-/// linear polynomials in a form `c0+c1*w`, where `c0` and `c1` are elements of `Fp6`.
+/// `Fq12` field extension implementation in the constraint system. It is implemented
+/// as `Fq6[w]/(w^2-v)` where `w^6=9+u`. In other words, it is a set of
+/// linear polynomials in a form `c0+c1*w`, where `c0` and `c1` are elements of `Fq6`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
-pub struct Fp12<F, T, NN>
+pub struct Fq12<F, T, NN>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
 {
-    pub c0: Fp6<F, T, NN>,
-    pub c1: Fp6<F, T, NN>,
+    pub c0: Fq6<F, T, NN>,
+    pub c1: Fq6<F, T, NN>,
     _marker: std::marker::PhantomData<(F, T)>,
 }
 
-impl<F, T, NN> Fp12<F, T, NN>
+impl<F, T, NN> Fq12<F, T, NN>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
 {
-    /// Creates a new `Fp12` element from two `Fp6` components.
-    pub fn new(c0: Fp6<F, T, NN>, c1: Fp6<F, T, NN>) -> Self {
+    /// Creates a new `Fq12` element from two `Fq6` components.
+    pub fn new(c0: Fq6<F, T, NN>, c1: Fq6<F, T, NN>) -> Self {
         Self {
             c0,
             c1,
@@ -41,26 +41,26 @@ where
         }
     }
 
-    /// Creates a new zero `Fp12` in a form `0+0*w`
+    /// Creates a new zero `Fq12` in a form `0+0*w`
     pub fn zero<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let zero = Fp6::zero(cs, params);
+        let zero = Fq6::zero(cs, params);
         Self::new(zero.clone(), zero)
     }
 
-    /// Creates a unit `Fp12` in a form `1+0*w`
+    /// Creates a unit `Fq12` in a form `1+0*w`
     pub fn one<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let one = Fp6::one(cs, params);
-        let zero = Fp6::zero(cs, params);
+        let one = Fq6::one(cs, params);
+        let zero = Fq6::zero(cs, params);
         Self::new(one, zero)
     }
 
-    /// Returns true if the `Fp12` element is zero.
+    /// Returns true if the `Fq12` element is zero.
     pub fn is_zero<CS>(&mut self, cs: &mut CS) -> Boolean<F>
     where
         CS: ConstraintSystem<F>,
@@ -70,7 +70,7 @@ where
         is_c0_zero.and(cs, is_c1_zero)
     }
 
-    /// Conjugates the `Fp12` element by negating the `c1` component.
+    /// Conjugates the `Fq12` element by negating the `c1` component.
     pub fn conjugate<CS>(&mut self, cs: &mut CS) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -162,9 +162,9 @@ where
     pub fn mul_by_c0c1c4<CS>(
         &mut self,
         cs: &mut CS,
-        c0: &mut Fp2<F, T, NN>,
-        c1: &mut Fp2<F, T, NN>,
-        c4: &mut Fp2<F, T, NN>,
+        c0: &mut Fq2<F, T, NN>,
+        c1: &mut Fq2<F, T, NN>,
+        c4: &mut Fq2<F, T, NN>,
     ) -> Self
     where
         CS: ConstraintSystem<F>,

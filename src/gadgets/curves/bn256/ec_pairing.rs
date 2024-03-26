@@ -29,9 +29,9 @@ where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
-    c0: BN256Fp2NNField<F>,
-    c1: BN256Fp2NNField<F>,
-    c2: BN256Fp2NNField<F>,
+    c0: BN256Fq2NNField<F>,
+    c1: BN256Fq2NNField<F>,
+    c2: BN256Fq2NNField<F>,
     _marker: std::marker::PhantomData<CS>,
 }
 
@@ -42,9 +42,9 @@ where
 {
     pub fn new(cs: &mut CS, params: &Arc<BN256BaseNNFieldParams>) -> Self {
         Self {
-            c0: BN256Fp2NNField::zero(cs, params),
-            c1: BN256Fp2NNField::zero(cs, params),
-            c2: BN256Fp2NNField::zero(cs, params),
+            c0: BN256Fq2NNField::zero(cs, params),
+            c1: BN256Fq2NNField::zero(cs, params),
+            c2: BN256Fq2NNField::zero(cs, params),
             _marker: std::marker::PhantomData::<CS>,
         }
     }
@@ -56,28 +56,20 @@ where
     pub fn at_line(
         mut self,
         cs: &mut CS,
-        point1: &BN256Fp2ProjectiveCurvePoint<F>,
-        point2: &BN256Fp2ProjectiveCurvePoint<F>,
-        at: &mut SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
+        point1: &mut BN256SWProjectivePointTwisted<F>,
+        point2: &mut BN256SWProjectivePointTwisted<F>,
+        at: &mut BN256SWProjectivePoint<F>,
     ) -> Self {
-        let mut X2 = &point1[0];
-        let mut Y2 = &point1[1];
-        let mut Z2 = &point2[2];
-
-        let mut X = &point2[0];
-        let mut Y = &point2[1];
-        let mut Z = &point2[2];
-
         // c0 <- (X - Z * X2) * y_P
-        let mut z_x2 = X2.mul(cs, &mut Z);
-        let mut x_sub_z_x2 = X.sub(cs, &mut z_x2);
+        let mut z_x2 = point1.x.mul(cs, &mut point2.z);
+        let mut x_sub_z_x2 = point2.x.sub(cs, &mut z_x2);
         let c0 = x_sub_z_x2.mul_c0(cs, &mut at.y);
 
         // c1 <- (Y - Z * Y2) * X2 - (X - Z * X2) * Y2
-        let mut z_y2 = Z.mul(cs, &mut Y2);
-        let mut y_sub_z_y2 = Y.sub(cs, &mut z_y2);
-        let mut c1 = X2.mul(cs, &mut y_sub_z_y2);
-        let mut y2_x_sub_z_x2 = Y2.mul(cs, &mut x_sub_z_x2);
+        let mut z_y2 = point2.z.mul(cs, &mut point1.y);
+        let mut y_sub_z_y2 = point2.y.sub(cs, &mut z_y2);
+        let mut c1 = point1.x.mul(cs, &mut y_sub_z_y2);
+        let mut y2_x_sub_z_x2 = point1.y.mul(cs, &mut x_sub_z_x2);
         let c1 = c1.sub(cs, &mut y2_x_sub_z_x2);
 
         // c2 <- -(Y - Z * Y2) * x_P
@@ -97,16 +89,11 @@ where
     pub fn at_tangent(
         mut self,
         cs: &mut CS,
-        p: &BN256Fp2ProjectiveCurvePoint<F>,
-        point: &BN256Fp2ProjectiveCurvePoint<F>,
-        at: &mut SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
+        point: &mut BN256SWProjectivePointTwisted<F>,
+        at: &mut BN256SWProjectivePoint<F>,
     ) -> Self {
-        let mut X = &point[0];
-        let mut Y = &point[1];
-        let mut Z = &point[2];
-
         // Defining b' - the twist coefficient
-        let params = X.c0.params.clone();
+        let params = point.x.c0.params.clone();
         let b_twist_real = BN256Fq::from_str(B_TWIST_COEFF_REAL).unwrap();
         let b_twist_real = BN256BaseNNField::allocated_constant(cs, b_twist_real, &params);
 
@@ -114,24 +101,24 @@ where
         let b_twist_imaginary =
             BN256BaseNNField::allocated_constant(cs, b_twist_imaginary, &params);
 
-        let mut b_twist = BN256Fp2NNField::new(b_twist_real, b_twist_imaginary);
+        let mut b_twist = BN256Fq2NNField::new(b_twist_real, b_twist_imaginary);
 
         // c0 <- -2 * Y * Z * y_P
-        let mut c0 = Y.mul(cs, &mut Z);
+        let mut c0 = point.y.mul(cs, &mut point.z);
         let mut c0 = c0.mul_c0(cs, &mut at.y);
         let mut c0 = c0.double(cs);
         let c0 = c0.negated(cs);
 
         // c1 <- 3b' * Z^2 - Y^2
-        let mut z2 = Z.square(cs);
+        let mut z2 = point.z.square(cs);
         let mut z2 = z2.mul(cs, &mut b_twist);
         let mut c1 = z2.double(cs);
         let mut c1 = c1.add(cs, &mut z2);
-        let mut y2 = Y.square(cs);
+        let mut y2 = point.y.square(cs);
         let c1 = c1.sub(cs, &mut y2);
 
         // c2 <- 3 * X^2 * x_P
-        let mut x2 = X.square(cs);
+        let mut x2 = point.x.square(cs);
         let mut c2 = x2.mul_c0(cs, &mut at.x);
         let mut c2 = c2.double(cs);
         let c2 = c2.add(cs, &mut x2);
@@ -142,7 +129,7 @@ where
         self
     }
 
-    pub fn as_tuple(&self) -> (BN256Fp2NNField<F>, BN256Fp2NNField<F>, BN256Fp2NNField<F>) {
+    pub fn as_tuple(&self) -> (BN256Fq2NNField<F>, BN256Fq2NNField<F>, BN256Fq2NNField<F>) {
         (self.c0.clone(), self.c1.clone(), self.c2.clone())
     }
 }
@@ -152,7 +139,7 @@ where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
-    accumulated_f: BN256Fp12NNField<F>,
+    accumulated_f: BN256Fq12NNField<F>,
     _marker: std::marker::PhantomData<CS>,
 }
 
@@ -164,32 +151,39 @@ where
     #[allow(non_snake_case)]
     pub fn evaluate(
         cs: &mut CS,
-        p: &BN256Fp2ProjectiveCurvePoint<F>,
-        q: &BN256Fp2ProjectiveCurvePoint<F>,
+        p: &mut BN256SWProjectivePoint<F>,
+        q: &mut BN256SWProjectivePointTwisted<F>,
     ) -> Self {
         let params = p.x.params.clone();
-        let mut f1 = BN256Fp12NNField::one(cs, &params);
-        let r = q;
+        let mut f1 = BN256Fq12NNField::one(cs, &params);
+        let mut r = q.clone();
 
         for u in CURVE_PARAMETER_WNAF {
-            let tangent_fn = LineFunctionEvaluation::new(cs, &params).at_tangent(cs, &r, p);
+            let tangent_fn = LineFunctionEvaluation::new(cs, &params).at_tangent(cs, &mut r, p);
             let (mut c0, mut c1, mut c4) = tangent_fn.as_tuple();
             f1 = f1.square(cs);
             f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
-            // r = r.double(cs);
+            r = r.double(cs);
 
             if u == 1 {
-                let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &r, &q, p);
+                let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &mut r, q, p);
                 let (mut c0, mut c1, mut c4) = line_fn.as_tuple();
                 f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
-                // r = r.add(q);
+
+                let qx = q.x.clone();
+                let qy = q.y.clone();
+                r = r.add_mixed(cs, &mut (qx, qy));
             }
             if u == -1 {
+                *q = q.negated(cs);
                 // q negated
-                let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &r, &q, p);
+                let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &mut r, q, p);
                 let (mut c0, mut c1, mut c4) = line_fn.as_tuple();
                 f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
-                // r = r.sub(q);
+
+                let qx = q.x.clone();
+                let qy = q.y.clone();
+                r = r.sub_mixed(cs, &mut (qx, qy));
             }
         }
 

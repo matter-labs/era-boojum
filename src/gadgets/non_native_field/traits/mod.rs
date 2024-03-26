@@ -1,7 +1,11 @@
 use super::*;
+
 use crate::gadgets::boolean::Boolean;
 use crate::{cs::traits::cs::ConstraintSystem, gadgets::traits::witnessable::WitnessHookable};
+
+use pairing::GenericCurveAffine;
 use std::sync::Arc;
+
 
 pub trait NonNativeField<F: SmallField, T: pairing::ff::PrimeField>:
     'static + Send + Sync + Clone + std::fmt::Debug + WitnessHookable<F>
@@ -77,5 +81,18 @@ pub trait NonNativeField<F: SmallField, T: pairing::ff::PrimeField>:
         flag: Boolean<F>,
         a: &Self,
         b: &Self,
+    ) -> Self;
+}
+
+pub trait CurveCompatibleNonNativeField<
+    F: SmallField,
+    T: pairing::ff::PrimeField,
+    C: GenericCurveAffine,
+>: NonNativeField<F, T>
+{
+    fn from_curve_base<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        point: &C::Base,
+        params: &Arc<Self::Params>,
     ) -> Self;
 }
