@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use pairing::{bn256::G2Affine as BN256G2Affine, GenericCurveAffine};
 
-use crate::{cs::traits::cs::ConstraintSystem, gadgets::{curves::SmallField, non_native_field::traits::CurveCompatibleNonNativeField}};
+use crate::{
+    cs::traits::cs::ConstraintSystem,
+    gadgets::{curves::SmallField, non_native_field::traits::CurveCompatibleNonNativeField},
+};
 
 use super::*;
 
@@ -178,4 +181,50 @@ where
             _marker: std::marker::PhantomData::<CS>,
         }
     }
+}
+
+pub struct FinalExpEvaluation<F, CS>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    resultant_f: BN256Fq12NNField<F>,
+    _marker: std::marker::PhantomData<CS>,
+}
+
+impl<F, CS> FinalExpEvaluation<F, CS>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    pub fn evaluate(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> Self {
+        let mut easy_part_f = Self::easy_part(cs, f);
+        let hard_part = Self::hard_part(cs, &mut easy_part_f);
+        Self {
+            resultant_f: hard_part,
+            _marker: std::marker::PhantomData::<CS>,
+        }
+    }
+
+    pub fn easy_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
+        todo!();
+    }
+
+    pub fn hard_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
+        todo!();
+    }
+}
+
+pub fn ec_mul<F, CS>(
+    cs: &mut CS,
+    p: &mut BN256SWProjectivePoint<F>,
+    q: &mut BN256SWProjectivePointTwisted<F>,
+) -> BN256Fq12NNField<F>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    let mut miller_loop = MillerLoopEvaluation::evaluate(cs, p, q);
+    let final_exp = FinalExpEvaluation::evaluate(cs, &mut miller_loop.accumulated_f);
+    final_exp.resultant_f
 }
