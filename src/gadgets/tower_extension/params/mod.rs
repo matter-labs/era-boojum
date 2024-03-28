@@ -6,12 +6,12 @@ pub mod bn256;
 // Besides, one may include here field-specific characteristics, such as non-residue for example,
 // and branch out implementations with the help of it.
 
-pub trait Extension2Params<P: PrimeField>: Clone {
+pub trait Extension2Params<P: PrimeField>: Clone + Copy {
     /// Witness here represents field element not under CS.
     type Witness: Field;
 }
 
-pub trait Extension6Params<P: PrimeField>: Clone {
+pub trait Extension6Params<P: PrimeField>: Clone + Copy {
     type Ex2: Extension2Params<P>;
     /// Witness here represents field element not under CS.
     type Witness: Field;
@@ -20,7 +20,7 @@ pub trait Extension6Params<P: PrimeField>: Clone {
     const FROBENIUS_COEFFS_C2: [<Self::Ex2 as Extension2Params<P>>::Witness; 6];
 }
 
-pub trait Extension12Params<P: PrimeField>: Clone {
+pub trait Extension12Params<P: PrimeField>: Clone + Copy {
     type Ex6: Extension6Params<P>;
     /// Witness here represents field element not under CS.
     type Witness: Field;

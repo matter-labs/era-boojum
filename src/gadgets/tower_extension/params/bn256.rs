@@ -8,13 +8,13 @@ use pairing::bn256::fq::{
 
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct BN256Extension2Params {}
 impl Extension2Params<BN256Fq> for BN256Extension2Params {
     type Witness = BN256Fq2;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct BN256Extension6Params {}
 impl Extension6Params<BN256Fq> for BN256Extension6Params {
     type Ex2 = BN256Extension2Params;
@@ -24,7 +24,7 @@ impl Extension6Params<BN256Fq> for BN256Extension6Params {
     const FROBENIUS_COEFFS_C2: [BN256Fq2; 6] = BN256_FROBENIUS_COEFF_FQ6_C2;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct BN256Extension12Params {}
 impl Extension12Params<BN256Fq> for BN256Extension12Params {
     type Ex6 = BN256Extension6Params;

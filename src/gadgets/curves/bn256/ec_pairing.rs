@@ -207,9 +207,19 @@ where
     }
 
     pub fn easy_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
-        todo!();
+        // f1 <- f^(p^6 - 1)
+        let mut f1 = f.inverse(cs);
+        let mut fp6 = f.frobenius_map(cs, 6);
+        let mut f1 = f1.mul(cs, &mut fp6);
+    
+        // f2 <- f1^(p^2 + 1)
+        let mut fp2 = f1.frobenius_map(cs, 2);
+        let f2 = f1.mul(cs, &mut fp2);
+
+        f2
     }
 
+    #[allow(unused_variables)]
     pub fn hard_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
         todo!();
     }

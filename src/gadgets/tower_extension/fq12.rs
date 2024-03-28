@@ -19,6 +19,7 @@ use crate::{
 /// linear polynomials in a form `c0+c1*w`, where `c0` and `c1` are elements of `Fq6`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
+#[derive(Clone, Copy)]
 pub struct Fq12<F, T, NN, P>
 where
     F: SmallField,
@@ -210,5 +211,12 @@ where
         // TODO: add frobenius map of c1 Fp6 to its corresponding c0, c1, c2 FROBENIUS_COEFFS.
 
         Self::new(c0, c1)
+    }
+
+    pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        todo!();
     }
 }
