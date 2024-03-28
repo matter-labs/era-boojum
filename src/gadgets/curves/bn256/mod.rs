@@ -3,8 +3,9 @@ use super::curves::non_native_field::implementations::{
 };
 use super::sw_projective::extended::ExtendedSWProjectivePoint;
 use super::sw_projective::SWProjectivePoint;
-use super::tower_extension::fq12::Fq12;
-use crate::gadgets::tower_extension::fq2::Fq2;
+
+use super::tower_extension::params::bn256::{BN256Extension12Params, BN256Extension2Params};
+use super::tower_extension::{fq12::Fq12, fq2::Fq2};
 
 // Characteristic of the base field for bn256 curve
 use pairing::bn256::fq::Fq as BN256Fq;
@@ -34,9 +35,9 @@ type BN256ScalarNNField<F> = NonNativeFieldOverU16<F, BN256Fr, 17>;
 
 // --- Field extensions for BN256 curve ---
 /// Non-native field extension Fq2 for BN256 curve
-type BN256Fq2NNField<F> = Fq2<F, BN256Fq, BN256BaseNNField<F>>;
+type BN256Fq2NNField<F> = Fq2<F, BN256Fq, BN256BaseNNField<F>, BN256Extension2Params>;
 /// Non-native field extension Fq12 for BN256 curve
-type BN256Fq12NNField<F> = Fq12<F, BN256Fq, BN256BaseNNField<F>>;
+type BN256Fq12NNField<F> = Fq12<F, BN256Fq, BN256BaseNNField<F>, BN256Extension12Params>;
 
 // --- SW Projective points for BN256 curves: regular and twisted ---
 /// SW Projective point for BN256 curve over non-extended base field

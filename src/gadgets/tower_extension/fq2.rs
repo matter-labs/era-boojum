@@ -5,6 +5,8 @@ use pairing::{
     ff::PrimeField,
 };
 
+use super::params::{bn256::BN256Extension2Params, Extension2Params};
+
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -19,29 +21,31 @@ use crate::{
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
 /// https://eprint.iacr.org/2006/471.pdf.
 #[derive(Clone, Debug, Copy)]
-pub struct Fq2<F, T, NN>
+pub struct Fq2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T>,
 {
     pub c0: NN,
     pub c1: NN,
-    _marker: std::marker::PhantomData<(F, T)>,
+    _marker: std::marker::PhantomData<(F, T, P)>,
 }
 
-impl<F, T, NN> Fq2<F, T, NN>
+impl<F, T, NN, P> Fq2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T>,
 {
     /// Creates a new `Fq2` element from two `Fq` components.
     pub fn new(c0: NN, c1: NN) -> Self {
         Self {
             c0,
             c1,
-            _marker: std::marker::PhantomData::<(F, T)>,
+            _marker: std::marker::PhantomData::<(F, T, P)>,
         }
     }
 
@@ -235,13 +239,33 @@ where
 
         Self::new(c0, c1)
     }
+
+    /// Compute the Frobenius map - raise this element to power.
+    pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        if power % 2 == 0 {
+            return self.clone();
+        }
+
+        // TODO: check what non-residue == -1.
+
+        let c0 = self.c0.clone();
+        let c1 = self.c1.negated(cs);
+
+        // TODO: assert what Fp2 under CS computes frobenius map same as without CS and this optimizational hack.
+
+        Self::new(c0, c1)
+    }
 }
 
-impl<F, T, NN> CSAllocatable<F> for Fq2<F, T, NN>
+impl<F, T, NN, P> CSAllocatable<F> for Fq2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T>,
 {
     type Witness = (NN::Witness, NN::Witness);
 
@@ -288,11 +312,12 @@ where
     }
 }
 
-impl<F, T, NN> WitnessHookable<F> for Fq2<F, T, NN>
+impl<F, T, NN, P> WitnessHookable<F> for Fq2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T>,
 {
     fn witness_hook<CS>(&self, cs: &CS) -> Box<dyn FnOnce() -> Option<Self::Witness> + 'static>
     where
@@ -310,11 +335,12 @@ where
     }
 }
 
-impl<F, T, NN> NonNativeField<F, T> for Fq2<F, T, NN>
+impl<F, T, NN, P> NonNativeField<F, T> for Fq2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T> + std::fmt::Debug + std::marker::Sync + std::marker::Send + 'static,
 {
     type Params = NN::Params;
 
@@ -516,7 +542,8 @@ where
     }
 }
 
-impl<F, NN> CurveCompatibleNonNativeField<F, BN256Fq, G2Affine> for Fq2<F, BN256Fq, NN>
+impl<F, NN> CurveCompatibleNonNativeField<F, BN256Fq, G2Affine>
+    for Fq2<F, BN256Fq, NN, BN256Extension2Params>
 where
     F: SmallField,
     NN: NonNativeField<F, BN256Fq>,

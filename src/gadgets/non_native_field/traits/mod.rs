@@ -6,7 +6,6 @@ use crate::{cs::traits::cs::ConstraintSystem, gadgets::traits::witnessable::Witn
 use pairing::GenericCurveAffine;
 use std::sync::Arc;
 
-
 pub trait NonNativeField<F: SmallField, T: pairing::ff::PrimeField>:
     'static + Send + Sync + Clone + std::fmt::Debug + WitnessHookable<F>
 {

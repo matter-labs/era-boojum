@@ -483,7 +483,7 @@ where
         let y_for_safe_z = self.y.div_unchecked(cs, &mut safe_z);
 
         let (default_x, default_y) = default.into_xy_unchecked();
-        
+
         let default_x = NN::from_curve_base(cs, &default_x, &params);
         let default_y = NN::from_curve_base(cs, &default_y, &params);
 
