@@ -1,16 +1,10 @@
 use std::sync::Arc;
 
-use pairing::ff::PrimeField;
+use pairing::{bn256::G2Affine as BN256G2Affine, GenericCurveAffine};
 
-use crate::{cs::traits::cs::ConstraintSystem, gadgets::curves::SmallField};
+use crate::{cs::traits::cs::ConstraintSystem, gadgets::{curves::SmallField, non_native_field::traits::CurveCompatibleNonNativeField}};
 
 use super::*;
-
-// The twist coefficient for the BN256 curve
-const B_TWIST_COEFF_REAL: &str =
-    "19485874751759354771024239261021720505790618469301721065564631296452457478373";
-const B_TWIST_COEFF_IMAGINARY: &str =
-    "266929791119991161246907387137283842545076965332900288569378510910307636690";
 
 // Curve parameter for the BN256 curve
 const CURVE_PARAMETER: &str = "4965661367192848881";
@@ -94,14 +88,7 @@ where
     ) -> Self {
         // Defining b' - the twist coefficient
         let params = point.x.c0.params.clone();
-        let b_twist_real = BN256Fq::from_str(B_TWIST_COEFF_REAL).unwrap();
-        let b_twist_real = BN256BaseNNField::allocated_constant(cs, b_twist_real, &params);
-
-        let b_twist_imaginary = BN256Fq::from_str(B_TWIST_COEFF_IMAGINARY).unwrap();
-        let b_twist_imaginary =
-            BN256BaseNNField::allocated_constant(cs, b_twist_imaginary, &params);
-
-        let mut b_twist = BN256Fq2NNField::new(b_twist_real, b_twist_imaginary);
+        let mut b_twist = BN256Fq2NNField::from_curve_base(cs, &BN256G2Affine::b_coeff(), &params);
 
         // c0 <- -2 * Y * Z * y_P
         let mut c0 = point.y.mul(cs, &mut point.z);
@@ -176,7 +163,6 @@ where
             }
             if u == -1 {
                 *q = q.negated(cs);
-                // q negated
                 let line_fn = LineFunctionEvaluation::new(cs, &params).at_line(cs, &mut r, q, p);
                 let (mut c0, mut c1, mut c4) = line_fn.as_tuple();
                 f1 = f1.mul_by_c0c1c4(cs, &mut c0, &mut c1, &mut c4);
