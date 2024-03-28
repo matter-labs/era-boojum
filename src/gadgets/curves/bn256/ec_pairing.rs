@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use pairing::{bn256::G2Affine as BN256G2Affine, GenericCurveAffine};
+use pairing::{bn256::G2Affine as BN256G2Affine, ff::PrimeField, GenericCurveAffine};
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -11,6 +11,7 @@ use super::*;
 
 // Curve parameter for the BN256 curve
 const CURVE_PARAMETER: &str = "4965661367192848881";
+const CURVE_DIV_2_PARAMETER: &str = "2482830683596424440";
 const CURVE_PARAMETER_WNAF: [i8; 63] = [
     1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 1, 0, -1, 0, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, 1, 0,
     0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0,
@@ -197,6 +198,7 @@ where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
+    /// This function computes the final exponentiation for the BN256 curve.
     pub fn evaluate(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> Self {
         let mut easy_part_f = Self::easy_part(cs, f);
         let hard_part = Self::hard_part(cs, &mut easy_part_f);
@@ -206,12 +208,14 @@ where
         }
     }
 
+    /// This function computes the easy part of the final exponentiation, that is
+    /// for given f \in `F_{p^{12}}` it computes `f^{(p^6-1)(p^2+1)}`.
     pub fn easy_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
         // f1 <- f^(p^6 - 1)
         let mut f1 = f.inverse(cs);
         let mut fp6 = f.frobenius_map(cs, 6);
         let mut f1 = f1.mul(cs, &mut fp6);
-    
+
         // f2 <- f1^(p^2 + 1)
         let mut fp2 = f1.frobenius_map(cs, 2);
         let f2 = f1.mul(cs, &mut fp2);
@@ -219,9 +223,50 @@ where
         f2
     }
 
-    #[allow(unused_variables)]
+    /// Computes the hard part of the final exponentiation using method by Aranha et al.
+    /// For details, see https://eprint.iacr.org/2016/130.pdf, _Algorithm 2_.
     pub fn hard_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
-        todo!();
+        let u = BN256Fq::from_str(CURVE_PARAMETER).unwrap();
+        let u_div_2 = BN256Fq::from_str(CURVE_DIV_2_PARAMETER).unwrap();
+
+        // 1. t0 <- f^2; 2. t1 <- t0^u; 3. t2 <- t1^(u/2);
+        // 4. t3 <- f^(-1); 5. t1 <- t3*t1.
+        let mut t0 = f.square(cs);
+        let mut t1 = t0.pow(cs, u);
+        let mut t2 = t1.pow(cs, u_div_2);
+        let mut t3 = f.inverse(cs);
+        let mut t1 = t3.mul(cs, &mut t1);
+
+        // 6. t1 <- t1^{-1}; 7. t1 <- t1*t2
+        let mut t1 = t1.inverse(cs);
+        let mut t1 = t1.mul(cs, &mut t2);
+
+        // 8. t2 <- t1^u
+        let mut t2 = t1.pow(cs, u);
+
+        // 9. t3 <- t2^u; 10. t1 <- t1^{-1}; 11. t3 <- t1*t3
+        let mut t3 = t2.pow(cs, u);
+        let mut t1 = t1.inverse(cs);
+        let mut t3 = t1.mul(cs, &mut t3);
+
+        // 12. t1 <- t1^{-1}; 13. t1 <- t1^{p^3}; 14. t2 <- t2^{p^2};
+        // 15. t1 <- t1*t2
+        let mut t1 = t1.inverse(cs);
+        let mut t1 = t1.frobenius_map(cs, 3);
+        let mut t2 = t2.frobenius_map(cs, 2);
+        let mut t1 = t1.mul(cs, &mut t2);
+
+        // 16. t2 <- t3^u; 17. t2 <- t2*t0; 18. t2 <- t2*f
+        let mut t2 = t3.pow(cs, u);
+        let mut t2 = t2.mul(cs, &mut t0);
+        let mut t2 = t2.mul(cs, f);
+
+        // 19. t1 <- t1*t2; 20. t2 <- t3^p; 21. t1 <- t1*t2
+        let mut t1 = t1.mul(cs, &mut t2);
+        let mut t2 = t3.frobenius_map(cs, 1);
+        let t1 = t1.mul(cs, &mut t2);
+
+        t1
     }
 }
 

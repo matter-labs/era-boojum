@@ -48,6 +48,13 @@ where
         }
     }
 
+    pub fn pow<CS>(&mut self, cs: &mut CS, exponent: T) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        todo!();
+    }
+
     /// Creates a new zero `Fq12` in a form `0+0*w`
     pub fn zero<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
     where
