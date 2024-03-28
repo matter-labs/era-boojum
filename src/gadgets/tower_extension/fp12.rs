@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use pairing::ff::PrimeField;
 
-use super::{fp2::Fp2, fp6::Fp6};
+use super::{
+    fp2::Fp2,
+    fp6::Fp6,
+    params::{Extension12Params, Extension6Params},
+};
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -15,25 +19,27 @@ use crate::{
 /// linear polynomials in a form `c0+c1*w`, where `c0` and `c1` are elements of `Fp6`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
-pub struct Fp12<F, T, NN>
+pub struct Fp12<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension12Params<T>,
 {
-    pub c0: Fp6<F, T, NN>,
-    pub c1: Fp6<F, T, NN>,
+    pub c0: Fp6<F, T, NN, P::Ex6>,
+    pub c1: Fp6<F, T, NN, P::Ex6>,
     _marker: std::marker::PhantomData<(F, T)>,
 }
 
-impl<F, T, NN> Fp12<F, T, NN>
+impl<F, T, NN, P> Fp12<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension12Params<T>,
 {
     /// Creates a new `Fp12` element from two `Fp6` components.
-    pub fn new(c0: Fp6<F, T, NN>, c1: Fp6<F, T, NN>) -> Self {
+    pub fn new(c0: Fp6<F, T, NN, P::Ex6>, c1: Fp6<F, T, NN, P::Ex6>) -> Self {
         Self {
             c0,
             c1,
@@ -162,9 +168,9 @@ where
     pub fn mul_by_c0c1c4<CS>(
         &mut self,
         cs: &mut CS,
-        c0: &mut Fp2<F, T, NN>,
-        c1: &mut Fp2<F, T, NN>,
-        c4: &mut Fp2<F, T, NN>,
+        c0: &mut Fp2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c1: &mut Fp2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c4: &mut Fp2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
     ) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -180,6 +186,28 @@ where
 
         let mut c0 = bb.mul_by_nonresidue(cs);
         let c0 = c0.add(cs, &mut aa);
+
+        Self::new(c0, c1)
+    }
+
+    /// Compute the Frobenius map - raise this element to power.
+    pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // TODO: explain:
+
+        match power {
+            1 | 2 | 3 | 6 => {}
+            _ => {
+                unreachable!("can not reach power {}", power);
+            }
+        }
+
+        let c0 = self.c0.frobenius_map(cs, power);
+        let c1 = self.c1.frobenius_map(cs, power);
+
+        // TODO: add frobenius map of c1 Fp6 to its corresponding c0, c1, c2 FROBENIUS_COEFFS.
 
         Self::new(c0, c1)
     }

@@ -2,7 +2,7 @@ use std::{mem, sync::Arc};
 
 use pairing::ff::PrimeField;
 
-use super::fp2::Fp2;
+use super::{fp2::Fp2, params::Extension6Params};
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -17,26 +17,32 @@ use crate::{
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
 #[derive(Clone, Debug, Copy)]
-pub struct Fp6<F, T, NN>
+pub struct Fp6<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension6Params<T>,
 {
-    pub c0: Fp2<F, T, NN>,
-    pub c1: Fp2<F, T, NN>,
-    pub c2: Fp2<F, T, NN>,
+    pub c0: Fp2<F, T, NN, P::Ex2>,
+    pub c1: Fp2<F, T, NN, P::Ex2>,
+    pub c2: Fp2<F, T, NN, P::Ex2>,
     _marker: std::marker::PhantomData<(F, T)>,
 }
 
-impl<F, T, NN> Fp6<F, T, NN>
+impl<F, T, NN, P> Fp6<F, T, NN, P>
 where
     F: SmallField,
     T: pairing::ff::PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension6Params<T>,
 {
     /// Creates a new `Fp6` element from three `Fp2` components.
-    pub fn new(c0: Fp2<F, T, NN>, c1: Fp2<F, T, NN>, c2: Fp2<F, T, NN>) -> Self {
+    pub fn new(
+        c0: Fp2<F, T, NN, P::Ex2>,
+        c1: Fp2<F, T, NN, P::Ex2>,
+        c2: Fp2<F, T, NN, P::Ex2>,
+    ) -> Self {
         Self {
             c0,
             c1,
@@ -212,7 +218,7 @@ where
     }
 
     /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fp6` by the element `b = b1*v`
-    pub fn mul_by_c1<CS>(&mut self, cs: &mut CS, c1: &mut Fp2<F, T, NN>) -> Self
+    pub fn mul_by_c1<CS>(&mut self, cs: &mut CS, c1: &mut Fp2<F, T, NN, P::Ex2>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -234,8 +240,8 @@ where
     pub fn mul_by_c0c1<CS>(
         &mut self,
         cs: &mut CS,
-        c0: &mut Fp2<F, T, NN>,
-        c1: &mut Fp2<F, T, NN>,
+        c0: &mut Fp2<F, T, NN, P::Ex2>,
+        c1: &mut Fp2<F, T, NN, P::Ex2>,
     ) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -261,5 +267,29 @@ where
         let t2 = t2.sub(cs, &mut b_b);
 
         Self::new(t1, t2, t3)
+    }
+
+    /// Compute the Frobenius map - raise this element to power.
+    pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // TODO: explain:
+
+        match power % 6 {
+            0 | 1 | 2 | 3 => {}
+            _ => {
+                unreachable!("can not reach power {}", power);
+            }
+        }
+
+        let c0 = self.c0.frobenius_map(cs, power);
+        let mut c1 = self.c1.frobenius_map(cs, power);
+        let mut c2 = self.c2.frobenius_map(cs, power);
+
+        // TODO: add multiplication of c1 and c2 by corresponding FROBENIUS_COEFFS c1 and c2.
+        // TODO: assert what Fp2 under CS computes frobenius map same as without CS.
+
+        Self::new(c0, c1, c2)
     }
 }

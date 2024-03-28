@@ -8,33 +8,37 @@ use crate::{
     gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 
+use super::params::Extension2Params;
+
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
 /// https://eprint.iacr.org/2006/471.pdf.
 #[derive(Clone, Debug, Copy)]
-pub struct Fp2<F, T, NN>
+pub struct Fp2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T>,
 {
     pub c0: NN,
     pub c1: NN,
-    _marker: std::marker::PhantomData<(F, T)>,
+    _marker: std::marker::PhantomData<(F, T, P)>,
 }
 
-impl<F, T, NN> Fp2<F, T, NN>
+impl<F, T, NN, P> Fp2<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension2Params<T>,
 {
     /// Creates a new `Fp2` element from two `Fp` components.
     pub fn new(c0: NN, c1: NN) -> Self {
         Self {
             c0,
             c1,
-            _marker: std::marker::PhantomData::<(F, T)>,
+            _marker: std::marker::PhantomData::<(F, T, P)>,
         }
     }
 
@@ -225,6 +229,25 @@ where
         // c1 <- c0 + 9*c1
         let mut c1 = new.c1.add(cs, &mut self.c1);
         let c1 = c1.add(cs, &mut self.c0);
+
+        Self::new(c0, c1)
+    }
+
+    /// Compute the Frobenius map - raise this element to power.
+    pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        if power % 2 == 0 {
+            return self.clone();
+        }
+
+        // TODO: check what non-residue == -1.
+
+        let c0 = self.c0.clone();
+        let c1 = self.c1.negated(cs);
+
+        // TODO: assert what Fp2 under CS computes frobenius map same as without CS and this optimizational hack.
 
         Self::new(c0, c1)
     }

@@ -2,8 +2,8 @@ use super::curves::non_native_field::implementations::{
     NonNativeFieldOverU16, NonNativeFieldOverU16Params,
 };
 use super::sw_projective::SWProjectivePoint;
-use super::tower_extension::fp12::Fp12;
-use crate::gadgets::tower_extension::fp2::Fp2;
+use super::tower_extension::params::bn256::{BN256Extension12Params, BN256Extension2Params};
+use super::tower_extension::{fp12::Fp12, fp2::Fp2};
 
 // Characteristic of the base field for bn256 curve
 use pairing::bn256::fq::Fq as BN256Fq;
@@ -26,8 +26,8 @@ type BN256BaseNNField<F> = NonNativeFieldOverU16<F, BN256Fq, 17>;
 type BN256ScalarNNField<F> = NonNativeFieldOverU16<F, BN256Fr, 17>;
 
 // Scalar field extensions for BN256 curve
-type BN256Fp2NNField<F> = Fp2<F, BN256Fq, BN256BaseNNField<F>>;
-type BN256Fp12NNField<F> = Fp12<F, BN256Fq, BN256BaseNNField<F>>;
+type BN256Fp2NNField<F> = Fp2<F, BN256Fq, BN256BaseNNField<F>, BN256Extension2Params>;
+type BN256Fp12NNField<F> = Fp12<F, BN256Fq, BN256BaseNNField<F>, BN256Extension12Params>;
 type BN256Fp2ProjectiveCurvePoint<F> = [BN256Fp2NNField<F>; 3];
 
 fn bn256_base_field_params() -> BN256BaseNNFieldParams {

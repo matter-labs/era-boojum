@@ -138,7 +138,6 @@ where
     }
 }
 
-
 pub struct MillerLoopEvaluation<F, T, NN, CS>
 where
     F: SmallField,
