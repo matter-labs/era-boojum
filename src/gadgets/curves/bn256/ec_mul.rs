@@ -341,11 +341,11 @@ where
 /// http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 fn wnaf_ec_scalar_mul<F, CS>(
     cs: &mut CS,
-    mut point: SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>,
+    mut point: BN256SWProjectivePoint<F>,
     mut scalar: BN256ScalarNNField<F>,
     base_field_params: &Arc<BN256BaseNNFieldParams>,
     scalar_field_params: &Arc<BN256ScalarNNFieldParams>,
-) -> SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>
+) -> BN256SWProjectivePoint<F>
 where
     F: SmallField,
     CS: ConstraintSystem<F>,
@@ -396,31 +396,29 @@ where
         .get_table_id_for_marker::<NafAbsDiv2Table>()
         .expect("table must exist");
 
-    let naf_add =
-        |cs: &mut CS,
-         table: &[(BN256BaseNNField<F>, BN256BaseNNField<F>)],
-         naf: UInt8<F>,
-         acc: &mut SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>| {
-            let is_zero = naf.is_zero(cs);
-            let index = unsafe {
-                UInt8::from_variable_unchecked(
-                    cs.perform_lookup::<1, 2>(naf_abs_div2_table_id, &[naf.get_variable()])[0],
-                )
-            };
-            let coords = &table[index.witness_hook(cs)().unwrap() as usize];
-            let mut p_1 =
-                SWProjectivePoint::<F, BN256Affine, BN256BaseNNField<F>>::from_xy_unchecked(
-                    cs,
-                    coords.0.clone(),
-                    coords.1.clone(),
-                );
-            let (_, is_naf_positive) = naf.overflowing_sub(cs, &overflow_checker);
-            let p_1_neg = p_1.negated(cs);
-            p_1 = Selectable::conditionally_select(cs, is_naf_positive, &p_1, &p_1_neg);
-
-            let acc_added = acc.add_mixed(cs, &mut (p_1.x, p_1.y));
-            *acc = Selectable::conditionally_select(cs, is_zero, acc, &acc_added);
+    let naf_add = |cs: &mut CS,
+                   table: &[(BN256BaseNNField<F>, BN256BaseNNField<F>)],
+                   naf: UInt8<F>,
+                   acc: &mut BN256SWProjectivePoint<F>| {
+        let is_zero = naf.is_zero(cs);
+        let index = unsafe {
+            UInt8::from_variable_unchecked(
+                cs.perform_lookup::<1, 2>(naf_abs_div2_table_id, &[naf.get_variable()])[0],
+            )
         };
+        let coords = &table[index.witness_hook(cs)().unwrap() as usize];
+        let mut p_1 = SWProjectivePoint::<F, BN256Affine, BN256BaseNNField<F>>::from_xy_unchecked(
+            cs,
+            coords.0.clone(),
+            coords.1.clone(),
+        );
+        let (_, is_naf_positive) = naf.overflowing_sub(cs, &overflow_checker);
+        let p_1_neg = p_1.negated(cs);
+        p_1 = Selectable::conditionally_select(cs, is_naf_positive, &p_1, &p_1_neg);
+
+        let acc_added = acc.add_mixed(cs, &mut (p_1.x, p_1.y));
+        *acc = Selectable::conditionally_select(cs, is_zero, acc, &acc_added);
+    };
 
     let naf1 = convert_to_wnaf(cs, k1, is_k1_negative, decomp_id, byte_split_id);
     let naf2 = convert_to_wnaf(cs, k2, is_k2_negative, decomp_id, byte_split_id);

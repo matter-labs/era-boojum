@@ -2,7 +2,7 @@ use std::{mem, sync::Arc};
 
 use pairing::ff::PrimeField;
 
-use super::fp2::Fp2;
+use super::{fq2::Fq2, params::Extension6Params};
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -10,33 +10,39 @@ use crate::{
     gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
 };
 
-/// `Fp6` field extension implementation in the constraint system. It is implemented
-/// as `Fp2[v]/(v^3-xi)` where `xi=9+u`. In other words,
+/// `Fq6` field extension implementation in the constraint system. It is implemented
+/// as `Fq2[v]/(v^3-xi)` where `xi=9+u`. In other words,
 /// it is a set of quadratic polynomials of a form `c0+c1*v+c2*v^2`,
-///  where `c0`, `c1`, `c2` are elements of `Fp2`.
+///  where `c0`, `c1`, `c2` are elements of `Fq2`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
 #[derive(Clone, Debug, Copy)]
-pub struct Fp6<F, T, NN>
+pub struct Fq6<F, T, NN, P>
 where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension6Params<T>,
 {
-    pub c0: Fp2<F, T, NN>,
-    pub c1: Fp2<F, T, NN>,
-    pub c2: Fp2<F, T, NN>,
+    pub c0: Fq2<F, T, NN, P::Ex2>,
+    pub c1: Fq2<F, T, NN, P::Ex2>,
+    pub c2: Fq2<F, T, NN, P::Ex2>,
     _marker: std::marker::PhantomData<(F, T)>,
 }
 
-impl<F, T, NN> Fp6<F, T, NN>
+impl<F, T, NN, P> Fq6<F, T, NN, P>
 where
     F: SmallField,
     T: pairing::ff::PrimeField,
     NN: NonNativeField<F, T>,
+    P: Extension6Params<T>,
 {
-    /// Creates a new `Fp6` element from three `Fp2` components.
-    pub fn new(c0: Fp2<F, T, NN>, c1: Fp2<F, T, NN>, c2: Fp2<F, T, NN>) -> Self {
+    /// Creates a new `Fq6` element from three `Fq2` components.
+    pub fn new(
+        c0: Fq2<F, T, NN, P::Ex2>,
+        c1: Fq2<F, T, NN, P::Ex2>,
+        c2: Fq2<F, T, NN, P::Ex2>,
+    ) -> Self {
         Self {
             c0,
             c1,
@@ -45,26 +51,26 @@ where
         }
     }
 
-    /// Creates a new zero `Fp6` in a form `0+0*v+0*v^2`
+    /// Creates a new zero `Fq6` in a form `0+0*v+0*v^2`
     pub fn zero<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let zero = Fp2::zero(cs, params);
+        let zero = Fq2::zero(cs, params);
         Self::new(zero.clone(), zero.clone(), zero)
     }
 
-    /// Creates a unit `Fp6` in a form `1+0*v+0*v^2`
+    /// Creates a unit `Fq6` in a form `1+0*v+0*v^2`
     pub fn one<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let one = Fp2::one(cs, params);
-        let zero = Fp2::zero(cs, params);
+        let one = Fq2::one(cs, params);
+        let zero = Fq2::zero(cs, params);
         Self::new(one, zero.clone(), zero)
     }
 
-    /// Returns true if the `Fp6` element is zero.
+    /// Returns true if the `Fq6` element is zero.
     pub fn is_zero<CS>(&mut self, cs: &mut CS) -> Boolean<F>
     where
         CS: ConstraintSystem<F>,
@@ -75,7 +81,7 @@ where
         is_c0_zero.and(cs, is_c1_zero).and(cs, is_c2_zero)
     }
 
-    /// Adds two elements of `Fp6` by adding their components elementwise.
+    /// Adds two elements of `Fq6` by adding their components elementwise.
     #[must_use]
     pub fn add<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
@@ -87,7 +93,7 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Doubles the element of `Fp6` by doubling its components.
+    /// Doubles the element of `Fq6` by doubling its components.
     #[must_use]
     pub fn double<CS>(&mut self, cs: &mut CS) -> Self
     where
@@ -99,7 +105,7 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Negates the element of `Fp6` by negating its components.
+    /// Negates the element of `Fq6` by negating its components.
     #[must_use]
     pub fn negated<CS>(&mut self, cs: &mut CS) -> Self
     where
@@ -111,7 +117,7 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Subtracts two elements of `Fp6` by subtracting their components elementwise.
+    /// Subtracts two elements of `Fq6` by subtracting their components elementwise.
     #[must_use]
     pub fn sub<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
@@ -123,7 +129,7 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Multiplies the element in `Fp6` by a non-residue `xi=9+u`.
+    /// Multiplies the element in `Fq6` by a non-residue `xi=9+u`.
     pub fn mul_by_nonresidue<CS>(&mut self, cs: &mut CS) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -137,7 +143,7 @@ where
     }
 
     /// Multiplies two elements `a=a0+a1*v+a2*v^2`
-    /// and `b=b0+b1*v+b2*v^2` in `Fp6` using Karatsuba multiplication.
+    /// and `b=b0+b1*v+b2*v^2` in `Fq6` using Karatsuba multiplication.
     #[must_use]
     pub fn mul<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
@@ -177,7 +183,7 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Squares the element `a=a0+a1*v+a2*v^2` in `Fp6` using Karatsuba squaring.
+    /// Squares the element `a=a0+a1*v+a2*v^2` in `Fq6` using Karatsuba squaring.
     #[must_use]
     pub fn square<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         // v0 <- a0^2, v1 <- a1^2, v2 <- a2^2
@@ -211,8 +217,8 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fp6` by the element `b = b1*v`
-    pub fn mul_by_c1<CS>(&mut self, cs: &mut CS, c1: &mut Fp2<F, T, NN>) -> Self
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `b = b1*v`
+    pub fn mul_by_c1<CS>(&mut self, cs: &mut CS, c1: &mut Fq2<F, T, NN, P::Ex2>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -230,12 +236,12 @@ where
         Self::new(t1, t2, b_b)
     }
 
-    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fp6` by the element `b = b0+b1*v`
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `b = b0+b1*v`
     pub fn mul_by_c0c1<CS>(
         &mut self,
         cs: &mut CS,
-        c0: &mut Fp2<F, T, NN>,
-        c1: &mut Fp2<F, T, NN>,
+        c0: &mut Fq2<F, T, NN, P::Ex2>,
+        c1: &mut Fq2<F, T, NN, P::Ex2>,
     ) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -261,5 +267,30 @@ where
         let t2 = t2.sub(cs, &mut b_b);
 
         Self::new(t1, t2, t3)
+    }
+
+    /// Compute the Frobenius map - raise this element to power.
+    #[allow(unused_variables)]
+    pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // TODO: explain:
+
+        match power % 6 {
+            0 | 1 | 2 | 3 => {}
+            _ => {
+                unreachable!("can not reach power {}", power);
+            }
+        }
+
+        let c0 = self.c0.frobenius_map(cs, power);
+        let c1 = self.c1.frobenius_map(cs, power);
+        let c2 = self.c2.frobenius_map(cs, power);
+
+        // TODO: add multiplication of c1 and c2 by corresponding FROBENIUS_COEFFS c1 and c2.
+        // TODO: assert what Fq2 under CS computes frobenius map same as without CS.
+
+        Self::new(c0, c1, c2)
     }
 }
