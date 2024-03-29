@@ -270,6 +270,7 @@ where
     }
 
     /// Compute the Frobenius map - raise this element to power.
+    #[allow(unused_variables)]
     pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -284,8 +285,8 @@ where
         }
 
         let c0 = self.c0.frobenius_map(cs, power);
-        let mut c1 = self.c1.frobenius_map(cs, power);
-        let mut c2 = self.c2.frobenius_map(cs, power);
+        let c1 = self.c1.frobenius_map(cs, power);
+        let c2 = self.c2.frobenius_map(cs, power);
 
         // TODO: add multiplication of c1 and c2 by corresponding FROBENIUS_COEFFS c1 and c2.
         // TODO: assert what Fq2 under CS computes frobenius map same as without CS.

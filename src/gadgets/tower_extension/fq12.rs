@@ -48,6 +48,7 @@ where
         }
     }
 
+    #[allow(unused_variables)]
     pub fn pow<CS>(&mut self, cs: &mut CS, exponent: T) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -198,6 +199,25 @@ where
         Self::new(c0, c1)
     }
 
+    pub fn mul_by_c0c3c4<CS>(
+        &mut self,
+        cs: &mut CS,
+        c0: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c3: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c4: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+    ) -> Self 
+    where 
+        CS: ConstraintSystem<F>,
+    {
+        let zero = Fq2::zero(cs, &c0.c0.get_params());
+        let c0 = Fq6::new(c0.clone(), zero.clone(), zero.clone());
+        let c1 = Fq6::new(c3.clone(), c4.clone(), zero);
+        let mut other = Fq12::new(c0, c1);
+
+        // TODO: make it hand optimized
+        self.mul(cs, &mut other)
+    }
+
     /// Compute the Frobenius map - raise this element to power.
     pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
     where
@@ -220,6 +240,7 @@ where
         Self::new(c0, c1)
     }
 
+    #[allow(unused_variables)]
     pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self
     where
         CS: ConstraintSystem<F>,
