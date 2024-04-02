@@ -60,7 +60,7 @@ where
 
     /// This function computes the line function evaluation for the BN256 curve
     /// `L_{P,Q}(R)` when `P` and `Q` are distinct points on the twisted curve
-    /// `E'(F_{p^2})` and `R` is a point on the regular curve `E(F_p)`. For details, 
+    /// `E'(F_{p^2})` and `R` is a point on the regular curve `E(F_p)`. For details,
     /// see _Section 3_ in https://eprint.iacr.org/2019/077.pdf.
     #[allow(non_snake_case)]
     pub fn at_line(
@@ -91,7 +91,7 @@ where
 
     /// This function computes the line function evaluation for the BN256 curve
     /// `L_{P,P}(R)` when `P` is a point on the twisted curve `E'(F_{p^2})` and
-    /// `R` is a point on the regular curve `E(F_p)`. For details, 
+    /// `R` is a point on the regular curve `E(F_p)`. For details,
     /// see _Section 3_ in https://eprint.iacr.org/2019/077.pdf.
     #[allow(non_snake_case)]
     pub fn at_tangent(
@@ -145,7 +145,7 @@ where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
-    /// This function computes the Miller loop for the BN256 curve, using 
+    /// This function computes the Miller loop for the BN256 curve, using
     /// algorithm from _Section 2_ from https://eprint.iacr.org/2016/130.pdf.
     pub fn evaluate(
         cs: &mut CS,

@@ -258,6 +258,15 @@ where
 
         Self::new(c0, c1)
     }
+
+    pub fn constant<CS>(cs: &mut CS, wit: P::Witness) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = P::convert_from_structured_witness(wit);
+        Self::allocate_constant(cs, (c0, c1))
+    }
+
 }
 
 impl<F, T, NN, P> CSAllocatable<F> for Fq2<F, T, NN, P>
