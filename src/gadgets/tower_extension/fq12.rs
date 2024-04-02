@@ -205,8 +205,8 @@ where
         c0: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
         c3: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
         c4: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
-    ) -> Self 
-    where 
+    ) -> Self
+    where
         CS: ConstraintSystem<F>,
     {
         let zero = Fq2::zero(cs, &c0.c0.get_params());
