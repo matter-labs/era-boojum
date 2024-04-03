@@ -259,13 +259,13 @@ where
         Self::new(c0, c1)
     }
 
-    pub fn constant<CS>(cs: &mut CS, wit: P::Witness) -> Self
-    where
-        CS: ConstraintSystem<F>,
-    {
-        let (c0, c1) = P::convert_from_structured_witness(wit);
-        Self::allocate_constant(cs, (c0, c1))
-    }
+    // pub fn constant<CS>(cs: &mut CS, wit: P::Witness) -> Self
+    // where
+    //     CS: ConstraintSystem<F>,
+    // {
+    //     let (c0, c1) = P::convert_from_structured_witness(wit);
+    //     Self::allocate_constant(cs, (c0, c1))
+    // }
 
 }
 
@@ -504,7 +504,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn inverse_unchecked<CS>(&mut self, cs: &mut CS) -> Self
@@ -519,7 +519,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn mask<CS>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self

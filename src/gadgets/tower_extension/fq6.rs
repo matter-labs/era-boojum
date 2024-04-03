@@ -269,6 +269,41 @@ where
         Self::new(t1, t2, t3)
     }
 
+    /// Find the inverse element in Fq6
+    pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self 
+    where CS: ConstraintSystem<F>{
+        let mut c0 = self.c2.mul_by_nonresidue(cs);
+        let mut c0 = c0.mul(cs, &mut self.c1);
+        let mut c0 = c0.negated(cs);
+
+        let mut c0s = self.c0.square(cs);
+        let mut c0 = c0.add(cs, &mut c0s);
+
+        let mut c1 = self.c2.square(cs);
+        let mut c1 = c1.mul_by_nonresidue(cs);
+        
+        let mut c01 = self.c0.mul(cs, &mut c1);
+        let mut c1 = c1.sub(cs, &mut c01);
+
+        let mut c2 = self.c1.square(cs);
+        let mut c02 = self.c0.mul(cs, &mut self.c2);
+        let mut c2 = c2.sub(cs, &mut c02);
+
+        let mut tmp1 = self.c2.mul(cs, &mut c1);
+        let mut tmp2 = self.c1.mul(cs, &mut c2);
+        let mut tmp1 = tmp1.add(cs, &mut tmp2);
+        let mut tmp1 = tmp1.mul_by_nonresidue(cs);
+        let mut tmp2 = self.c0.mul(cs, &mut c0);
+        let mut tmp1 = tmp1.add(cs, &mut tmp2);
+
+        let mut t = tmp1.inverse(cs);
+        let c0_new = t.mul(cs, &mut c0);
+        let c1_new = t.mul(cs, &mut c1);
+        let c2_new = t.mul(cs, &mut c2);
+
+        Self::new(c0_new, c1_new, c2_new)
+    }
+
     /// Compute the Frobenius map - raise this element to power.
     #[allow(unused_variables)]
     pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self

@@ -245,6 +245,16 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        todo!();
+        let mut c0s = self.c0.square(cs);
+        let mut c1s = self.c1.square(cs);
+        let mut c1s = c1s.mul_by_nonresidue(cs);
+        let mut c0s = c0s.sub(cs, &mut c1s);
+
+        let mut t = c0s.inverse(cs);
+        let c0_new = t.mul(cs, &mut self.c0);
+        let mut c1_new = t.mul(cs, &mut self.c1);
+        let c1_new = c1_new.negated(cs);
+
+        Self::new(c0_new, c1_new)
     }
 }
