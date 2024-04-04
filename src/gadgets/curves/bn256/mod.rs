@@ -10,9 +10,7 @@ use pairing::bn256::fr::Fr as BN256Fr;
 // Affine point for bn256 curve
 use pairing::bn256::G1Affine as BN256Affine;
 
-pub mod decomp_table;
 pub mod ec_mul;
-pub mod naf_abs_div2_table;
 
 // --- Base and scalar field params for BN256 curve ---
 /// Params of BN256 base field
