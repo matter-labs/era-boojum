@@ -53,7 +53,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        todo!();
+        unimplemented!();
     }
 
     /// Creates a new zero `Fq12` in a form `0+0*w`

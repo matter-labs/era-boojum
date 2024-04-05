@@ -13,7 +13,7 @@ use crate::{
     gadgets::{
         boolean::Boolean,
         non_native_field::traits::{CurveCompatibleNonNativeField, NonNativeField},
-        traits::{allocatable::CSAllocatable, witnessable::WitnessHookable},
+        traits::{allocatable::CSAllocatable, selectable::Selectable, witnessable::WitnessHookable},
     },
 };
 
@@ -489,10 +489,12 @@ where
         self.div(cs, other)
     }
 
-    fn conditionally_select<CS>(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self
-    where
-        CS: ConstraintSystem<F>,
-    {
+    fn conditionally_select<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        flag: Boolean<F>,
+        a: &Self,
+        b: &Self,
+    ) -> Self {
         let c0 = NN::conditionally_select(cs, flag, &a.c0, &b.c0);
         let c1 = NN::conditionally_select(cs, flag, &a.c1, &b.c1);
 
@@ -504,7 +506,10 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        unimplemented!()
+        let c0 = self.c0.allocate_inverse_or_zero(cs);
+        let c1 = self.c1.allocate_inverse_or_zero(cs);
+
+        Self::new(c0, c1)
     }
 
     fn inverse_unchecked<CS>(&mut self, cs: &mut CS) -> Self
@@ -548,6 +553,27 @@ where
     {
         self.c0.enforce_reduced(cs);
         self.c1.enforce_reduced(cs);
+    }
+}
+
+impl<F, NN> Selectable<F> for Fq2<F, BN256Fq, NN, BN256Extension2Params>
+where
+    F: SmallField,
+    NN: NonNativeField<F, BN256Fq>,
+{
+    fn conditionally_select<CS>(
+        cs: &mut CS,
+        flag: Boolean<F>,
+        a: &Self,
+        b: &Self,
+    ) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = NN::conditionally_select(cs, flag, &a.c0, &b.c0);
+        let c1 = NN::conditionally_select(cs, flag, &a.c1, &b.c1);
+
+        Self::new(c0, c1)
     }
 }
 
