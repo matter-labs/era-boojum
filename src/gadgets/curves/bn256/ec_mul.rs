@@ -25,11 +25,6 @@ use crate::{
 
 use super::*;
 
-// (BN254 elliptic curve primer order - 1) / 2
-// (0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 - 0x1) / 0x2
-const MODULUS_MINUS_ONE_DIV_TWO: &str =
-    "0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000";
-
 // -- GLV constants --
 
 // Decomposition scalars can be a little more than 2^128 in practice, so we use 33 chunks of width 4 bits
@@ -59,6 +54,14 @@ const B1: &str = "0x6f4d8248eeb859fc8211bbeb7d4f1128";
 const A2: &str = "0x6f4d8248eeb859fd0be4e1541221250b";
 /// `b2` component of a short vector `v2=(a2, b2)`.
 const B2: &str = "0x89d3256894d213e3";
+
+/// Precomputed value of `-b1/n << 256`
+const G1: &str = "0x24ccef014a773d2cf7a7bd9d4391eb18d";
+/// Precomputed value of `b2/n << 256`
+const G2: &str = "0x2d91d232ec7e0b3d7";
+
+/// Lambda parameter
+const LAMBDA: &str = "0xb3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd";
 
 // -- WNAF parameters --
 
@@ -155,6 +158,22 @@ impl<F> ScalarDecomposition<F>
 where
     F: SmallField,
 {
+    fn u256_from_hex_str<CS>(cs: &mut CS, s: &str) -> UInt256<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let v = U256::from_str_radix(s, 16).unwrap();
+        UInt256::allocated_constant(cs, v)
+    }
+
+    fn bigint_from_hex_str<CS>(cs: &mut CS, s: &str) -> UInt512<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let v = U256::from_str_radix(s, 16).unwrap();
+        UInt512::allocated_constant(cs, (v, U256::zero()))
+    }
+
     pub fn from<CS>(
         cs: &mut CS,
         scalar: &mut BN256ScalarNNField<F>,
@@ -164,65 +183,52 @@ where
         F: SmallField,
         CS: ConstraintSystem<F>,
     {
-        let u256_from_hex_str = |cs: &mut CS, s: &str| -> UInt256<F> {
-            let v = U256::from_str_radix(s, 16).unwrap();
-            UInt256::allocated_constant(cs, v)
-        };
-        let bigint_from_hex_str = |cs: &mut CS, s: &str| -> UInt512<F> {
-            let v = U256::from_str_radix(s, 16).unwrap();
-            UInt512::allocated_constant(cs, (v, U256::zero()))
-        };
-
+        // Defining constants under the constraint system
         let pow_2_128 = UInt512::allocated_constant(cs, (U256([0, 0, 1, 0]), U256::zero()));
-        let a1 = u256_from_hex_str(cs, A1);
-        let b1 = u256_from_hex_str(cs, B1);
-        let a2 = u256_from_hex_str(cs, A2);
-        let b2 = u256_from_hex_str(cs, B2);
-
-        let modulus_minus_one_div_two = bigint_from_hex_str(cs, MODULUS_MINUS_ONE_DIV_TWO);
-        let boolean_false = Boolean::allocated_constant(cs, false);
+        let lambda = Self::u256_from_hex_str(cs, LAMBDA);
+        let b1 = Self::u256_from_hex_str(cs, B1);
+        let b2 = Self::u256_from_hex_str(cs, B2);
+        let g1 = Self::u256_from_hex_str(cs, G1);
+        let g2 = Self::u256_from_hex_str(cs, G2);
 
         let k = convert_field_element_to_uint256(cs, scalar.clone());
 
-        // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B2
+        // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for G2
         // (since it fits in 128 bits).
+        let g2_times_k = k.widening_mul(cs, &g2, 8, 4);
+        let c1 = g2_times_k.to_high();
 
-        let b2_times_k = k.widening_mul(cs, &b2, 8, 4);
-        // can not overflow u512
-        let (b2_times_k, of) = b2_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
-        Boolean::enforce_equal(cs, &of, &boolean_false);
-        let c1 = b2_times_k.to_high();
-        dbg!(c1.witness_hook(cs)());
-
-        // We take 8 non-zero limbs for the scalar (since it could be of any size), and 4 for B1
-        // (since it fits in 128 bits).
-        let b1_times_k = k.widening_mul(cs, &b1, 8, 4);
-        // Cannot overflow u512
-        let (b1_times_k, of) = b1_times_k.overflowing_add(cs, &modulus_minus_one_div_two);
-        Boolean::enforce_equal(cs, &of, &boolean_false);
-        let c2 = b1_times_k.to_high();
-        dbg!(c2.witness_hook(cs)());
-
-        let mut a1 = convert_uint256_to_field_element(cs, &a1, scalar_field_params);
+        // We take 8 non-zero limbs for the scalar (since it could be of any size), and 5 for G2
+        // (since it fits in 130 bits).
+        let g1_times_k = k.widening_mul(cs, &g1, 8, 5);
+        let c2 = g1_times_k.to_high();
+        
+        // Converting all constants to field elements
         let mut b1 = convert_uint256_to_field_element(cs, &b1, scalar_field_params);
-        let mut a2 = convert_uint256_to_field_element(cs, &a2, scalar_field_params);
-        let mut b2 = a1.clone();
+        let mut b2 = convert_uint256_to_field_element(cs, &b2, scalar_field_params);
         let mut c1 = convert_uint256_to_field_element(cs, &c1, scalar_field_params);
         let mut c2 = convert_uint256_to_field_element(cs, &c2, scalar_field_params);
+        let mut lambda = convert_uint256_to_field_element(cs, &lambda, scalar_field_params);
 
-        let mut c1_times_a1 = c1.mul(cs, &mut a1);
-        let mut c2_times_a2 = c2.mul(cs, &mut a2);
-        let mut k1 = scalar.sub(cs, &mut c1_times_a1).sub(cs, &mut c2_times_a2);
-        k1.normalize(cs);
-        let mut c1_times_b1 = c1.mul(cs, &mut b1);
-        let mut c2_times_b2 = c2.mul(cs, &mut b2);
-        let mut k2 = c1_times_b1.sub(cs, &mut c2_times_b2);
+        // q1 <- c1 * b1
+        // q2 <- c2 * b2
+        let mut q1 = c1.mul(cs, &mut b1);
+        let mut q1 = q1.negated(cs);
+        let mut q2 = c2.mul(cs, &mut b2);
+        let mut q2 = q2.negated(cs);
+
+        // k2 <- q2 - q1
+        let mut k2 = q2.sub(cs, &mut q1);
         k2.normalize(cs);
+
+        // k2_lambda <- k2 * lambda, k1 <- k - k2_lambda
+        let mut k2_times_lambda = k2.mul(cs, &mut lambda);
+        let mut k1 = scalar.sub(cs, &mut k2_times_lambda);
+        k1.normalize(cs);
 
         let k1_u256 = convert_field_element_to_uint256(cs, k1.clone());
         let k2_u256 = convert_field_element_to_uint256(cs, k2.clone());
         
-        dbg!("Scalar decomposition");
         dbg!(k1_u256.witness_hook(cs)());
         dbg!(k2_u256.witness_hook(cs)());
 
@@ -234,8 +240,8 @@ where
         let k1 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
             cs,
             k1_out_of_range,
-            &k1_negated,
             &k1,
+            &k1_negated,
         );
 
         // Selecting between k2 and -k2 in Fq
@@ -244,15 +250,15 @@ where
         let k2 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
             cs,
             k2_out_of_range,
-            &k2_negated,
             &k2,
+            &k2_negated,
         );
 
         Self {
             k1,
             k2,
-            k1_was_negated: k1_out_of_range,
-            k2_was_negated: k2_out_of_range,
+            k1_was_negated: k1_out_of_range.negated(cs),
+            k2_was_negated: k2_out_of_range.negated(cs),
         }
     }
 }

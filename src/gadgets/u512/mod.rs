@@ -216,6 +216,24 @@ impl<F: SmallField> UInt512<F> {
         (result, borrow_out)
     }
 
+    /// Performs the << operation by shift
+    pub fn left_shift<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        shift: usize,
+    ) -> Self {
+        let mut result = self.clone();
+        for (dst, src) in result.inner.iter_mut().zip(self.inner.iter().skip(shift)) {
+            *dst = src.clone();
+        }
+
+        for dst in result.inner.iter_mut().skip(self.inner.len() - shift) {
+            *dst = UInt32::zero(cs);
+        }
+
+        result
+    }
+
     // Returns the value unchanges if `bit` is `true`, and 0 otherwise
     #[must_use]
     pub fn mask<CS: ConstraintSystem<F>>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self {
