@@ -322,10 +322,20 @@ where
         }
 
         let c0 = self.c0.frobenius_map(cs, power);
-        let c1 = self.c1.frobenius_map(cs, power);
-        let c2 = self.c2.frobenius_map(cs, power);
+        let mut c1 = self.c1.frobenius_map(cs, power);
+        let mut c2 = self.c2.frobenius_map(cs, power);
 
-        // TODO: add multiplication of c1 and c2 by corresponding FROBENIUS_COEFFS c1 and c2.
+        let c1_frobenius_constant = P::FROBENIUS_COEFFS_C1[power % 6];
+        let c2_frobenius_constant = P::FROBENIUS_COEFFS_C2[power % 6];
+
+        let params = c1.get_params();
+
+        let mut c1_frobenius_coeff = Fq2::constant(cs, c1_frobenius_constant, params);
+        let mut c2_frobenius_coeff = Fq2::constant(cs, c2_frobenius_constant, params);
+
+        let c1 = c1.mul(cs, &mut c1_frobenius_coeff);
+        let c2 = c2.mul(cs, &mut c2_frobenius_coeff);
+
         // TODO: assert what Fq2 under CS computes frobenius map same as without CS.
 
         Self::new(c0, c1, c2)

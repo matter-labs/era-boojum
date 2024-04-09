@@ -209,7 +209,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let zero = Fq2::zero(cs, &c0.c0.get_params());
+        let zero = Fq2::zero(cs, c0.c0.get_params());
         let c0 = Fq6::new(c0.clone(), zero.clone(), zero.clone());
         let c1 = Fq6::new(c3.clone(), c4.clone(), zero);
         let mut other = Fq12::new(c0, c1);
@@ -233,14 +233,27 @@ where
         }
 
         let c0 = self.c0.frobenius_map(cs, power);
-        let c1 = self.c1.frobenius_map(cs, power);
+        let mut c1 = self.c1.frobenius_map(cs, power);
 
-        // TODO: add frobenius map of c1 Fp6 to its corresponding c0, c1, c2 FROBENIUS_COEFFS.
+        let c1_c0_frobenius_constant = P::FROBENIUS_COEFFS_C1[power % 12];
+        let c1_c1_frobenius_constant = P::FROBENIUS_COEFFS_C1[power % 12];
+        let c1_c2_frobenius_constant = P::FROBENIUS_COEFFS_C1[power % 12];
+
+        let params = c1.c0.get_params();
+
+        let mut c1_c0_frobenius_coeff = Fq2::constant(cs, c1_c0_frobenius_constant, params);
+        let mut c1_c1_frobenius_coeff = Fq2::constant(cs, c1_c1_frobenius_constant, params);
+        let mut c1_c2_frobenius_coeff = Fq2::constant(cs, c1_c2_frobenius_constant, params);
+
+        let c1_c0 = c1.c0.mul(cs, &mut c1_c0_frobenius_coeff);
+        let c1_c1 = c1.c1.mul(cs, &mut c1_c1_frobenius_coeff);
+        let c1_c2 = c1.c2.mul(cs, &mut c1_c2_frobenius_coeff);
+
+        let c1 = Fq6::new(c1_c0, c1_c1, c1_c2);
 
         Self::new(c0, c1)
     }
 
-    #[allow(unused_variables)]
     pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self
     where
         CS: ConstraintSystem<F>,

@@ -22,7 +22,7 @@ impl Extension2Params<BN256Fq> for BN256Extension2Params {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug, Copy)]
 pub struct BN256Extension6Params {}
 impl Extension6Params<BN256Fq> for BN256Extension6Params {
     type Ex2 = BN256Extension2Params;
@@ -40,7 +40,7 @@ impl Extension6Params<BN256Fq> for BN256Extension6Params {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug, Copy)]
 pub struct BN256Extension12Params {}
 impl Extension12Params<BN256Fq> for BN256Extension12Params {
     type Ex6 = BN256Extension6Params;

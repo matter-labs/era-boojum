@@ -261,13 +261,18 @@ where
         Self::new(c0, c1)
     }
 
-    // pub fn constant<CS>(cs: &mut CS, wit: P::Witness) -> Self
-    // where
-    //     CS: ConstraintSystem<F>,
-    // {
-    //     let (c0, c1) = P::convert_from_structured_witness(wit);
-    //     Self::allocate_constant(cs, (c0, c1))
-    // }
+    /// Allocate `Fq2` tower extension element from the Witness represented in two PrimeField components `c0` and `c1`.
+    pub fn constant<CS>(cs: &mut CS, wit: P::Witness, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = P::convert_from_structured_witness(wit);
+
+        let c0 = NN::allocated_constant(cs, c0, params);
+        let c1 = NN::allocated_constant(cs, c1, params);
+
+        Self::new(c0, c1)
+    }
 }
 
 impl<F, T, NN, P> CSAllocatable<F> for Fq2<F, T, NN, P>
@@ -350,7 +355,7 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
-    P: Extension2Params<T> + std::fmt::Debug + std::marker::Sync + std::marker::Send + 'static,
+    P: Extension2Params<T>,
 {
     type Params = NN::Params;
 

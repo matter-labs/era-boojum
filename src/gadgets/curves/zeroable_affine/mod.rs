@@ -87,7 +87,7 @@ where
             return self.double(cs);
         }
 
-        Self::zero_point(cs, &self.x.get_params())
+        Self::zero_point(cs, self.x.get_params())
     }
 
     /// Subtracts two affine points on the curve.
