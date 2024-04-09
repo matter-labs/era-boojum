@@ -15,7 +15,7 @@ use crate::{
         },
         num::Num,
         tables::ByteSplitTable,
-        traits::{selectable::Selectable, witnessable::WitnessHookable},
+        traits::selectable::Selectable,
         u16::UInt16,
         u256::UInt256,
         u32::UInt32,
@@ -45,7 +45,7 @@ const BETA: &str = "2203960485148121921418603742825762020974279258880205651966";
 // derived through algorithm 3.74 http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 // Also see `balanced_representation.sage` file for details
 
-/// `a1` component of a short vector `v1=(a1, b1)`.
+/// `a1` component of a short vector `v1=(a1, b1)`. 
 const A1: &str = "0x89d3256894d213e3";
 /// `-b1` component of a short vector `v1=(a1, b1)`.
 /// Since `b1` is negative, we use `-b1` instead of `b1`.
@@ -54,6 +54,7 @@ const B1: &str = "0x6f4d8248eeb859fc8211bbeb7d4f1128";
 const A2: &str = "0x6f4d8248eeb859fd0be4e1541221250b";
 /// `b2` component of a short vector `v2=(a2, b2)`.
 const B2: &str = "0x89d3256894d213e3";
+// Note: `a1` and `a2` are not currently used in 4 bit window-based multiplication method.
 
 /// Precomputed value of `-b1/n << 256`
 const G1: &str = "0x24ccef014a773d2cf7a7bd9d4391eb18d";
@@ -229,9 +230,6 @@ where
         let k1_u256 = convert_field_element_to_uint256(cs, k1.clone());
         let k2_u256 = convert_field_element_to_uint256(cs, k2.clone());
         
-        dbg!(k1_u256.witness_hook(cs)());
-        dbg!(k2_u256.witness_hook(cs)());
-
         let low_pow_2_128 = pow_2_128.to_low();
         
         // Selecting between k1 and -k1 in Fq
@@ -278,12 +276,6 @@ where
     scalar.enforce_reduced(cs);
     let scalar_decomposition = ScalarDecomposition::from(cs, &mut scalar, scalar_field_params);
 
-    dbg!("Scalar decomposition");
-    dbg!(scalar_decomposition.k1.witness_hook(cs)());
-    dbg!(scalar_decomposition.k2.witness_hook(cs)());
-    dbg!(scalar_decomposition.k1_was_negated.witness_hook(cs)());
-    dbg!(scalar_decomposition.k2_was_negated.witness_hook(cs)());
-
     // create precomputed table of size 1<<4 - 1
     // there is no 0 * P in the table, we will handle it below
     let mut table = Vec::with_capacity(PRECOMPUTATION_TABLE_SIZE);
@@ -329,9 +321,6 @@ where
     }
 
     // now decompose every scalar we are interested in
-    dbg!(scalar_decomposition.k1.witness_hook(cs)());
-    dbg!(scalar_decomposition.k2.witness_hook(cs)());
-
     let k1_msb_decomposition = to_width_4_window_form(cs, scalar_decomposition.k1);
     let k2_msb_decomposition = to_width_4_window_form(cs, scalar_decomposition.k2);
 
