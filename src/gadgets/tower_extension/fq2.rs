@@ -13,7 +13,9 @@ use crate::{
     gadgets::{
         boolean::Boolean,
         non_native_field::traits::{CurveCompatibleNonNativeField, NonNativeField},
-        traits::{allocatable::CSAllocatable, selectable::Selectable, witnessable::WitnessHookable},
+        traits::{
+            allocatable::CSAllocatable, selectable::Selectable, witnessable::WitnessHookable,
+        },
     },
 };
 
@@ -266,7 +268,6 @@ where
     //     let (c0, c1) = P::convert_from_structured_witness(wit);
     //     Self::allocate_constant(cs, (c0, c1))
     // }
-
 }
 
 impl<F, T, NN, P> CSAllocatable<F> for Fq2<F, T, NN, P>
@@ -561,12 +562,7 @@ where
     F: SmallField,
     NN: NonNativeField<F, BN256Fq>,
 {
-    fn conditionally_select<CS>(
-        cs: &mut CS,
-        flag: Boolean<F>,
-        a: &Self,
-        b: &Self,
-    ) -> Self
+    fn conditionally_select<CS>(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self
     where
         CS: ConstraintSystem<F>,
     {

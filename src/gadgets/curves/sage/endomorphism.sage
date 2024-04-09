@@ -12,10 +12,11 @@ f = x^2 + x + 1
 f_roots = f.roots()
 lambdas = [root[0] for root in f_roots]
 print('Roots of x^2 + x + 1 are', lambdas)
+# Output: [21888242871839275217838484774961031246154997185409878258781734729429964517155, 4407920970296243842393367215006156084916469457145843978461]
 
 # Picking one lambda out of roots
 lambd = lambdas[1] # 4407920970296243842393367215006156084916469457145843978461
-print('Picked lambda =', lambd)
+print('Picked lambda =', hex(lambd))
 
 # Verifying that lambd is the root of the polynomial...
 assert lambd**2 + lambd + 1 == 0, 'lambd is incorrect since it is not a root of X^2+X+1'
@@ -28,10 +29,11 @@ g = y^3 - 1
 g_roots = g.roots()
 betas = [root[0] for root in g_roots]
 print('Roots of y^3 - 1 are', betas)
+# Output: [21888242871839275220042445260109153167277707414472061641714758635765020556616, 2203960485148121921418603742825762020974279258880205651966, 1]
 
 # Picking one beta out of roots
 beta = betas[1] # 2203960485148121921418603742825762020974279258880205651966
-print('Picked beta =', beta)
+print('Picked beta =', hex(beta))
 
 # Verifying that beta is the root of the polynomial Y^3-1...
 assert beta**3 == 1, 'beta is incorrect since beta^3 != 1'

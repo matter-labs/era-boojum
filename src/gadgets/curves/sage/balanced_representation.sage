@@ -118,14 +118,16 @@ assert b2 == a1
 q = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 Fq = GF(q)
 # As if was shown, lambda parameter is the following:
-lambd = 4407920970296243842393367215006156084916469457145843978461
+lambd = Integer('0xb3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd')
 
 # Displaying the short vectors. Note that we use Fq to convert the result
 # to the finite field
 a1, b1, a2, b2 = find_short_vectors(q, lambd, verbose=False)
 print('\nShort vectors (a1, b1) and (a2, b2) for BN256 are:')
+
 print('a1 =', a1.hex()) # 0x89d3256894d213e3
 print('b1 =', b1.hex()) # -0x6f4d8248eeb859fc8211bbeb7d4f1128
 print('a2 =', a2.hex()) # 0x6f4d8248eeb859fd0be4e1541221250b
 print('b2 =', b2.hex()) # 0x89d3256894d213e3
 
+# These numbers seem to coincide with https://github.com/AztecProtocol/weierstrudel/blob/master/js_snippets/bn128_reference.js

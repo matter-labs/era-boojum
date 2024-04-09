@@ -270,8 +270,10 @@ where
     }
 
     /// Find the inverse element in Fq6
-    pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self 
-    where CS: ConstraintSystem<F>{
+    pub fn inverse<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
         let mut c0 = self.c2.mul_by_nonresidue(cs);
         let mut c0 = c0.mul(cs, &mut self.c1);
         let mut c0 = c0.negated(cs);
@@ -281,7 +283,7 @@ where
 
         let mut c1 = self.c2.square(cs);
         let mut c1 = c1.mul_by_nonresidue(cs);
-        
+
         let mut c01 = self.c0.mul(cs, &mut c1);
         let mut c1 = c1.sub(cs, &mut c01);
 
