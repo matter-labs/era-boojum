@@ -15,6 +15,7 @@ use pairing::bn256::fr::Fr as BN256Fr;
 use pairing::bn256::G1Affine as BN256Affine;
 use pairing::bn256::G2Affine as BN256AffineTwisted;
 
+pub mod ec_add;
 pub mod ec_mul;
 pub mod ec_pairing;
 
