@@ -94,12 +94,12 @@ where
         NonNativeFieldOverU16::<F, T, N>::div_unchecked(self, cs, other)
     }
     #[must_use]
-    fn allocate_inverse_or_zero<CS: ConstraintSystem<F>>(&self, _cs: &mut CS) -> Self {
-        todo!()
+    fn allocate_inverse_or_zero<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
+        NonNativeFieldOverU16::<F, T, N>::allocate_inverse_or_zero(&self, cs)
     }
     #[must_use]
-    fn inverse_unchecked<CS: ConstraintSystem<F>>(&mut self, _cs: &mut CS) -> Self {
-        todo!()
+    fn inverse_unchecked<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
+        NonNativeFieldOverU16::<F, T, N>::inverse_unchecked(self, cs)
     }
     #[must_use]
     fn is_zero<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Boolean<F> {

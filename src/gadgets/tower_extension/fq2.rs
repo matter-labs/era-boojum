@@ -201,12 +201,12 @@ where
     {
         let mut t0 = self.c0.square(cs);
         let mut t1 = self.c1.square(cs);
-        t1 = t1.double(cs);
-        t0 = t0.add(cs, &mut t1);
-        let mut t = t0.inverse_unchecked(cs); // this goes to todo!(), however implementation exist for NonNativeFieldOverU16 - ?
+        let mut t0 = t0.add(cs, &mut t1);
+        let mut t = t0.inverse_unchecked(cs);
+
         let c0 = self.c0.mul(cs, &mut t);
         let mut c1 = self.c1.mul(cs, &mut t);
-        c1 = c1.negated(cs);
+        let c1 = c1.negated(cs);
 
         Self::new(c0, c1)
     }
