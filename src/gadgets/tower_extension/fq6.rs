@@ -135,11 +135,8 @@ where
         CS: ConstraintSystem<F>,
     {
         // c0, c1, c2 -> c2, c0, c1
-        mem::swap(&mut self.c0, &mut self.c1);
-        mem::swap(&mut self.c1, &mut self.c2);
-        // c2 -> xi*c2
-        let new_c0 = self.c0.mul_by_nonresidue(cs);
-        Self::new(new_c0, self.c1.clone(), self.c2.clone())
+        let new_c2 = self.c2.mul_by_nonresidue(cs);
+        Self::new(new_c2, self.c0.clone(), self.c1.clone())
     }
 
     /// Multiplies two elements `a=a0+a1*v+a2*v^2`
@@ -149,38 +146,35 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        // v0 <- a0*b0, v1 <- a1*b1, v2 <- a2*b2
         let mut v0 = self.c0.mul(cs, &mut other.c0);
         let mut v1 = self.c1.mul(cs, &mut other.c1);
         let mut v2 = self.c2.mul(cs, &mut other.c2);
 
-        // c0 <- v0 + xi*((a1 + a2)(b1 + b2) - v1 - v2)
-        let mut a1_plus_a2 = self.c1.add(cs, &mut self.c2);
-        let mut b1_plus_b2 = other.c1.add(cs, &mut other.c2);
-        let mut a1_plus_a2_b1_plus_b2 = a1_plus_a2.mul(cs, &mut b1_plus_b2);
-        let mut c0 = a1_plus_a2_b1_plus_b2.mul(cs, &mut b1_plus_b2);
-        let mut c0 = c0.sub(cs, &mut v1);
-        let mut c0 = c0.sub(cs, &mut v2);
-        let c0 = c0.add(cs, &mut v0);
+        let mut t1 = other.c1.add(cs, &mut other.c2);
+        let mut tmp = self.c1.add(cs, &mut self.c2);
 
-        // c1 <- (a0 + a1)(b0 + b1) - v0 - v1 + xi*v2
-        let mut a0_plus_a1 = self.c0.add(cs, &mut self.c1);
-        let mut b0_plus_b1 = other.c0.add(cs, &mut other.c1);
-        let mut c1 = a0_plus_a1.mul(cs, &mut b0_plus_b1);
-        let mut c1 = c1.sub(cs, &mut v0);
-        let mut c1 = c1.add(cs, &mut v1);
-        let mut xi_v2 = v2.mul_by_nonresidue(cs);
-        let c1 = c1.add(cs, &mut xi_v2);
+        let mut t1 = t1.mul(cs, &mut tmp);
+        let mut t1 = t1.sub(cs, &mut v1);
+        let mut t1 = t1.sub(cs, &mut v2);
+        let mut t1 = t1.mul_by_nonresidue(cs);
+        let t1 = t1.add(cs, &mut v0);
 
-        // c2 <- (a0 + a2)(b0 + b2) - v0 + v1 - v2
-        let mut a0_plus_a2 = self.c0.add(cs, &mut self.c2);
-        let mut b0_plus_b2 = other.c0.add(cs, &mut other.c2);
-        let mut c2 = a0_plus_a2.mul(cs, &mut b0_plus_b2);
-        let mut c2 = c2.sub(cs, &mut v0);
-        let mut c2 = c2.add(cs, &mut v1);
-        let c2 = c2.sub(cs, &mut v2);
+        let mut t3 = other.c0.add(cs, &mut other.c2);
+        let mut tmp = self.c0.add(cs, &mut self.c2);
+        let mut t3 = t3.mul(cs, &mut tmp);
+        let mut t3 = t3.sub(cs, &mut v0);
+        let mut t3 = t3.add(cs, &mut v1);
+        let t3 = t3.sub(cs, &mut v2);
 
-        Self::new(c0, c1, c2)
+        let mut t2 = other.c0.add(cs, &mut other.c1);
+        let mut tmp = self.c0.add(cs, &mut self.c1);
+        let mut t2 = t2.mul(cs, &mut tmp);
+        let mut t2 = t2.sub(cs, &mut v0);
+        let mut t2 = t2.sub(cs, &mut v1);
+        let mut v2 = v2.mul_by_nonresidue(cs);
+        let t2 = t2.add(cs, &mut v2);
+
+        Self::new(t1, t2, t3)
     }
 
     /// Squares the element `a=a0+a1*v+a2*v^2` in `Fq6` using Karatsuba squaring.
@@ -225,7 +219,7 @@ where
         let mut b_b = self.c1.mul(cs, c1);
         let mut tmp = self.c1.add(cs, &mut self.c2);
 
-        let mut t1 = self.c1.mul(cs, &mut tmp);
+        let mut t1 = c1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut b_b);
         let t1 = t1.mul_by_nonresidue(cs);
 
@@ -284,7 +278,7 @@ where
         let mut c1 = self.c2.square(cs);
         let mut c1 = c1.mul_by_nonresidue(cs);
 
-        let mut c01 = self.c0.mul(cs, &mut c1);
+        let mut c01 = self.c0.mul(cs, &mut self.c1);
         let mut c1 = c1.sub(cs, &mut c01);
 
         let mut c2 = self.c1.square(cs);
@@ -304,6 +298,14 @@ where
         let c2_new = t.mul(cs, &mut c2);
 
         Self::new(c0_new, c1_new, c2_new)
+    }
+
+    pub fn div<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let mut inv = other.inverse(cs);
+        self.mul(cs, &mut inv)
     }
 
     /// Compute the Frobenius map - raise this element to power.
