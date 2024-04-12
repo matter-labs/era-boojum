@@ -32,6 +32,7 @@ where
 {
     pub c0: NN,
     pub c1: NN,
+    wit: Option<P::Witness>,
     _marker: std::marker::PhantomData<(F, T, P)>,
 }
 
@@ -47,6 +48,7 @@ where
         Self {
             c0,
             c1,
+            wit: Option::None, // to get placeholder_witness we need CS
             _marker: std::marker::PhantomData::<(F, T, P)>,
         }
     }

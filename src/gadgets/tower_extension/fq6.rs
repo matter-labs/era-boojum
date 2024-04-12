@@ -342,4 +342,17 @@ where
 
         Self::new(c0, c1, c2)
     }
+
+    pub fn conditionally_select<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        flag: Boolean<F>,
+        a: &Self,
+        b: &Self,
+    ) -> Self {
+        let c0 = Fq2::conditionally_select(cs, flag, &a.c0, &b.c0);
+        let c1 = Fq2::conditionally_select(cs, flag, &a.c1, &b.c1);
+        let c2 = Fq2::conditionally_select(cs, flag, &a.c2, &b.c2);
+
+        Self::new(c0, c1, c2)
+    }
 }

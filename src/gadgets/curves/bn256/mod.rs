@@ -4,6 +4,7 @@ use super::curves::non_native_field::implementations::{
 use super::sw_projective::extended::ExtendedSWProjectivePoint;
 use super::sw_projective::SWProjectivePoint;
 
+use super::tower_extension::algebraic_torus::TorusWrapper;
 use super::tower_extension::params::bn256::{BN256Extension12Params, BN256Extension2Params};
 use super::tower_extension::{fq12::Fq12, fq2::Fq2};
 
@@ -37,6 +38,8 @@ pub type BN256ScalarNNField<F> = NonNativeFieldOverU16<F, BN256Fr, 17>;
 pub type BN256Fq2NNField<F> = Fq2<F, BN256Fq, BN256BaseNNField<F>, BN256Extension2Params>;
 /// Non-native field extension Fq12 for BN256 curve
 pub type BN256Fq12NNField<F> = Fq12<F, BN256Fq, BN256BaseNNField<F>, BN256Extension12Params>;
+
+pub type BN256Fq12Torus<F> = TorusWrapper<F, BN256Fq, BN256BaseNNField<F>, BN256Extension12Params>;
 
 // --- SW Projective points for BN256 curves: regular and twisted ---
 /// SW Projective point for BN256 curve over non-extended base field

@@ -4,7 +4,16 @@ use pairing::{bn256::G2Affine as BN256G2Affine, ff::PrimeField, GenericCurveAffi
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
-    gadgets::{curves::SmallField, non_native_field::traits::CurveCompatibleNonNativeField},
+    gadgets::{
+        boolean::Boolean,
+        curves::SmallField,
+        non_native_field::traits::{CurveCompatibleNonNativeField, NonNativeField},
+        tower_extension::{
+            algebraic_torus::TorusWrapper,
+            fq6::Fq6,
+            params::{bn256::BN256Extension12Params, Extension12Params},
+        },
+    },
 };
 
 use super::*;
@@ -217,32 +226,61 @@ where
 {
     /// This function computes the final exponentiation for the BN256 curve.
     pub fn evaluate(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> Self {
-        let mut easy_part_f = Self::easy_part(cs, f);
-        let hard_part = Self::hard_part(cs, &mut easy_part_f);
+        let (mut easy_part_torus, is_trivial) = Self::easy_part(cs, f);
+        let mut hard_part_torus = Self::hard_part(cs, &mut easy_part_torus);
+
+        let not_trivial = is_trivial.negated(cs);
+        let resultant_f = hard_part_torus.mask(cs, &not_trivial);
+        let resultant_f = resultant_f.decompress(cs);
+
         Self {
-            resultant_f: hard_part,
+            resultant_f,
             _marker: std::marker::PhantomData::<CS>,
         }
     }
 
     /// This function computes the easy part of the final exponentiation, that is
     /// for given f \in `F_{p^{12}}` it computes `f^{(p^6-1)(p^2+1)}`.
-    pub fn easy_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
-        // f1 <- f^(p^6 - 1)
-        let mut f1 = f.inverse(cs);
-        let mut fp6 = f.frobenius_map(cs, 6);
-        let mut f1 = f1.mul(cs, &mut fp6);
+    pub fn easy_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> (BN256Fq12Torus<F>, Boolean<F>) {
+        // We use that one-time torus compression cost can be absorbed directly in the easy part computation as follows:
+        // let m = m0 + w * m1 \in Fp12 be the Miller loop result, then:
+        // m^{p^6−1} = (m0 + w*m1)^{p^6−1} = (m0 + w*m1)^{p^6} / (m0 + w*m1) = (m0 − w*m1)/(m0 + w*m1) =
+        // = (−m0/m1 + w)/(−m0/m1 − w) = Dec(-m0/m1)
+        // Hence: Enc(m^{(p^6-1)(p^2+1)}) = Enc(Dec(-m0/m1)^{p^2+1}) = (-m0/m1)^{p^2+1} = [[(-m0/m1)^{p^2) * (-m0/m1)]]
+        // where all multiplications and power-maps inside [[ ]] are treated as operations on T2.
 
-        // f2 <- f1^(p^2 + 1)
-        let mut fp2 = f1.frobenius_map(cs, 2);
-        let f2 = f1.mul(cs, &mut fp2);
+        // We need to implement custom conversion m = m0 + w * m1 \in Fp12 -> -m0/m1 \in T2.
+        // If m1 == 0 \then m actually belongs to \Fp6, and hence m^{p^6−1} = 1
+        // in this case we replace m by generator of order d = hard_part_exp
 
-        f2
+        let params = f.c0.c0.get_params();
+
+        let exception = Fq6::is_zero(&mut f.c1, cs);
+        let one = Fq6::one(cs, params);
+        let c1 = Fq6::conditionally_select(cs, exception, &one, &f.c1);
+        let f: BN256Fq12NNField<F> = Fq12::new(f.c0.clone(), c1);
+
+        // actual value of compressed element is (m0 − w*m1)/(m0 + w*m1)
+        // the result of Miller loop belongs to Fp12* and hence is never zero,
+        // hence m0 and m1 can't be zero simultaneously
+
+        let mut dividend = f.c0.clone();
+        let mut divisor = f.c1.clone();
+        let encoding = dividend.div(cs, &mut divisor);
+
+        let mut x = TorusWrapper::new(encoding);
+        let mut y = x.clone().frobenius_map(cs, 2);
+        let mut candidate = x.mul(cs, &mut y);
+        let gen = Self::get_hard_part_generator();
+        let (res, enc_is_zero) = candidate.replace_by_constant_if_trivial(cs, gen);
+        let is_trivial = exception.or(cs, enc_is_zero);
+
+        (res, is_trivial)
     }
 
     /// Computes the hard part of the final exponentiation using method by Aranha et al.
     /// For details, see https://eprint.iacr.org/2016/130.pdf, _Algorithm 2_.
-    pub fn hard_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
+    pub fn hard_part(cs: &mut CS, f: &mut BN256Fq12Torus<F>) -> BN256Fq12Torus<F> {
         let u = BN256Fq::from_str(CURVE_PARAMETER).unwrap();
         let u_div_2 = BN256Fq::from_str(CURVE_DIV_2_PARAMETER).unwrap();
 
@@ -285,10 +323,15 @@ where
 
         t1
     }
+
+    fn get_hard_part_generator() -> <BN256Extension12Params as Extension12Params<BN256Fq>>::Witness
+    {
+        todo!()
+    }
 }
 
 /// This function computes the pairing function for the BN256 curve.
-pub fn ec_mul<F, CS>(
+pub fn ec_pairing<F, CS>(
     cs: &mut CS,
     p: &mut BN256SWProjectivePoint<F>,
     q: &mut BN256SWProjectivePointTwisted<F>,
