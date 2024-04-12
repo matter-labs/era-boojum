@@ -46,6 +46,12 @@ where
         }
     }
 
+    /// Checks whether the Z coordinate is zero or not.
+    pub fn is_normalized<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Boolean<F> {
+        let mut one = NN::allocated_constant(cs, T::one(), self.x.get_params());
+        self.z.equals(cs, &mut one)
+    }
+
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS, params: &std::sync::Arc<NN::Params>) -> Self {
         let x = NN::allocated_constant(cs, T::zero(), params);
         let y = NN::allocated_constant(cs, T::one(), params);

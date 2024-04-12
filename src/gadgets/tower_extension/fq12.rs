@@ -139,17 +139,17 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let mut aa = self.c0.mul(cs, &mut other.c0);
-        let mut bb = self.c1.mul(cs, &mut other.c1);
+        let mut v0 = self.c0.mul(cs, &mut other.c0);
+        let mut v1 = self.c1.mul(cs, &mut other.c1);
         let mut o = other.c0.add(cs, &mut other.c1);
 
         let mut c1 = self.c1.add(cs, &mut self.c0);
         let mut c1 = c1.mul(cs, &mut o);
-        let mut c1 = c1.sub(cs, &mut aa);
-        let c1 = c1.sub(cs, &mut bb);
+        let mut c1 = c1.sub(cs, &mut v0);
+        let c1 = c1.sub(cs, &mut v1);
 
-        let mut c0 = bb.mul_by_nonresidue(cs);
-        let c0 = c0.add(cs, &mut aa);
+        let mut c0 = v1.mul_by_nonresidue(cs);
+        let c0 = c0.add(cs, &mut v0);
 
         Self::new(c0, c1)
     }
@@ -269,5 +269,13 @@ where
         let c1_new = c1_new.negated(cs);
 
         Self::new(c0_new, c1_new)
+    }
+
+    pub fn div<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let mut t = other.inverse(cs);
+        self.mul(cs, &mut t)
     }
 }

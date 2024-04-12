@@ -1,3 +1,5 @@
+use self::traits::selectable::Selectable;
+
 use super::*;
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -69,43 +71,15 @@ where
         }
     }
 
-    /// Adds two affine points on the curve.
-    fn add<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
-    where
-        CS: ConstraintSystem<F>,
-    {
-        // If x's are not the same, adding via unequal_x method
-        let same_x = self.same_x(cs, other);
-        let boolean_false = Boolean::allocated_constant(cs, false);
-        if same_x == boolean_false {
-            return self.add_unequal_x(cs, other);
-        }
-
-        // If y's are the same, doubling the point
-        let same_y = self.same_y(cs, other).negated(cs);
-        if same_y == boolean_false {
-            return self.double(cs);
-        }
-
-        Self::zero_point(cs, self.x.get_params())
-    }
-
-    /// Subtracts two affine points on the curve.
-    fn sub<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
-    where
-        CS: ConstraintSystem<F>,
-    {
-        let mut negated_other = other.negate(cs);
-        self.add(cs, &mut negated_other)
-    }
-
-    /// Multiplies the affine point by a scalar.
+    /// Multiplies the affine point by a scalar using a basic brute log2(scalar) method.
     fn mul<CS>(&mut self, cs: &mut CS, scalar: &GC::Base) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let mut result = Self::zero_point(cs, self.x.get_params());
+        let params = self.x.get_params().clone();
+        let mut result = Self::zero_point(cs, &params);
         let mut temp = self.clone();
+        let mut zero = Self::zero_point(cs, &params);
 
         // Convert the scalar to bits
         let scalar_bits = scalar
@@ -117,9 +91,10 @@ where
             .collect::<Vec<_>>();
 
         for bit in scalar_bits {
-            if bit {
-                result = result.add(cs, &mut temp);
-            }
+            let bit_is_one = Boolean::allocated_constant(cs, bit);
+            let mut point_to_add = Self::conditionally_select(cs, bit_is_one, &mut temp, &mut zero);
+            
+            result = result.add_unequal_x(cs, &mut point_to_add);
             temp.double(cs);
         }
 
@@ -272,6 +247,32 @@ where
             y: self.y.clone(),
             is_infinity: self.is_infinity,
             _marker: PhantomData,
+        }
+    }
+}
+
+impl<F: SmallField, C: GenericCurveAffine, NN: NonNativeField<F, C::Base>> Selectable<F>
+    for ZeroableAffinePoint<F, C, NN>
+where
+    C::Base: pairing::ff::PrimeField,
+{
+    const SUPPORTS_PARALLEL_SELECT: bool = false;
+
+    fn conditionally_select<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        flag: Boolean<F>,
+        a: &Self,
+        b: &Self,
+    ) -> Self {
+        let x = NN::conditionally_select(cs, flag, &a.x, &b.x);
+        let y = NN::conditionally_select(cs, flag, &a.y, &b.y);
+        let is_infinity = Boolean::conditionally_select(cs, flag, &a.is_infinity, &b.is_infinity);
+
+        Self {
+            x,
+            y,
+            is_infinity,
+            _marker: std::marker::PhantomData,
         }
     }
 }

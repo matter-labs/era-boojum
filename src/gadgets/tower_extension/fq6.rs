@@ -78,7 +78,7 @@ where
         let is_c0_zero = self.c0.is_zero(cs);
         let is_c1_zero = self.c1.is_zero(cs);
         let is_c2_zero = self.c2.is_zero(cs);
-        is_c0_zero.and(cs, is_c1_zero).and(cs, is_c2_zero)
+        Boolean::multi_and(cs, &[is_c0_zero, is_c1_zero, is_c2_zero])
     }
 
     /// Adds two elements of `Fq6` by adding their components elementwise.

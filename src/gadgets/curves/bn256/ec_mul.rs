@@ -45,7 +45,7 @@ const BETA: &str = "2203960485148121921418603742825762020974279258880205651966";
 // derived through algorithm 3.74 http://tomlr.free.fr/Math%E9matiques/Math%20Complete/Cryptography/Guide%20to%20Elliptic%20Curve%20Cryptography%20-%20D.%20Hankerson,%20A.%20Menezes,%20S.%20Vanstone.pdf
 // Also see `balanced_representation.sage` file for details
 
-/// `a1` component of a short vector `v1=(a1, b1)`. 
+/// `a1` component of a short vector `v1=(a1, b1)`.
 const A1: &str = "0x89d3256894d213e3";
 /// `-b1` component of a short vector `v1=(a1, b1)`.
 /// Since `b1` is negative, we use `-b1` instead of `b1`.
@@ -203,7 +203,7 @@ where
         // (since it fits in 130 bits).
         let g1_times_k = k.widening_mul(cs, &g1, 8, 5);
         let c2 = g1_times_k.to_high();
-        
+
         // Converting all constants to field elements
         let mut b1 = convert_uint256_to_field_element(cs, &b1, scalar_field_params);
         let mut b2 = convert_uint256_to_field_element(cs, &b2, scalar_field_params);
@@ -229,17 +229,17 @@ where
 
         let k1_u256 = convert_field_element_to_uint256(cs, k1.clone());
         let k2_u256 = convert_field_element_to_uint256(cs, k2.clone());
-        
+
         let low_pow_2_128 = pow_2_128.to_low();
-        
+
         // Selecting between k1 and -k1 in Fq
         let (_, k1_out_of_range) = k1_u256.overflowing_sub(cs, &low_pow_2_128);
         let k1_negated = k1.negated(cs);
         let k1 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
             cs,
             k1_out_of_range,
-            &k1,
             &k1_negated,
+            &k1,
         );
 
         // Selecting between k2 and -k2 in Fq
@@ -248,15 +248,15 @@ where
         let k2 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
             cs,
             k2_out_of_range,
-            &k2,
             &k2_negated,
+            &k2,
         );
 
         Self {
             k1,
             k2,
-            k1_was_negated: k1_out_of_range.negated(cs),
-            k2_was_negated: k2_out_of_range.negated(cs),
+            k1_was_negated: k1_out_of_range,
+            k2_was_negated: k2_out_of_range,
         }
     }
 }
@@ -289,7 +289,7 @@ where
         table.push(affine);
     }
     assert_eq!(table.len(), PRECOMPUTATION_TABLE_SIZE);
-    
+
     let beta = BN256Fq::from_str(BETA).unwrap();
     let mut beta = BN256BaseNNField::allocated_constant(cs, beta, base_field_params);
 

@@ -4,7 +4,10 @@ use pairing::{bn256::G2Affine as BN256G2Affine, ff::PrimeField, GenericCurveAffi
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
-    gadgets::{curves::SmallField, non_native_field::traits::CurveCompatibleNonNativeField},
+    gadgets::{
+        boolean::Boolean, curves::SmallField,
+        non_native_field::traits::CurveCompatibleNonNativeField,
+    },
 };
 
 use super::*;
@@ -152,6 +155,11 @@ where
         p: &mut BN256SWProjectivePoint<F>,
         q: &mut BN256SWProjectivePointTwisted<F>,
     ) -> Self {
+        // Verifying that q is normalized
+        let q_is_normalized = q.is_normalized(cs);
+        let boolean_true = Boolean::allocated_constant(cs, true);
+        Boolean::enforce_equal(cs, &q_is_normalized, &boolean_true);
+
         // Setting evaluation parameters
         let params = p.x.params.clone();
         let mut evaluation = LineFunctionEvaluation::zero(cs, &params);
@@ -288,7 +296,7 @@ where
 }
 
 /// This function computes the pairing function for the BN256 curve.
-pub fn ec_mul<F, CS>(
+pub fn ec_pairing<F, CS>(
     cs: &mut CS,
     p: &mut BN256SWProjectivePoint<F>,
     q: &mut BN256SWProjectivePointTwisted<F>,
