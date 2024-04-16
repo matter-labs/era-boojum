@@ -238,8 +238,8 @@ where
         let k1 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
             cs,
             k1_out_of_range,
-            &k1_negated,
             &k1,
+            &k1_negated,
         );
 
         // Selecting between k2 and -k2 in Fq
@@ -248,15 +248,15 @@ where
         let k2 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
             cs,
             k2_out_of_range,
-            &k2_negated,
             &k2,
+            &k2_negated,
         );
 
         Self {
             k1,
             k2,
-            k1_was_negated: k1_out_of_range,
-            k2_was_negated: k2_out_of_range,
+            k1_was_negated: k1_out_of_range.negated(cs),
+            k2_was_negated: k2_out_of_range.negated(cs),
         }
     }
 }

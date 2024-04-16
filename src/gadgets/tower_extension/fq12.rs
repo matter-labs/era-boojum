@@ -181,6 +181,7 @@ where
         c1: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
         c4: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
     ) -> Self
+
     where
         CS: ConstraintSystem<F>,
     {
@@ -188,15 +189,15 @@ where
         let mut bb = self.c1.mul_by_c1(cs, c4);
         let mut o = c1.add(cs, c4);
 
-        let mut c1 = self.c1.add(cs, &mut self.c0);
-        let mut c1 = c1.mul_by_c1(cs, &mut o);
-        let mut c1 = c1.sub(cs, &mut aa);
-        let c1 = c1.sub(cs, &mut bb);
+        let mut new_c1 = self.c1.add(cs, &mut self.c0);
+        let mut new_c1 = new_c1.mul_by_c0c1(cs, c0, &mut o);
+        let mut new_c1 = new_c1.sub(cs, &mut aa);
+        let new_c1 = new_c1.sub(cs, &mut bb);
 
-        let mut c0 = bb.mul_by_nonresidue(cs);
-        let c0 = c0.add(cs, &mut aa);
+        let mut new_c0 = bb.mul_by_nonresidue(cs);
+        let new_c0 = new_c0.add(cs, &mut aa);
 
-        Self::new(c0, c1)
+        Self::new(new_c0, new_c1)
     }
 
     pub fn mul_by_c0c3c4<CS>(
