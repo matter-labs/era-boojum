@@ -530,7 +530,8 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        unimplemented!()
+        self.c0.normalize(cs);
+        self.c1.normalize(cs);
     }
 
     fn mask<CS>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self

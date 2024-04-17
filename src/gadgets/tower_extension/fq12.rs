@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use pairing::ff::PrimeField;
+use pairing::{ff::PrimeField, BitIterator};
 
 use super::{
     fq2::Fq2,
@@ -48,12 +48,45 @@ where
         }
     }
 
-    #[allow(unused_variables)]
-    pub fn pow<CS>(&mut self, cs: &mut CS, exponent: T) -> Self
+    pub fn from_c0c3c4<CS>(
+        cs: &mut CS,
+        c0: Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c3: Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c4: Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+    ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        unimplemented!();
+        let zero = Fq2::zero(cs, c0.c0.get_params());
+        let c0 = Fq6::new(c0.clone(), zero.clone(), zero.clone());
+        let c1 = Fq6::new(c3.clone(), c4.clone(), zero);
+
+        Self::new(c0, c1)
+    }
+
+    pub fn pow_u32<CS, S: AsRef<[u64]>>(&mut self, cs: &mut CS, exponent: S) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let mut result = Self::one(cs, self.c0.c0.get_params());
+        let mut found_one = false;
+
+        for i in BitIterator::new(exponent) {
+            if found_one {
+                result = result.square(cs);
+            } else {
+                found_one = i;
+            }
+
+            if i {
+                result = result.mul(cs, self);
+            }
+
+            // Normalize the result to stay in field
+            result.normalize(cs);
+        }
+
+        result
     }
 
     /// Creates a new zero `Fq12` in a form `0+0*w`
@@ -181,7 +214,6 @@ where
         c1: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
         c4: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
     ) -> Self
-
     where
         CS: ConstraintSystem<F>,
     {
@@ -278,5 +310,13 @@ where
     {
         let mut t = other.inverse(cs);
         self.mul(cs, &mut t)
+    }
+
+    pub fn normalize<CS>(&mut self, cs: &mut CS)
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.c0.normalize(cs);
+        self.c1.normalize(cs);
     }
 }

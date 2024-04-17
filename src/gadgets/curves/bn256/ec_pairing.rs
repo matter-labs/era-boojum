@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use pairing::{bn256::G2Affine as BN256G2Affine, ff::PrimeField, GenericCurveAffine};
+use pairing::{bn256::G2Affine as BN256G2Affine, GenericCurveAffine};
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
@@ -13,12 +13,12 @@ use crate::{
 use super::*;
 
 // Curve parameter for the BN256 curve
-const CURVE_PARAMETER: &str = "4965661367192848881";
+const CURVE_PARAMETER: u64 = 4965661367192848881;
 const CURVE_DIV_2_PARAMETER: &str = "2482830683596424440";
-const CURVE_PARAMETER_WNAF: [i8; 63] = [
-    1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 1, 0, -1, 0, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, 1, 0,
-    0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0,
-    0, 1,
+const CURVE_PARAMETER_WNAF: [i8; 65] = [
+    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
+    1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
+    0, 1, 0, 1, 1,
 ];
 
 /// Struct for the line function evaluation for the BN256 curve.
@@ -129,6 +129,10 @@ where
 
         Self::new(c0, c3, c4)
     }
+
+    pub fn as_tuple(&self) -> (BN256Fq2NNField<F>, BN256Fq2NNField<F>, BN256Fq2NNField<F>) {
+        (self.c0.clone(), self.c3.clone(), self.c4.clone())
+    }
 }
 
 /// Struct for the miller loop evaluation for the BN256 curve.
@@ -167,7 +171,11 @@ where
         let mut f1 = BN256Fq12NNField::one(cs, &params);
         let mut r = q.clone();
 
-        for u in CURVE_PARAMETER_WNAF {
+        // Reverse the WNAF representation of the curve parameter
+        let mut wnaf_reversed = CURVE_PARAMETER_WNAF.clone();
+        wnaf_reversed.reverse();
+
+        for u in wnaf_reversed {
             // Doubling step: f1 <- f1^2 * L_{R,R}(P), R <- 2R
             let mut tan_fn = evaluation.at_tangent(cs, &mut r, p);
             f1 = f1.square(cs);
@@ -224,74 +232,140 @@ where
     CS: ConstraintSystem<F>,
 {
     /// This function computes the final exponentiation for the BN256 curve.
-    pub fn evaluate(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> Self {
-        let mut easy_part_f = Self::easy_part(cs, f);
-        let hard_part = Self::hard_part(cs, &mut easy_part_f);
+    /// The final exponentiation is based on _Algorithm 31_ from
+    /// https://eprint.iacr.org/2010/354.pdf.
+    pub fn evaluate(cs: &mut CS, r: &mut BN256Fq12NNField<F>) -> Self {
+        // TODO: Avoid too many normalizations and cloning
+        // Preparing a curve parameter
+        let x = CURVE_PARAMETER;
+
+        // 1. f1 <- r; 2. f1 <- f1^*; 3. f2 <- r^{-1}
+        let mut f1 = r.clone();
+        let f1 = f1.conjugate(cs);
+        let mut f2 = r.inverse(cs);
+        f2.normalize(cs);
+        
+        // 4. r <- f1; 5. r <- r*f2; 6. f2 <- r
+        let mut r = f1.clone();
+        r = r.mul(cs, &mut f2);
+        r.normalize(cs);
+        f2 = r.clone();
+
+        // 7. r <- r^(q^2); 8. r <- r*f2;
+        r = r.frobenius_map(cs, 2);
+        r.normalize(cs);
+        r = r.mul(cs, &mut f2);
+        r.normalize(cs);
+
+        // 9. fp <- r^q; 10. fp2 <- r^(q^2); 11. fp3 <- fp2^q;
+        let mut fp = r.clone();
+        fp = fp.frobenius_map(cs, 1);
+        fp.normalize(cs);
+        let mut fp2 = r.clone();
+        fp2 = fp2.frobenius_map(cs, 2);
+        fp2.normalize(cs);
+        let mut fp3 = fp2.clone();
+        fp3 = fp3.frobenius_map(cs, 1);
+        fp3.normalize(cs);
+        
+        // 12. fu <- r^x; 13. fu2 <- fu^x; 14. fu3 <- fu2^x;
+        let mut fu = r.clone();
+        fu = fu.pow_u32(cs, &[x]);
+        fu.normalize(cs);
+        let mut fu2 = fu.clone();
+        fu2 = fu2.pow_u32(cs, &[x]);
+        fu2.normalize(cs);
+        let mut fu3 = fu2.clone();
+        fu3 = fu3.pow_u32(cs, &[x]);
+        fu3.normalize(cs);
+        
+        // 15. y3 <- fu; 16. y3 <- y3^q; 17. fu2p <- fu2; 18. fu2p <- fu2p^q;
+        let mut y3 = fu.clone();
+        y3 = y3.frobenius_map(cs, 1);
+        y3.normalize(cs);
+        let mut fu2p = fu2.clone();
+        fu2p = fu2p.frobenius_map(cs, 1);
+        fu2p.normalize(cs);
+        // fu3p = copy(fu3)
+        
+        // 19. fu3p <- fu3; 20. fu3p <- fu3p^q; 21. y2 <- fu2; y2 <- y2^(q^2);
+        let mut fu3p = fu3.clone();
+        fu3p = fu3p.frobenius_map(cs, 1);
+        fu3p.normalize(cs);
+        let mut y2 = fu2.clone();
+        y2 = y2.frobenius_map(cs, 2);
+        y2.normalize(cs);
+
+        // 22. y0 <- fp; 23. y0 <- y0*fp2; 24. y0 <- y0*fp3;
+        let mut y0 = fp.clone();
+        y0 = y0.mul(cs, &mut fp2);
+        y0.normalize(cs);
+        y0 = y0.mul(cs, &mut fp3);
+        y0.normalize(cs);
+
+        // 25. y1 <- r; 26. y1 <- y1^*; 27. y5 <- fu2; 28. y5 <- y5^*; 
+        let mut y1 = r.clone();
+        y1 = y1.conjugate(cs);
+        let mut y5 = fu2.clone();
+        y5 = y5.conjugate(cs);
+        
+        // 29. y3 <- y3*y5; 30. y4 <- fu; 31. y4 <- y4*fu2p; 32. y4 <- y4^*;
+        y3 = y3.conjugate(cs);
+        let mut y4 = fu.clone();
+        y4 = y4.mul(cs, &mut fu2p);
+        y4.normalize(cs);
+        y4 = y4.conjugate(cs);
+        
+        // 33. y6 <- fu3; 34. y6 <- y6*fu3p; 35. y6 <- y6^*; 36. y6 <- y6^2;
+        let mut y6 = fu3.clone();
+        y6 = y6.mul(cs, &mut fu3p);
+        y6.normalize(cs);
+        y6 = y6.conjugate(cs);
+        y6 = y6.square(cs);
+        y6.normalize(cs);
+        
+        // 37. y6 <- y6*y4; 38. y6 <- y6*y5; 39. t1 <- y3; 40. t1 <- t1*y5
+        y6 = y6.mul(cs, &mut y4);
+        y6.normalize(cs);
+        y6 = y6.mul(cs, &mut y5);
+        y6.normalize(cs);
+        let mut t1 = y3.clone();
+        t1 = t1.mul(cs, &mut y5);
+        t1.normalize(cs);
+        
+        // 41. t1 <- t1 * y6; 42. y6 <- y6*y2; 43. t1 <- t1^2; 44. t1 <- t1*y6
+        t1 = t1.mul(cs, &mut y6);
+        t1.normalize(cs);
+        y6 = y6.mul(cs, &mut y2);
+        y6.normalize(cs);
+        t1 = t1.square(cs);
+        t1.normalize(cs);
+        t1 = t1.mul(cs, &mut y6);
+        t1.normalize(cs);
+        
+        // 45. t1 <- t1^2; 46. t0 <- t1; 47. t0 <- t0*y1; 48. t1 <- t1*y0
+        t1 = t1.square(cs);
+        t1.normalize(cs);
+        let mut t0 = t1.clone();
+        t0 = t0.mul(cs, &mut y1);
+        t0.normalize(cs);
+        t1 = t1.mul(cs, &mut y0);
+        t1.normalize(cs);
+
+        // 49. t0 <- t0^2; 50. t0 <- t0*t1; Return t0
+        t0 = t0.square(cs);
+        t0.normalize(cs);
+        t0 = t0.mul(cs, &mut t1);
+        t0.normalize(cs);
+
         Self {
-            resultant_f: hard_part,
+            resultant_f: t0,
             _marker: std::marker::PhantomData::<CS>,
         }
     }
 
-    /// This function computes the easy part of the final exponentiation, that is
-    /// for given f \in `F_{p^{12}}` it computes `f^{(p^6-1)(p^2+1)}`.
-    pub fn easy_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
-        // f1 <- f^(p^6 - 1)
-        let mut f1 = f.inverse(cs);
-        let mut fp6 = f.frobenius_map(cs, 6);
-        let mut f1 = f1.mul(cs, &mut fp6);
-
-        // f2 <- f1^(p^2 + 1)
-        let mut fp2 = f1.frobenius_map(cs, 2);
-        let f2 = f1.mul(cs, &mut fp2);
-
-        f2
-    }
-
-    /// Computes the hard part of the final exponentiation using method by Aranha et al.
-    /// For details, see https://eprint.iacr.org/2016/130.pdf, _Algorithm 2_.
-    pub fn hard_part(cs: &mut CS, f: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
-        let u = BN256Fq::from_str(CURVE_PARAMETER).unwrap();
-        let u_div_2 = BN256Fq::from_str(CURVE_DIV_2_PARAMETER).unwrap();
-
-        // 1. t0 <- f^2; 2. t1 <- t0^u; 3. t2 <- t1^(u/2);
-        // 4. t3 <- f^(-1); 5. t1 <- t3*t1.
-        let mut t0 = f.square(cs);
-        let mut t1 = t0.pow(cs, u);
-        let mut t2 = t1.pow(cs, u_div_2);
-        let mut t3 = f.inverse(cs);
-        let mut t1 = t3.mul(cs, &mut t1);
-
-        // 6. t1 <- t1^{-1}; 7. t1 <- t1*t2
-        let mut t1 = t1.inverse(cs);
-        let mut t1 = t1.mul(cs, &mut t2);
-
-        // 8. t2 <- t1^u
-        let mut t2 = t1.pow(cs, u);
-
-        // 9. t3 <- t2^u; 10. t1 <- t1^{-1}; 11. t3 <- t1*t3
-        let mut t3 = t2.pow(cs, u);
-        let mut t1 = t1.inverse(cs);
-        let mut t3 = t1.mul(cs, &mut t3);
-
-        // 12. t1 <- t1^{-1}; 13. t1 <- t1^{p^3}; 14. t2 <- t2^{p^2};
-        // 15. t1 <- t1*t2
-        let mut t1 = t1.inverse(cs);
-        let mut t1 = t1.frobenius_map(cs, 3);
-        let mut t2 = t2.frobenius_map(cs, 2);
-        let mut t1 = t1.mul(cs, &mut t2);
-
-        // 16. t2 <- t3^u; 17. t2 <- t2*t0; 18. t2 <- t2*f
-        let mut t2 = t3.pow(cs, u);
-        let mut t2 = t2.mul(cs, &mut t0);
-        let mut t2 = t2.mul(cs, f);
-
-        // 19. t1 <- t1*t2; 20. t2 <- t3^p; 21. t1 <- t1*t2
-        let mut t1 = t1.mul(cs, &mut t2);
-        let mut t2 = t3.frobenius_map(cs, 1);
-        let t1 = t1.mul(cs, &mut t2);
-
-        t1
+    pub fn get(&self) -> BN256Fq12NNField<F> {
+        self.resultant_f.clone()
     }
 }
 
