@@ -498,6 +498,32 @@ where
 
         ((x, y), is_point_at_infty)
     }
+
+    pub fn convert_to_affine_jacobian<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        default: C,
+    ) -> ((NN, NN), Boolean<F>) {
+        let params = self.x.get_params().clone();
+        let is_point_at_infty = NN::is_zero(&mut self.z, cs);
+
+        let one_nn = NN::allocated_constant(cs, T::one(), &params);
+        let mut safe_z = NN::conditionally_select(cs, is_point_at_infty, &one_nn, &self.z);
+        let mut safe_z_squared = safe_z.square(cs);
+        let mut safe_z_cubed = safe_z.mul(cs, &mut safe_z_squared);
+        let x_for_safe_z = self.x.div_unchecked(cs, &mut safe_z_squared);
+        let y_for_safe_z = self.y.div_unchecked(cs, &mut safe_z_cubed);
+
+        let (default_x, default_y) = default.into_xy_unchecked();
+
+        let default_x = NN::from_curve_base(cs, &default_x, &params);
+        let default_y = NN::from_curve_base(cs, &default_y, &params);
+
+        let x = NN::conditionally_select(cs, is_point_at_infty, &default_x, &x_for_safe_z);
+        let y = NN::conditionally_select(cs, is_point_at_infty, &default_y, &y_for_safe_z);
+
+        ((x, y), is_point_at_infty)
+    }
 }
 
 impl<F, T, C, NN> Selectable<F> for ExtendedSWProjectivePoint<F, T, C, NN>
