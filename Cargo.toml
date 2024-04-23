@@ -17,6 +17,7 @@ lazy_static = "*"
 arrayvec = "0.7"
 const_format = "0.2"
 bincode = "*"
+ecow = "*"
 ethereum-types = "=0.14.1"
 cs_derive = { path = "./cs_derive" }
 itertools = "0.10"

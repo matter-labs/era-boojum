@@ -23,6 +23,7 @@
 #![allow(incomplete_features)]
 // Enabled features
 #![feature(allocator_api)]
+#![feature(new_uninit)]
 #![feature(const_mut_refs)]
 #![feature(const_swap)]
 #![feature(inline_const)]

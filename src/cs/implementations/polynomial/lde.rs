@@ -1,7 +1,7 @@
 use crate::cs::traits::GoodAllocator;
 
 use super::*;
-use std::sync::Arc;
+use ecow::EcoVec;
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug, PartialEq, Eq)]
@@ -109,7 +109,8 @@ pub struct GenericLdeStorage<
     A: GoodAllocator = Global,
     B: GoodAllocator = Global,
 > {
-    pub storage: Vec<GenericPolynomial<F, BitreversedLagrangeForm, P, A>, B>,
+    pub storage: EcoVec<GenericPolynomial<F, BitreversedLagrangeForm, P, A>>,
+    pub _marker: std::marker::PhantomData<B>,
 }
 
 pub type LdeStorage<F, A = Global, B = Global> = GenericLdeStorage<F, F, A, B>;
@@ -125,7 +126,8 @@ impl<
     pub fn empty_with_capacity_in(capacity: usize, allocator: B) -> Self {
         debug_assert!(capacity.is_power_of_two());
         Self {
-            storage: Vec::with_capacity_in(capacity, allocator),
+            storage: EcoVec::with_capacity(capacity),
+            _marker: Default::default(),
         }
     }
     #[inline]
@@ -138,10 +140,13 @@ impl<
     }
     #[inline]
     pub fn from_single(values: GenericPolynomial<F, BitreversedLagrangeForm, P, A>) -> Self {
-        let mut storage = Vec::with_capacity_in(1, B::default());
+        let mut storage = EcoVec::with_capacity(1);
         storage.push(values);
 
-        Self { storage }
+        Self {
+            storage,
+            _marker: Default::default(),
+        }
     }
 }
 
@@ -164,9 +169,9 @@ pub struct ArcGenericLdeStorage<
     A: GoodAllocator = Global,
     B: GoodAllocator = Global,
 > {
-    #[serde(serialize_with = "crate::utils::serialize_vec_arc")]
-    #[serde(deserialize_with = "crate::utils::deserialize_vec_arc")]
-    pub storage: Vec<Arc<GenericPolynomial<F, BitreversedLagrangeForm, P, A>>, B>,
+    #[serde(serialize_with = "crate::utils::serialize_vec_with_allocator")]
+    #[serde(deserialize_with = "crate::utils::deserialize_vec_with_allocator")]
+    pub storage: Vec<GenericPolynomial<F, BitreversedLagrangeForm, P, A>, B>,
 }
 
 pub type ArcLdeStorage<F, A = Global, B = Global> = ArcGenericLdeStorage<F, F, A, B>;
@@ -207,7 +212,7 @@ where
         for _ in 0..capacity {
             let inner: GenericPolynomial<F, BitreversedLagrangeForm, P, A> =
                 MemcopySerializable::read_from_buffer(&mut src)?;
-            storage.push(Arc::new(inner));
+            storage.push(inner);
         }
 
         let new = Self { storage };
@@ -245,7 +250,7 @@ impl<
             let mut inner = Vec::with_capacity_in(inner_size, inner_allocator.clone());
             inner.resize(inner_size, P::zero(&mut ()));
             let as_poly = GenericPolynomial::from_storage(inner);
-            storage.push(Arc::new(as_poly));
+            storage.push(as_poly);
         }
 
         Self { storage }
@@ -266,7 +271,7 @@ impl<
                 inner_size,
                 inner_allocator.clone(),
             ));
-            storage.push(Arc::new(as_poly));
+            storage.push(as_poly);
         }
 
         Self { storage }
@@ -279,7 +284,8 @@ impl<
     pub unsafe fn assume_init(&mut self, inner_size: usize) {
         debug_assert!(inner_size.is_power_of_two());
         for el in self.storage.iter_mut() {
-            Arc::get_mut(el).unwrap().storage.set_len(inner_size);
+            // FIXME
+            //el.storage.set_len(inner_size);
         }
     }
 
@@ -287,7 +293,7 @@ impl<
     pub fn from_owned(owned: GenericLdeStorage<F, P, A, B>) -> Self {
         let mut storage = Vec::with_capacity_in(owned.storage.len(), B::default());
         for el in owned.storage.into_iter() {
-            storage.push(Arc::new(el));
+            storage.push(el.to_owned());
         }
 
         Self { storage }
@@ -301,7 +307,7 @@ impl<
 
         let mut storage = Vec::with_capacity_in(degree, B::default());
         for i in 0..degree {
-            storage.push(Arc::clone(&self.storage[i]));
+            storage.push(self.storage[i].to_owned());
         }
 
         Self { storage }
@@ -314,9 +320,9 @@ impl<
 
         let mut storage = Vec::with_capacity_in(degree, B::default());
         for i in 0..degree {
-            let owned_chunk = Clone::clone(self.storage[i].as_ref());
+            let owned_chunk = self.storage[i].to_owned();
             debug_assert!(owned_chunk.storage.as_ptr().addr() % std::mem::align_of::<P>() == 0);
-            storage.push(Arc::new(owned_chunk));
+            storage.push(owned_chunk);
         }
 
         Self { storage }
@@ -372,7 +378,7 @@ impl<
 
         let mut new_storage = Vec::with_capacity_in(degree, B::default());
         for i in 0..degree {
-            new_storage.push(Arc::clone(&self.storage.storage[i]));
+            new_storage.push(self.storage.storage[i].to_owned());
         }
 
         let storage = ArcGenericLdeStorage {

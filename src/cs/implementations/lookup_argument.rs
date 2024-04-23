@@ -67,7 +67,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
     let mut selector: GenericPolynomial<F, LagrangeForm, P, A> = (*constant_polys[0]).clone();
     if lookup_selector_path[0] == false {
         worker.scope(selector.storage.len(), |scope, chunk_size| {
-            for dst in selector.storage.chunks_mut(chunk_size) {
+            for dst in selector.storage.make_mut().chunks_mut(chunk_size) {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
                     // inverse
@@ -89,6 +89,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
         worker.scope(selector.storage.len(), |scope, chunk_size| {
             for (dst, src) in selector
                 .storage
+                .make_mut()
                 .chunks_mut(chunk_size)
                 .zip(src.storage.chunks(chunk_size))
             {

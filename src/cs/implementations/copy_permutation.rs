@@ -10,6 +10,7 @@ use crate::{
     field::traits::field_like::mul_assign_vectorized_in_extension,
 };
 use crate::{cs::traits::GoodAllocator, field::PrimeField};
+use ecow::EcoVec;
 
 pub fn num_intermediate_partial_product_relations(
     num_copys_under_copy_permutation: usize,
@@ -63,7 +64,7 @@ pub(crate) fn pointwise_rational<
             for (((w, sigma), x_poly), dst) in (witness_poly.storage.chunks(chunk_size))
                 .zip(sigma_poly.storage.chunks(chunk_size))
                 .zip(precomputed_x_poly.storage.chunks(chunk_size))
-                .zip(basis.storage.chunks_mut(chunk_size))
+                .zip(basis.storage.make_mut().chunks_mut(chunk_size))
             {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -153,8 +154,8 @@ pub(crate) fn pointwise_rational_in_extension<
                 (witness_poly.storage.chunks(chunk_size))
                     .zip(sigma_poly.storage.chunks(chunk_size))
                     .zip(precomputed_x_poly.storage.chunks(chunk_size))
-                    .zip(basis_c0.storage.chunks_mut(chunk_size))
-                    .zip(basis_c1.storage.chunks_mut(chunk_size))
+                    .zip(basis_c0.storage.make_mut().chunks_mut(chunk_size))
+                    .zip(basis_c1.storage.make_mut().chunks_mut(chunk_size))
             {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -282,7 +283,7 @@ pub(crate) fn pointwise_product_into<
     for source in inputs.iter() {
         worker.scope(typical_size, |scope, chunk_size| {
             for (dst, src) in
-                (into.storage.chunks_mut(chunk_size)).zip(source.storage.chunks(chunk_size))
+                (into.storage.make_mut().chunks_mut(chunk_size)).zip(source.storage.chunks(chunk_size))
             {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -341,8 +342,9 @@ pub(crate) fn pointwise_product_in_extension_into<
         worker.scope(typical_size, |scope, chunk_size| {
             for (((dst_c0, dst_c1), src_c0), src_c1) in into_c0
                 .storage
+                .make_mut()
                 .chunks_mut(chunk_size)
-                .zip(into_c1.storage.chunks_mut(chunk_size))
+                .zip(into_c1.storage.make_mut().chunks_mut(chunk_size))
                 .zip(src_c0.storage.chunks(chunk_size))
                 .zip(src_c1.storage.chunks(chunk_size))
             {
@@ -1041,27 +1043,26 @@ pub(crate) fn compute_quotient_terms_in_extension<
     let z_poly_shifted: [_; 2] = grand_products.z_poly.clone().map(|el| {
         let subset = el.subset_for_degree(degree);
         let subset_len = subset.storage.len();
-        let mut owned_set = Vec::with_capacity_in(subset_len, B::default());
+        // FIXME: used to be uninit but EcoVec doesn't provide the whole feature set.
+        let mut owned_set = EcoVec::from_elem(GenericPolynomial::new(), subset_len);
         worker.scope(subset_len, |scope, chunk_size| {
             for (src, dst) in subset
                 .storage
                 .chunks(chunk_size)
-                .zip(owned_set.spare_capacity_mut()[..subset_len].chunks_mut(chunk_size))
+                .zip(owned_set.make_mut()[..subset_len].chunks_mut(chunk_size))
             {
                 scope.spawn(|_| {
                     for (src, dst) in src.iter().zip(dst.iter_mut()) {
                         let shifted_base =
                             shift_by_omega_assuming_bitreversed::<F, P, A>(&src.storage);
                         let as_poly = GenericPolynomial::from_storage(shifted_base);
-                        dst.write(as_poly);
+                        *dst = as_poly;
                     }
                 })
             }
         });
 
-        unsafe { owned_set.set_len(subset_len) };
-
-        ArcGenericLdeStorage::from_owned(GenericLdeStorage { storage: owned_set })
+        ArcGenericLdeStorage::from_owned(GenericLdeStorage { storage: owned_set, _marker: Default::default(), })
     });
 
     let lhs = grand_products
@@ -1232,12 +1233,14 @@ pub(crate) fn compute_quotient_terms_in_extension<
                             }
                         }
 
-                        unsafe { std::sync::Arc::get_mut_unchecked(&mut dst_c0.storage[outer]) }
-                            .storage[inner]
+                        dst_c0.storage[outer]
+                            .storage
+                            .make_mut()[inner]
                             .add_assign(&contribution_c0, &mut ctx);
 
-                        unsafe { std::sync::Arc::get_mut_unchecked(&mut dst_c1.storage[outer]) }
-                            .storage[inner]
+                        dst_c1.storage[outer]
+                            .storage
+                            .make_mut()[inner]
                             .add_assign(&contribution_c1, &mut ctx);
 
                         iterator.advance();

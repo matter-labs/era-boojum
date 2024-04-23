@@ -146,7 +146,7 @@ impl<
             {
                 scope.spawn(move |_| {
                     for (dst, src) in dst.iter_mut().zip(src.iter()) {
-                        for (dst, src) in dst.storage.iter_mut().zip(src.iter()) {
+                        for (dst, src) in dst.storage.make_mut().iter_mut().zip(src.iter()) {
                             if src.is_placeholder() == false {
                                 *dst = witness_ref[src.0 as usize];
                             }
@@ -206,7 +206,7 @@ impl<
                 scope.spawn(move |_| {
                     debug_assert_eq!(vars_chunk.len(), polys_chunk.len());
                     for (vars_column, poly) in vars_chunk.iter().zip(polys_chunk.iter_mut()) {
-                        for (var, dst) in vars_column.iter().zip(poly.storage.iter_mut()) {
+                        for (var, dst) in vars_column.iter().zip(poly.storage.make_mut().iter_mut()) {
                             if var.is_placeholder() == false {
                                 *dst = witness_ref[var.0 as usize];
                             } else {
@@ -254,7 +254,7 @@ impl<
             let src_it = flattening_iter.clone().skip(num_to_skip);
 
             worker.scope(dst.storage.len(), |scope, chunk_size| {
-                for (idx, dst) in dst.storage.chunks_mut(chunk_size).enumerate() {
+                for (idx, dst) in dst.storage.make_mut().chunks_mut(chunk_size).enumerate() {
                     let src = src_it.clone().skip(idx * chunk_size);
                     scope.spawn(move |_| {
                         for (dst, src) in dst.iter_mut().zip(src) {
@@ -309,7 +309,7 @@ impl<
             {
                 scope.spawn(move |_| {
                     for (dst, src) in dst.iter_mut().zip(src.iter()) {
-                        for (dst, src) in dst.storage.iter_mut().zip(src.iter()) {
+                        for (dst, src) in dst.storage.make_mut().iter_mut().zip(src.iter()) {
                             if src.is_placeholder() == false {
                                 *dst = witness_ref[src.0 as usize];
                             }
@@ -368,7 +368,7 @@ impl<
                 scope.spawn(move |_| {
                     debug_assert_eq!(vars_chunk.len(), polys_chunk.len());
                     for (vars_column, poly) in vars_chunk.iter().zip(polys_chunk.iter_mut()) {
-                        for (var, dst) in vars_column.iter().zip(poly.storage.iter_mut()) {
+                        for (var, dst) in vars_column.iter().zip(poly.storage.make_mut().iter_mut()) {
                             if var.is_placeholder() == false {
                                 *dst = witness_ref[var.0 as usize];
                             } else {
@@ -425,7 +425,7 @@ impl<
                     scope.spawn(move |_| {
                         debug_assert_eq!(vars_chunk.len(), polys_chunk.len());
                         for (vars_column, poly) in vars_chunk.iter().zip(polys_chunk.iter_mut()) {
-                            for (var, dst) in vars_column.iter().zip(poly.storage.iter_mut()) {
+                            for (var, dst) in vars_column.iter().zip(poly.storage.make_mut().iter_mut()) {
                                 if var.is_placeholder() == false {
                                     // our index is just the index of the variable
                                     let as_usize = var.as_variable_index() as usize;
@@ -472,7 +472,7 @@ impl<
                     scope.spawn(move |_| {
                         debug_assert_eq!(vars_chunk.len(), polys_chunk.len());
                         for (vars_column, poly) in vars_chunk.iter().zip(polys_chunk.iter_mut()) {
-                            for (var, dst) in vars_column.iter().zip(poly.storage.iter_mut()) {
+                            for (var, dst) in vars_column.iter().zip(poly.storage.make_mut().iter_mut()) {
                                 if var.is_placeholder() == false {
                                     // our index is just the index of the variable
                                     let as_usize = var.as_witness_index() as usize;
@@ -509,6 +509,7 @@ impl<
             // we know it's only 1
             for (dst, src) in result[0]
                 .storage
+                .make_mut()
                 .iter_mut()
                 .zip(witness_set.multiplicities.iter().copied())
             {
