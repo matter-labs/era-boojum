@@ -53,8 +53,9 @@ fn materialize_x_by_non_residue_polys<
             let mut ctx = *ctx;
             scope.spawn(move |_| {
                 for (non_res, poly) in non_residues.iter().zip(polys.iter_mut()) {
+                    let poly_storage = unsafe { Arc::get_mut_unchecked(&mut poly.storage) };
                     let non_res = P::constant(*non_res, &mut ctx);
-                    for el in poly.storage.iter_mut() {
+                    for el in poly_storage.iter_mut() {
                         el.mul_assign(&non_res, &mut ctx);
                     }
                 }
@@ -449,7 +450,8 @@ impl<
                     // we encountered this var before and stored it's PREVIOUS occurance
                     // (read from poly) as field element, so we write previous occurance HERE,
                     // and store this occurance as previous one
-                    std::mem::swap(&mut previous_occurance_data.0, &mut poly.storage[row]);
+                    let poly_storage = unsafe { Arc::get_mut_unchecked(&mut poly.storage) };
+                    std::mem::swap(&mut previous_occurance_data.0, &mut poly_storage[row]);
                 }
             }
         }
@@ -466,7 +468,8 @@ impl<
             }
 
             // worst case it reassign same, otherwise we reassign LAST occurance into first
-            result[first_encountered_column as usize].storage[first_encountered_row as usize] =
+            let result_storage = unsafe { Arc::get_mut_unchecked(&mut result[first_encountered_column as usize].storage) };
+            result_storage[first_encountered_row as usize] =
                 value;
         }
 
@@ -923,10 +926,14 @@ impl<
                 let content = table.content_at_row(row);
                 debug_assert_eq!(content.len() + 1, result.len());
                 for (dst, src) in result[..content.len()].iter_mut().zip(content.iter()) {
-                    dst.storage[idx] = *src;
+                    unsafe {
+                        Arc::get_mut_unchecked(&mut dst.storage)[idx] = *src; 
+                    }
                 }
                 let dst = &mut result[content.len()];
-                dst.storage[idx] = table_id;
+                unsafe {
+                    Arc::get_mut_unchecked(&mut dst.storage)[idx] = table_id;
+                }
                 idx += 1;
             }
         }
