@@ -266,11 +266,10 @@ impl<
         debug_assert!(inner_size.is_power_of_two());
         debug_assert!(outer_size.is_power_of_two());
         let mut storage = Vec::with_capacity_in(outer_size, outer_allocator);
+        let mut tmpl = Vec::with_capacity_in(inner_size, inner_allocator.clone());
+        tmpl.resize(inner_size, P::zero(&mut ()));
         for _ in 0..outer_size {
-            let as_poly = GenericPolynomial::from_storage(Vec::with_capacity_in(
-                inner_size,
-                inner_allocator.clone(),
-            ));
+            let as_poly = GenericPolynomial::from_storage(tmpl.clone());
             storage.push(as_poly);
         }
 

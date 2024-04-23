@@ -196,8 +196,10 @@ impl<
     #[inline]
     pub(crate) fn from_storage(storage: Vec<P, A>) -> Self {
         debug_assert!(storage.as_ptr().addr() % std::mem::align_of::<P>() == 0);
+        let mut ecovec = EcoVec::with_capacity(storage.capacity());
+        ecovec.extend_from_slice(storage.as_slice());
         Self {
-            storage: storage.as_slice().into(),
+            storage: ecovec,
             _marker: std::marker::PhantomData,
         }
     }
