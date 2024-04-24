@@ -315,6 +315,8 @@ pub(crate) fn pointwise_product_in_extension<
 
     let [mut result_c0, mut result_c1] = inputs[0].clone();
 
+    assert!(result_c0.storage.is_unique());
+    assert!(result_c1.storage.is_unique());
     pointwise_product_in_extension_into::<F, P, EXT, A>(
         &inputs[1..],
         &mut result_c0,
@@ -771,8 +773,7 @@ pub(crate) fn compute_partial_products_in_extension<
 
         // we have to apply pointwise products on top of Z(x)
 
-        for el in partial_elementwise_products.into_iter() {
-            let [mut el_c0, mut el_c1] = el;
+        for [mut el_c0, mut el_c1] in partial_elementwise_products.into_iter() {
             assert!(el_c0.storage.is_unique());
             assert!(el_c1.storage.is_unique());
             pointwise_product_in_extension_into::<F, P, EXT, A>(
