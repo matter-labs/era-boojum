@@ -342,6 +342,9 @@ pub(crate) fn pointwise_product_in_extension_into<
 ) {
     let typical_size = into_c0.storage.len(); // we need raw length in counts of P
 
+    assert!(into_c0.storage.is_unique(), "into_c0.storage is not unique!");
+    assert!(into_c1.storage.is_unique(), "into_c1.storage is not unique!");
+
     //   18:     0x5617ec14977f - boojum::cs::implementations::copy_permutation::pointwise_product_in_extension_into::h7afc923f8b42188e
     //   19:     0x5617ec14a7b6 - boojum::cs::implementations::copy_permutation::compute_partial_products_in_extension::h2e6bd4b1c53ed759
     //   20:     0x5617ebcb9319 - boojum::cs::implementations::prover::<impl boojum::cs::implementations::reference_cs::CSReferenceAssembly<F,P,CFG,A>>::prove_cpu_basic::h088688d6cd7fed3a
