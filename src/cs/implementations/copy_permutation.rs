@@ -315,8 +315,11 @@ pub(crate) fn pointwise_product_in_extension<
 
     let [mut result_c0, mut result_c1] = inputs[0].clone();
 
+    let _ = (result_c0.storage.make_mut(), result_c1.storage.make_mut());
+
     assert!(result_c0.storage.is_unique());
     assert!(result_c1.storage.is_unique());
+
     pointwise_product_in_extension_into::<F, P, EXT, A>(
         &inputs[1..],
         &mut result_c0,
