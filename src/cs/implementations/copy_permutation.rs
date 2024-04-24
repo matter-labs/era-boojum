@@ -60,6 +60,7 @@ pub(crate) fn pointwise_rational<
     {
         let non_residue = P::constant(*non_residue, ctx);
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(basis.storage.is_unique(), "basis.storage is not unique!");
             for (((w, sigma), x_poly), dst) in (witness_poly.storage.chunks(chunk_size))
                 .zip(sigma_poly.storage.chunks(chunk_size))
                 .zip(precomputed_x_poly.storage.chunks(chunk_size))
@@ -149,6 +150,8 @@ pub(crate) fn pointwise_rational_in_extension<
     {
         let non_residue = P::constant(*non_residue, ctx);
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(basis_c0.storage.is_unique(), "basis_c0.storage is not unique!");
+            assert!(basis_c1.storage.is_unique(), "basis_c1.storage is not unique!");
             for ((((w, sigma), x_poly), dst_c0), dst_c1) in
                 (witness_poly.storage.chunks(chunk_size))
                     .zip(sigma_poly.storage.chunks(chunk_size))
@@ -281,6 +284,7 @@ pub(crate) fn pointwise_product_into<
 
     for source in inputs.iter() {
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(into.storage.is_unique(), "into.storage is not unique!");
             for (dst, src) in
                 (into.storage.make_mut().chunks_mut(chunk_size)).zip(source.storage.chunks(chunk_size))
             {
@@ -339,6 +343,8 @@ pub(crate) fn pointwise_product_in_extension_into<
     for source in inputs.iter() {
         let [src_c0, src_c1] = source;
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(into_c0.storage.is_unique(), "into_c0.storage is not unique!");
+            assert!(into_c1.storage.is_unique(), "into_c1.storage is not unique!");
             for (((dst_c0, dst_c1), src_c0), src_c1) in into_c0
                 .storage
                 .make_mut()
@@ -1233,11 +1239,13 @@ pub(crate) fn compute_quotient_terms_in_extension<
                             }
                         }
 
+                        assert!(dst_c0.storage[outer].storage.is_unique(), "dst_c0.storage is not unique!");
                         dst_c0.storage[outer]
                             .storage
                             .make_mut()[inner]
                             .add_assign(&contribution_c0, &mut ctx);
 
+                        assert!(dst_c1.storage[outer].storage.is_unique(), "dst_c1.storage is not unique!");
                         dst_c1.storage[outer]
                             .storage
                             .make_mut()[inner]
