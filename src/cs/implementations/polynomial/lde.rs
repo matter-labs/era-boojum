@@ -1,7 +1,6 @@
 use crate::cs::traits::GoodAllocator;
 
 use super::*;
-use ecow::EcoVec;
 
 #[derive(Derivative)]
 #[derivative(Clone, Debug, PartialEq, Eq)]
@@ -109,8 +108,7 @@ pub struct GenericLdeStorage<
     A: GoodAllocator = Global,
     B: GoodAllocator = Global,
 > {
-    pub storage: EcoVec<GenericPolynomial<F, BitreversedLagrangeForm, P, A>>,
-    pub _marker: std::marker::PhantomData<B>,
+    pub storage: Vec<GenericPolynomial<F, BitreversedLagrangeForm, P, A>, B>,
 }
 
 pub type LdeStorage<F, A = Global, B = Global> = GenericLdeStorage<F, F, A, B>;
@@ -126,8 +124,7 @@ impl<
     pub fn empty_with_capacity_in(capacity: usize, allocator: B) -> Self {
         debug_assert!(capacity.is_power_of_two());
         Self {
-            storage: EcoVec::with_capacity(capacity),
-            _marker: Default::default(),
+            storage: Vec::with_capacity_in(capacity, allocator),
         }
     }
     #[inline]
@@ -140,13 +137,10 @@ impl<
     }
     #[inline]
     pub fn from_single(values: GenericPolynomial<F, BitreversedLagrangeForm, P, A>) -> Self {
-        let mut storage = EcoVec::with_capacity(1);
+        let mut storage = Vec::with_capacity_in(1, B::default());
         storage.push(values);
 
-        Self {
-            storage,
-            _marker: Default::default(),
-        }
+        Self { storage }
     }
 }
 
@@ -290,12 +284,7 @@ impl<
 
     #[inline]
     pub fn from_owned(owned: GenericLdeStorage<F, P, A, B>) -> Self {
-        let mut storage = Vec::with_capacity_in(owned.storage.len(), B::default());
-        for el in owned.storage.into_iter() {
-            storage.push(el.to_owned());
-        }
-
-        Self { storage }
+        Self { storage: owned.storage }
     }
 
     // shallow clone, for readonly
@@ -305,10 +294,7 @@ impl<
         assert!((self.storage.len() / degree).is_power_of_two());
 
         let mut storage = Vec::with_capacity_in(degree, B::default());
-        for i in 0..degree {
-            storage.push(self.storage[i].to_owned());
-        }
-
+        storage.extend_from_slice(&self.storage[..degree]);
         Self { storage }
     }
 
@@ -376,9 +362,7 @@ impl<
         new_params.ldes_generator = new_params.ldes_generator.pow_u64(extra_pow as u64);
 
         let mut new_storage = Vec::with_capacity_in(degree, B::default());
-        for i in 0..degree {
-            new_storage.push(self.storage.storage[i].to_owned());
-        }
+        new_storage.extend_from_slice(&self.storage.storage[..degree]);
 
         let storage = ArcGenericLdeStorage {
             storage: new_storage,

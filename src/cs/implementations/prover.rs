@@ -2035,7 +2035,6 @@ impl<
                 .into_iter()
                 .map(|el| GenericPolynomial::<F, BitreversedLagrangeForm, P, _>::from_storage(el))
                 .collect(),
-            _marker: Default::default(),
         };
 
         let c0_as_poly = ArcGenericLdeStorage::from_owned(c0_as_poly);
@@ -2045,7 +2044,6 @@ impl<
                 .into_iter()
                 .map(|el| GenericPolynomial::<F, BitreversedLagrangeForm, P, _>::from_storage(el))
                 .collect(),
-            _marker: Default::default(),
         };
 
         let c1_as_poly = ArcGenericLdeStorage::from_owned(c1_as_poly);

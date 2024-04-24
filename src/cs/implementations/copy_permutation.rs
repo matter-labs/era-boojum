@@ -10,7 +10,6 @@ use crate::{
     field::traits::field_like::mul_assign_vectorized_in_extension,
 };
 use crate::{cs::traits::GoodAllocator, field::PrimeField};
-use ecow::EcoVec;
 
 pub fn num_intermediate_partial_product_relations(
     num_copys_under_copy_permutation: usize,
@@ -1043,26 +1042,27 @@ pub(crate) fn compute_quotient_terms_in_extension<
     let z_poly_shifted: [_; 2] = grand_products.z_poly.clone().map(|el| {
         let subset = el.subset_for_degree(degree);
         let subset_len = subset.storage.len();
-        // FIXME: used to be uninit but EcoVec doesn't provide the whole feature set.
-        let mut owned_set = EcoVec::from_elem(GenericPolynomial::new(), subset_len);
+        let mut owned_set = Vec::with_capacity_in(subset_len, B::default());
         worker.scope(subset_len, |scope, chunk_size| {
             for (src, dst) in subset
                 .storage
                 .chunks(chunk_size)
-                .zip(owned_set.make_mut()[..subset_len].chunks_mut(chunk_size))
+                .zip(owned_set.spare_capacity_mut()[..subset_len].chunks_mut(chunk_size))
             {
                 scope.spawn(|_| {
                     for (src, dst) in src.iter().zip(dst.iter_mut()) {
                         let shifted_base =
                             shift_by_omega_assuming_bitreversed::<F, P, A>(&src.storage);
                         let as_poly = GenericPolynomial::from_storage(shifted_base);
-                        *dst = as_poly;
+                        dst.write(as_poly);
                     }
                 })
             }
         });
 
-        ArcGenericLdeStorage::from_owned(GenericLdeStorage { storage: owned_set, _marker: Default::default(), })
+        unsafe { owned_set.set_len(subset_len) };
+
+        ArcGenericLdeStorage::from_owned(GenericLdeStorage { storage: owned_set })
     });
 
     let lhs = grand_products
