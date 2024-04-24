@@ -1215,11 +1215,9 @@ impl<
                         ctx,
                     );
 
-                    assert!(dst[0].storage[outer].storage.is_unique(), "dst[0].storage is not unique!");
                     dst[0].storage[outer].storage.make_mut()[inner]
                         .add_assign(&z_c0, ctx);
 
-                    assert!(dst[1].storage[outer].storage.is_unique(), "dst[1].storage is not unique!");
                     dst[1].storage[outer].storage.make_mut()[inner]
                         .add_assign(&z_c1, ctx);
                 };
