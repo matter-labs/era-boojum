@@ -638,8 +638,8 @@ pub(crate) fn compute_partial_products<
 
             // we have to apply pointwise products on top of Z(x)
 
-            for el in partial_elementwise_products.into_iter() {
-                let mut el = el;
+            for mut el in partial_elementwise_products.into_iter() {
+                assert!(el.storage.is_unique());
                 pointwise_product_into(&previous, &mut el, worker, ctx);
 
                 // we have new pointwise in el, and untouched previous, so we can reuse the storage
