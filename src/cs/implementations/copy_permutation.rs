@@ -340,6 +340,12 @@ pub(crate) fn pointwise_product_in_extension_into<
 ) {
     let typical_size = into_c0.storage.len(); // we need raw length in counts of P
 
+    //   18:     0x5617ec14977f - boojum::cs::implementations::copy_permutation::pointwise_product_in_extension_into::h7afc923f8b42188e
+    //   19:     0x5617ec14a7b6 - boojum::cs::implementations::copy_permutation::compute_partial_products_in_extension::h2e6bd4b1c53ed759
+    //   20:     0x5617ebcb9319 - boojum::cs::implementations::prover::<impl boojum::cs::implementations::reference_cs::CSReferenceAssembly<F,P,CFG,A>>::prove_cpu_basic::h088688d6cd7fed3a
+    //   21:     0x5617ebbdff22 - boojum::cs::implementations::convenience::<impl boojum::cs::implementations::reference_cs::CSReferenceAssembly<F,P,CFG,A>>::prove_from_precomputations::hb5faa7c379034a0a
+    //   22:     0x5617ebeecd3a - zkevm_test_harness::prover_utils::prove_base_layer_circuit::h6ca12e453ce37157
+
     for source in inputs.iter() {
         let [src_c0, src_c1] = source;
         worker.scope(typical_size, |scope, chunk_size| {
@@ -728,6 +734,8 @@ pub(crate) fn compute_partial_products_in_extension<
         ]);
     }
 
+    assert!(partial_elementwise_products.iter_mut().all(|[el_c0, el_c1]| el_c0.storage.is_unique() && el_c1.storage.is_unique()));
+
     let [almost_z_poly_c0, almost_z_poly_c1] =
         pointwise_product_in_extension::<F, P, EXT, A>(&partial_elementwise_products, worker, ctx);
 
@@ -765,6 +773,8 @@ pub(crate) fn compute_partial_products_in_extension<
 
         for el in partial_elementwise_products.into_iter() {
             let [mut el_c0, mut el_c1] = el;
+            assert!(el_c0.storage.is_unique());
+            assert!(el_c1.storage.is_unique());
             pointwise_product_in_extension_into::<F, P, EXT, A>(
                 &previous, &mut el_c0, &mut el_c1, worker, ctx,
             );
