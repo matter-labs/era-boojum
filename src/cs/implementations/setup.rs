@@ -54,6 +54,7 @@ fn materialize_x_by_non_residue_polys<
             scope.spawn(move |_| {
                 for (non_res, poly) in non_residues.iter().zip(polys.iter_mut()) {
                     let non_res = P::constant(*non_res, &mut ctx);
+                    assert!(poly.storage.is_unique(), "poly.storage is not unique!");
                     for el in poly.storage.make_mut().iter_mut() {
                         el.mul_assign(&non_res, &mut ctx);
                     }
@@ -449,6 +450,7 @@ impl<
                     // we encountered this var before and stored it's PREVIOUS occurance
                     // (read from poly) as field element, so we write previous occurance HERE,
                     // and store this occurance as previous one
+                    assert!(poly.storage.is_unique(), "poly.storage is not unique!");
                     std::mem::swap(&mut previous_occurance_data.0, &mut poly.storage.make_mut()[row]);
                 }
             }
@@ -466,6 +468,7 @@ impl<
             }
 
             // worst case it reassign same, otherwise we reassign LAST occurance into first
+            assert!(result[first_encountered_column as usize].storage.is_unique(), "result.storage is not unique!");
             result[first_encountered_column as usize].storage.make_mut()[first_encountered_row as usize] =
                 value;
         }
@@ -923,9 +926,11 @@ impl<
                 let content = table.content_at_row(row);
                 debug_assert_eq!(content.len() + 1, result.len());
                 for (dst, src) in result[..content.len()].iter_mut().zip(content.iter()) {
+                    assert!(dst.storage.is_unique(), "dst.storage is not unique!");
                     dst.storage.make_mut()[idx] = *src;
                 }
                 let dst = &mut result[content.len()];
+                assert!(dst.storage.is_unique(), "dst.storage is not unique!");
                 dst.storage.make_mut()[idx] = table_id;
                 idx += 1;
             }

@@ -1081,11 +1081,13 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
                     // our "base" value for `aggregated_lookup_columns` already contains a term 1 * column_0,
                     // so we just add
 
+                    assert!(aggregated_lookup_columns_c0.storage[outer].storage.is_unique(), "aglc_c0.storage is not unique!");
                     aggregated_lookup_columns_c0.storage[outer]
                         .storage
                         .make_mut()[inner]
                         .add_assign(&tmp_c0, &mut ctx);
 
+                    assert!(aggregated_lookup_columns_c1.storage[outer].storage.is_unique(), "aglc_c1.storage is not unique!");
                     aggregated_lookup_columns_c1.storage[outer]
                         .storage
                         .make_mut()[inner]
@@ -1204,9 +1206,11 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
                         }
 
                         // add into accumulator
+                        assert!(dst_c0.storage[outer].storage.is_unique(), "dst_c0.storage is not unique!");
                         dst_c0.storage[outer].storage
                             .make_mut()[inner]
                             .add_assign(&tmp_c0, &mut ctx);
+                        assert!(dst_c1.storage[outer].storage.is_unique(), "dst_c1.storage is not unique!");
                         dst_c1.storage[outer].storage
                             .make_mut()[inner]
                             .add_assign(&tmp_c1, &mut ctx);
@@ -1289,9 +1293,11 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
                         }
 
                         // add into accumulator
+                        assert!(dst_c0.storage[outer].storage.is_unique(), "dst_c0.storage is not unique!");
                         dst_c0.storage[outer].storage
                             .make_mut()[inner]
                             .add_assign(&tmp_c0, &mut ctx);
+                        assert!(dst_c1.storage[outer].storage.is_unique(), "dst_c1.storage is not unique!");
                         dst_c1.storage[outer].storage
                             .make_mut()[inner]
                             .add_assign(&tmp_c1, &mut ctx);

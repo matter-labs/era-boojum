@@ -229,7 +229,7 @@ impl<
     pub(crate) fn clone_respecting_allignment<U: Sized>(&self) -> Self {
         // FIXME: allignment
         Self {
-            storage: self.storage.clone(),
+            storage: self.storage.to_owned(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -446,7 +446,10 @@ impl<'a, F: PrimeField, FORM: PolynomialForm, A: GoodAllocator, B: GoodAllocator
 
         let mut tmp: Vec<_> = polys
             .iter_mut()
-            .map(|el| el.storage.make_mut().chunks_mut(chunk_size))
+            .map(|el| {
+                assert!(el.storage.is_unique(), "el.storage is not unique!");
+                el.storage.make_mut().chunks_mut(chunk_size)
+            })
             .collect();
         for chunk_idx in 0..num_chunks {
             for poly_chunks in tmp.iter_mut() {

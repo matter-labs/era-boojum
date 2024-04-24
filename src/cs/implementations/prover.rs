@@ -1215,9 +1215,11 @@ impl<
                         ctx,
                     );
 
+                    assert!(dst[0].storage[outer].storage.is_unique(), "dst[0].storage is not unique!");
                     dst[0].storage[outer].storage.make_mut()[inner]
                         .add_assign(&z_c0, ctx);
 
+                    assert!(dst[1].storage[outer].storage.is_unique(), "dst[1].storage is not unique!");
                     dst[1].storage[outer].storage.make_mut()[inner]
                         .add_assign(&z_c1, ctx);
                 };
@@ -2799,6 +2801,7 @@ pub fn compute_selector_subpath<
                             let (outer, inner) = chunk.current();
                             let mut tmp = one;
                             tmp.sub_assign(&dst.storage[outer].storage[inner], &mut ctx);
+                            assert!(dst.storage[outer].storage.is_unique(), "dst.storage[outer].storage is not unique!");
                             dst.storage[outer].storage.make_mut()[inner] = tmp;
                             chunk.advance();
                         }
@@ -2853,11 +2856,13 @@ pub fn compute_selector_subpath<
                         let mut result = one;
                         result.sub_assign(&dst.storage[outer].storage[inner], &mut ctx);
                         result.mul_assign(&prefix_poly.storage[outer].storage[inner], &mut ctx);
+                        assert!(dst.storage[outer].storage.is_unique(), "dst.storage[outer].storage is not unique!");
                         dst.storage[outer].storage.make_mut()[inner] = result;
                     } else {
                         // we need prefix * this
                         let mut result = dst.storage[outer].storage[inner];
                         result.mul_assign(&prefix_poly.storage[outer].storage[inner], &mut ctx);
+                        assert!(dst.storage[outer].storage.is_unique(), "dst.storage[outer].storage is not unique!");
                         dst.storage[outer].storage.make_mut()[inner] = result;
                     }
 

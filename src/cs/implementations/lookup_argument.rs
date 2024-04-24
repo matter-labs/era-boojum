@@ -67,6 +67,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
     let mut selector: GenericPolynomial<F, LagrangeForm, P, A> = (*constant_polys[0]).clone();
     if lookup_selector_path[0] == false {
         worker.scope(selector.storage.len(), |scope, chunk_size| {
+            assert!(selector.storage.is_unique(), "selector.storage is not unique!");
             for dst in selector.storage.make_mut().chunks_mut(chunk_size) {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -87,6 +88,7 @@ pub(crate) fn compute_lookup_poly_pairs_over_general_purpose_columns<
         .zip(constant_polys[1..].iter())
     {
         worker.scope(selector.storage.len(), |scope, chunk_size| {
+            assert!(selector.storage.is_unique(), "selector.storage is not unique!");
             for (dst, src) in selector
                 .storage
                 .make_mut()
