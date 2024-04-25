@@ -11,7 +11,11 @@ use super::{
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
-    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField, traits::{allocatable::CSAllocatable, witnessable::WitnessHookable}},
+    gadgets::{
+        boolean::Boolean,
+        non_native_field::traits::NonNativeField,
+        traits::{allocatable::CSAllocatable, witnessable::WitnessHookable},
+    },
 };
 
 /// `Fq12` field extension implementation in the constraint system. It is implemented
@@ -348,7 +352,7 @@ where
     {
         let c0 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_without_value(cs);
         let c1 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_without_value(cs);
-        
+
         Self::new(c0, c1)
     }
 
@@ -361,7 +365,7 @@ where
 
         let c0 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate(cs, c0);
         let c1 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate(cs, c1);
-        
+
         Self::new(c0, c1)
     }
 
@@ -374,7 +378,7 @@ where
 
         let c0 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_constant(cs, c0);
         let c1 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_constant(cs, c1);
-        
+
         Self::new(c0, c1)
     }
 }
@@ -392,11 +396,11 @@ where
     {
         let c0 = self.c0.witness_hook(cs);
         let c1 = self.c1.witness_hook(cs);
-        
+
         Box::new(move || {
             let c0 = c0()?;
             let c1 = c1()?;
-            
+
             Some((c0, c1))
         })
     }

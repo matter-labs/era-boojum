@@ -12,20 +12,13 @@ use super::*;
 // Curve parameter for the BN256 curve
 const CURVE_U_PARAMETER: u64 = 4965661367192848881;
 const SIX_U_PLUS_TWO_WNAF: [i8; 65] = [
-    0, 0, 0, 1, 0, 1, 0, -1,
-    0, 0, 1, -1, 0, 0, 1, 0,
-    0, 1, 1, 0, -1, 0, 0, 1, 
-    0, -1, 0, 0, 0, 0, 1, 1,
-	1, 0, 0, -1, 0, 0, 1, 0, 
-    0, 0, 0, 0, -1, 0, 0, 1,
-	1, 0, 0, -1, 0, 0, 0, 1, 
-    1, 0, -1, 0, 0, 1, 0, 1, 
-    1];
+    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
+    1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
+    0, 1, 0, 1, 1,
+];
 
-/// Struct for the line function evaluation for the BN256 curve.
+/// Struct for the line function evaluation for the BN256 curve (addition and doubling).
 /// The line function is used in the Miller loop of the pairing function.
-/// Implementation is primarily based on paper https://eprint.iacr.org/2019/077.pdf,
-/// section 3: line functions.
 pub struct LineFunctionEvaluation<F, CS>
 where
     F: SmallField,
@@ -312,7 +305,8 @@ where
     }
 
     /// This function computes the Miller loop for the BN256 curve, using
-    /// algorithm from _Section 2_ from https://eprint.iacr.org/2016/130.pdf.
+    /// _Algorithm 1_ from https://eprint.iacr.org/2010/354.pdf. Frobenius
+    /// map is taken from https://hackmd.io/@Wimet/ry7z1Xj-2.
     pub fn evaluate(
         cs: &mut CS,
         p: &mut BN256SWProjectivePoint<F>,
@@ -338,22 +332,23 @@ where
             if i != SIX_U_PLUS_TWO_WNAF.len() - 1 {
                 f = f.square(cs);
             }
-            
+
             let mut doubling = LineFunctionEvaluation::doubling_step(cs, &mut t, p);
             f = Self::mul_f12_by_line_fn(cs, &mut f, &mut doubling);
             t = doubling.point;
-            
-            let x = SIX_U_PLUS_TWO_WNAF[i-1];
+
+            let x = SIX_U_PLUS_TWO_WNAF[i - 1];
             match x {
                 1 => {
                     // Addition step: f <- f * L_{T,Q}(P), T <- T + Q
-                    let mut addition = LineFunctionEvaluation::addition_step(cs, q, &mut t,  p);
+                    let mut addition = LineFunctionEvaluation::addition_step(cs, q, &mut t, p);
                     f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
                     t = addition.point;
-                },
+                }
                 -1 => {
                     // Addition step: f <- f * L_{T,-Q}(P), T <- T - Q
-                    let mut addition = LineFunctionEvaluation::addition_step(cs, &mut q_negated, &mut t, p);
+                    let mut addition =
+                        LineFunctionEvaluation::addition_step(cs, &mut q_negated, &mut t, p);
                     f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
                     t = addition.point;
                 }

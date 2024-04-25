@@ -402,7 +402,7 @@ where
         let c0 = <Fq2<F, T, NN, P::Ex2> as CSAllocatable<F>>::allocate(cs, c0);
         let c1 = <Fq2<F, T, NN, P::Ex2> as CSAllocatable<F>>::allocate(cs, c1);
         let c2 = <Fq2<F, T, NN, P::Ex2> as CSAllocatable<F>>::allocate(cs, c2);
-        
+
         Self::new(c0, c1, c2)
     }
 
