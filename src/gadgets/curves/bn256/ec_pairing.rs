@@ -12,10 +12,15 @@ use super::*;
 // Curve parameter for the BN256 curve
 const CURVE_U_PARAMETER: u64 = 4965661367192848881;
 const SIX_U_PLUS_TWO_WNAF: [i8; 65] = [
-    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
-    1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
-    0, 1, 0, 1, 1,
-];
+    0, 0, 0, 1, 0, 1, 0, -1,
+    0, 0, 1, -1, 0, 0, 1, 0,
+    0, 1, 1, 0, -1, 0, 0, 1, 
+    0, -1, 0, 0, 0, 0, 1, 1,
+	1, 0, 0, -1, 0, 0, 1, 0, 
+    0, 0, 0, 0, -1, 0, 0, 1,
+	1, 0, 0, -1, 0, 0, 0, 1, 
+    1, 0, -1, 0, 0, 1, 0, 1, 
+    1];
 
 /// Struct for the line function evaluation for the BN256 curve.
 /// The line function is used in the Miller loop of the pairing function.
@@ -302,6 +307,10 @@ where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
+    pub fn get_accumulated_f(&self) -> BN256Fq12NNField<F> {
+        self.accumulated_f.clone()
+    }
+
     /// This function computes the Miller loop for the BN256 curve, using
     /// algorithm from _Section 2_ from https://eprint.iacr.org/2016/130.pdf.
     pub fn evaluate(
@@ -315,66 +324,69 @@ where
         Boolean::enforce_equal(cs, &q_is_normalized, &boolean_true);
 
         // Setting evaluation parameters
+        let mut t = q.clone();
         let params = p.x.params.clone();
         let mut f = BN256Fq12NNField::one(cs, &params);
-        let mut t = q.clone();
 
-        // For i = L-2 down to 0...
+        // Saving Q negative to avoid doing that in the loop
+        let mut q_negated = q.negated(cs);
+
+        // Main loop
         for i in (1..SIX_U_PLUS_TWO_WNAF.len()).rev() {
             // Doubling step: f <- f^2 * L_{R,R}(P), T <- 2*T
             // Evaluation of L_{R,R} and 2R is done in the same step
             if i != SIX_U_PLUS_TWO_WNAF.len() - 1 {
                 f = f.square(cs);
             }
+            
             let mut doubling = LineFunctionEvaluation::doubling_step(cs, &mut t, p);
             f = Self::mul_f12_by_line_fn(cs, &mut f, &mut doubling);
             t = doubling.point;
-
-            // Skip if u is zero
-            if SIX_U_PLUS_TWO_WNAF[i] == 0 {
-                continue;
+            
+            let x = SIX_U_PLUS_TWO_WNAF[i-1];
+            match x {
+                1 => {
+                    // Addition step: f <- f * L_{T,Q}(P), T <- T + Q
+                    let mut addition = LineFunctionEvaluation::addition_step(cs, q, &mut t,  p);
+                    f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
+                    t = addition.point;
+                },
+                -1 => {
+                    // Addition step: f <- f * L_{T,-Q}(P), T <- T - Q
+                    let mut addition = LineFunctionEvaluation::addition_step(cs, &mut q_negated, &mut t, p);
+                    f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
+                    t = addition.point;
+                }
+                _ => continue,
             }
-
-            // Addition step: f <- f * L_{T,Q}(P), T <- T + Q.
-            // If s_i is negative, negate Q.
-            let mut q = q.clone();
-            if SIX_U_PLUS_TWO_WNAF[i] == -1 {
-                q = q.negated(cs);
-            }
-
-            let mut addition = LineFunctionEvaluation::addition_step(cs, &mut t, &mut q, p);
-            f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
-            t = addition.point;
         }
 
         // Some additional steps to finalize the Miller loop...
-        // TODO: Figure out what this well... does...
-
         // Preparing some constants for the Frobenius operator
         let mut q1_mul_factor = Self::allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
+        let mut q2_mul_factor = Self::allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
         let mut xi_to_q_minus_1_over_2 =
             Self::allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
-        let mut q2_mul_factor = Self::allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
 
         // Calculating Frobenius operator Q1 = pi_p(Q)
         let mut q1 = q.clone();
-        q1.x.c1 = q1.x.c1.negated(cs);
+        q1.x = q1.x.conjugate(cs);
         q1.x = q1.x.mul(cs, &mut q1_mul_factor);
 
-        q1.y.c1 = q1.y.c1.negated(cs);
+        q1.y = q1.y.conjugate(cs);
         q1.y = q1.y.mul(cs, &mut xi_to_q_minus_1_over_2);
 
+        // Calculating Frobenius operator Q2 = -pi_p^2(Q)
+        let mut q2 = q.clone();
+        q2.x = q2.x.mul(cs, &mut q2_mul_factor);
+
         // Calculating addition step for T, Q1, f <- f * (line function), T <- T + Q1
-        let mut addition = LineFunctionEvaluation::addition_step(cs, &mut t, &mut q1, p);
+        let mut addition = LineFunctionEvaluation::addition_step(cs, &mut q1, &mut t, p);
         f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
         t = addition.point;
 
-        // Calculating Frobenius operator Q2 = pi_p^2(Q)
-        let mut minus_q2 = q.clone();
-        minus_q2.x = minus_q2.x.mul(cs, &mut q2_mul_factor);
-
         // Calculating addition step for T, -Q2, f <- f * (line function), T <- T - Q2
-        let mut addition = LineFunctionEvaluation::addition_step(cs, &mut t, &mut minus_q2, p);
+        let mut addition = LineFunctionEvaluation::addition_step(cs, &mut q2, &mut t, p);
         f = Self::mul_f12_by_line_fn(cs, &mut f, &mut addition);
 
         Self {

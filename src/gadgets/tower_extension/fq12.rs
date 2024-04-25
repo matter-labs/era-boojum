@@ -11,7 +11,7 @@ use super::{
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
-    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
+    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField, traits::{allocatable::CSAllocatable, witnessable::WitnessHookable}},
 };
 
 /// `Fq12` field extension implementation in the constraint system. It is implemented
@@ -318,5 +318,86 @@ where
     {
         self.c0.normalize(cs);
         self.c1.normalize(cs);
+    }
+}
+
+impl<F, T, NN, P> CSAllocatable<F> for Fq12<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+    P: Extension12Params<T>,
+{
+    type Witness = (
+        <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::Witness,
+        <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::Witness,
+    );
+
+    #[inline(always)]
+    fn placeholder_witness() -> Self::Witness {
+        (
+            <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::placeholder_witness(),
+            <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::placeholder_witness(),
+        )
+    }
+
+    #[inline(always)]
+    fn allocate_without_value<CS>(cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_without_value(cs);
+        let c1 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_without_value(cs);
+        
+        Self::new(c0, c1)
+    }
+
+    #[inline(always)]
+    fn allocate<CS>(cs: &mut CS, witness: Self::Witness) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = witness;
+
+        let c0 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate(cs, c0);
+        let c1 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate(cs, c1);
+        
+        Self::new(c0, c1)
+    }
+
+    #[inline(always)]
+    fn allocate_constant<CS>(cs: &mut CS, witness: Self::Witness) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = witness;
+
+        let c0 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_constant(cs, c0);
+        let c1 = <Fq6<F, T, NN, P::Ex6> as CSAllocatable<F>>::allocate_constant(cs, c1);
+        
+        Self::new(c0, c1)
+    }
+}
+
+impl<F, T, NN, P> WitnessHookable<F> for Fq12<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+    P: Extension12Params<T>,
+{
+    fn witness_hook<CS>(&self, cs: &CS) -> Box<dyn FnOnce() -> Option<Self::Witness> + 'static>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = self.c0.witness_hook(cs);
+        let c1 = self.c1.witness_hook(cs);
+        
+        Box::new(move || {
+            let c0 = c0()?;
+            let c1 = c1()?;
+            
+            Some((c0, c1))
+        })
     }
 }
