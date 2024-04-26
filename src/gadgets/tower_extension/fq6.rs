@@ -522,7 +522,8 @@ where
     {
         let is_c0_equal = self.c0.equals(cs, &mut other.c0);
         let is_c1_equal = self.c1.equals(cs, &mut other.c1);
-        is_c0_equal.and(cs, is_c1_equal)
+        let is_c2_equal = self.c2.equals(cs, &mut other.c2);
+        Boolean::multi_and(cs, &[is_c0_equal, is_c1_equal, is_c2_equal])
     }
 
     fn add<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
@@ -619,11 +620,9 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let c0 = self.c0.allocate_inverse_or_zero(cs);
-        let c1 = self.c1.allocate_inverse_or_zero(cs);
-        let c2 = self.c2.allocate_inverse_or_zero(cs);
-
-        Self::new(c0, c1, c2)
+        // TODO: Make check for zero.
+        let mut self_cloned = self.clone();
+        self_cloned.inverse(cs)
     }
 
     fn inverse_unchecked<CS>(&mut self, cs: &mut CS) -> Self
@@ -640,6 +639,7 @@ where
     {
         self.c0.normalize(cs);
         self.c1.normalize(cs);
+        self.c2.normalize(cs);
     }
 
     fn mask<CS>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self
@@ -670,6 +670,7 @@ where
     {
         self.c0.enforce_reduced(cs);
         self.c1.enforce_reduced(cs);
+        self.c2.enforce_reduced(cs);
     }
 }
 

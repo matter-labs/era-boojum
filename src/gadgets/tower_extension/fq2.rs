@@ -512,10 +512,9 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let c0 = self.c0.allocate_inverse_or_zero(cs);
-        let c1 = self.c1.allocate_inverse_or_zero(cs);
-
-        Self::new(c0, c1)
+        // TODO: Make check for zero.
+        let mut self_cloned = self.clone();
+        self_cloned.inverse(cs)
     }
 
     fn inverse_unchecked<CS>(&mut self, cs: &mut CS) -> Self

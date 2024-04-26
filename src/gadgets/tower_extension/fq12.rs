@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use pairing::{ff::PrimeField, BitIterator};
+use pairing::{bn256::Fq as BN256Fq, ff::PrimeField, BitIterator};
 
 use super::{
     fq2::Fq2,
     fq6::Fq6,
-    params::{Extension12Params, Extension6Params},
+    params::{bn256::{BN256Extension12Params, BN256Extension6Params}, Extension12Params, Extension6Params},
 };
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
     gadgets::{
         boolean::Boolean,
         non_native_field::traits::NonNativeField,
-        traits::{allocatable::CSAllocatable, witnessable::WitnessHookable},
+        traits::{allocatable::CSAllocatable, selectable::Selectable, witnessable::WitnessHookable},
     },
 };
 
@@ -23,7 +23,7 @@ use crate::{
 /// linear polynomials in a form `c0+c1*w`, where `c0` and `c1` are elements of `Fq6`.
 /// See https://hackmd.io/@jpw/bn254#Field-extension-towers for reference. For
 /// implementation reference, see https://eprint.iacr.org/2006/471.pdf.
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug, Copy)]
 pub struct Fq12<F, T, NN, P>
 where
     F: SmallField,
@@ -403,5 +403,243 @@ where
 
             Some((c0, c1))
         })
+    }
+}
+
+impl<F, T, NN, P> NonNativeField<F, T> for Fq12<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+    P: Extension12Params<T>,
+{
+    type Params = NN::Params;
+
+    fn get_params(&self) -> &Arc<Self::Params> {
+        self.c0.get_params()
+    }
+
+    fn allocated_constant<CS>(cs: &mut CS, value: T, params: &Arc<Self::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let zero = NN::allocated_constant(cs, T::zero(), params);
+        let c0 = NN::allocated_constant(cs, value, params);
+        let c0 = Fq2::new(c0, zero);
+        let c0 = Fq6::new(c0, Fq2::zero(cs, params), Fq2::zero(cs, params));
+        let c1 = Fq6::zero(cs, params);
+
+        Self::new(c0, c1)
+    }
+
+    fn allocate_checked<CS>(cs: &mut CS, witness: T, params: &Arc<Self::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let zero = NN::allocate_checked(cs, T::zero(), params);
+        let c0 = NN::allocate_checked(cs, witness, params);
+        let c0 = Fq2::new(c0, zero);
+        let c0 = Fq6::new(c0, Fq2::zero(cs, params), Fq2::zero(cs, params));
+        let c1 = Fq6::zero(cs, params);
+
+        Self::new(c0, c1)
+    }
+
+    fn allocate_checked_without_value<CS>(cs: &mut CS, params: &Arc<Self::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = Fq6::allocate_checked_without_value(cs, params);
+        let c1 = Fq6::allocate_checked_without_value(cs, params);
+
+        Self::new(c0, c1)
+    }
+
+    fn is_zero<CS>(&mut self, cs: &mut CS) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.is_zero(cs)
+    }
+
+    fn negated<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.negated(cs)
+    }
+
+    fn equals<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let is_c0_equal = self.c0.equals(cs, &mut other.c0);
+        let is_c1_equal = self.c1.equals(cs, &mut other.c1);
+        is_c0_equal.and(cs, is_c1_equal)
+    }
+
+    fn add<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.add(cs, other)
+    }
+
+    fn lazy_add<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.add(cs, other)
+    }
+
+    fn add_many_lazy<CS, const M: usize>(cs: &mut CS, inputs: [&mut Self; M]) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        assert!(M != 0, "add_many_lazy: inputs must not be empty");
+
+        let params = inputs[0].get_params();
+        let mut result = Self::zero(cs, params);
+
+        for i in 0..M {
+            result = result.add(cs, inputs[i]);
+        }
+
+        result
+    }
+
+    fn sub<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.sub(cs, other)
+    }
+
+    fn lazy_sub<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.sub(cs, other)
+    }
+
+    fn double<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.double(cs)
+    }
+
+    fn lazy_double<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.double(cs)
+    }
+
+    fn mul<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.mul(cs, other)
+    }
+
+    fn square<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.square(cs)
+    }
+
+    fn div_unchecked<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.div(cs, other)
+    }
+
+    #[allow(unused_variables)]
+    fn conditionally_select<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        flag: Boolean<F>,
+        a: &Self,
+        b: &Self,
+    ) -> Self {
+        unimplemented!("conditionally_select is not implemented for generic Fq6, only for BN256-specific parameters");
+    }
+
+    #[allow(unused_variables)]
+    fn allocate_inverse_or_zero<CS>(&self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // TODO: Make check for zero.
+        let mut self_cloned = self.clone();
+        self_cloned.inverse(cs)
+    }
+
+    fn inverse_unchecked<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.inverse(cs)
+    }
+
+    #[allow(unused_variables)]
+    fn normalize<CS>(&mut self, cs: &mut CS)
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.c0.normalize(cs);
+        self.c1.normalize(cs);
+    }
+
+    fn mask<CS>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = self.c0.mask(cs, masking_bit);
+        let c1 = self.c1.mask(cs, masking_bit);
+
+        Self::new(c0, c1)
+    }
+
+    fn mask_negated<CS>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 = self.c0.mask_negated(cs, masking_bit);
+        let c1 = self.c1.mask_negated(cs, masking_bit);
+
+        Self::new(c0, c1)
+    }
+
+    fn enforce_reduced<CS>(&mut self, cs: &mut CS)
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.c0.enforce_reduced(cs);
+        self.c1.enforce_reduced(cs);
+    }
+}
+
+impl<F, NN> Selectable<F> for Fq12<F, BN256Fq, NN, BN256Extension12Params>
+where
+    F: SmallField,
+    NN: NonNativeField<F, BN256Fq>,
+{
+    fn conditionally_select<CS>(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let c0 =
+            <Fq6<F, BN256Fq, NN, BN256Extension6Params> as Selectable<F>>::conditionally_select(
+                cs, flag, &a.c0, &b.c0,
+            );
+        let c1 =
+            <Fq6<F, BN256Fq, NN, BN256Extension6Params> as Selectable<F>>::conditionally_select(
+                cs, flag, &a.c1, &b.c1,
+            );
+
+        Self::new(c0, c1)
     }
 }
