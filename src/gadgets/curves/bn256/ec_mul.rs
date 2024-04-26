@@ -72,7 +72,7 @@ const GLV_WINDOW_SIZE: usize = 2;
 const L: usize = 1 << (GLV_WINDOW_SIZE - 1);
 
 /// Converts the `UInt256<F>` element to a non-native field element over `u16`.
-fn convert_uint256_to_field_element<F, CS, P, const N: usize>(
+pub fn convert_uint256_to_field_element<F, CS, P, const N: usize>(
     cs: &mut CS,
     value: &UInt256<F>,
     params: &Arc<NonNativeFieldOverU16Params<P, N>>,
@@ -120,7 +120,7 @@ where
 /// Converts the non-native field eelement over `u16` to a `UInt256`.
 /// Note that caller must ensure that the field element is normalized,
 /// otherwise this will fail.
-fn convert_field_element_to_uint256<F, CS, P, const N: usize>(
+pub fn convert_field_element_to_uint256<F, CS, P, const N: usize>(
     cs: &mut CS,
     mut value: NonNativeFieldOverU16<F, P, N>,
 ) -> UInt256<F>

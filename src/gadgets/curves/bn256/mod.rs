@@ -49,3 +49,14 @@ pub type BN256SWProjectivePoint<F> = SWProjectivePoint<F, BN256Affine, BN256Base
 /// SW Projective point for twisted BN256 curve over extended base field `Fp2`
 pub type BN256SWProjectivePointTwisted<F> =
     ExtendedSWProjectivePoint<F, BN256Fq, BN256AffineTwisted, BN256Fq2NNField<F>>;
+
+// --- Parameters creation functions ---
+/// Returns BN254 base field parameters
+pub fn bn254_base_field_params() -> BN256BaseNNFieldParams {
+    NonNativeFieldOverU16Params::create()
+}
+
+/// Returns BN254 scalar field parameters
+pub fn bn254_scalar_field_params() -> BN256ScalarNNFieldParams {
+    NonNativeFieldOverU16Params::create()
+}
