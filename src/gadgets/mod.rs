@@ -9,6 +9,7 @@ pub mod num;
 pub mod blake2s;
 pub mod curves;
 pub mod keccak256;
+//pub mod modexp;
 pub mod non_native_field;
 pub mod poseidon2;
 pub mod queue;
