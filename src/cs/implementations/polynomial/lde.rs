@@ -153,7 +153,7 @@ pub struct LdeParameters<F: PrimeField> {
 }
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
-#[derivative(Clone, Debug, PartialEq(bound = ""), Eq)]
+#[derivative(Debug, PartialEq(bound = ""), Eq)]
 #[serde(
     bound = "F: serde::Serialize + serde::de::DeserializeOwned, P: serde::Serialize + serde::de::DeserializeOwned"
 )]
@@ -166,6 +166,39 @@ pub struct ArcGenericLdeStorage<
     #[serde(serialize_with = "crate::utils::serialize_vec_with_allocator")]
     #[serde(deserialize_with = "crate::utils::deserialize_vec_with_allocator")]
     pub storage: Vec<GenericPolynomial<F, BitreversedLagrangeForm, P, A>, B>,
+}
+
+impl<
+        F: PrimeField,
+        P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
+        A: GoodAllocator,
+        B: GoodAllocator,
+> Clone for ArcGenericLdeStorage<F, P, A, B> {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        let mut storage = Vec::with_capacity_in(self.storage.len(), B::default());
+        for el in self.storage.iter() {
+            // Explicitly clone storage to preserve `Arc` semantics
+            storage.push(GenericPolynomial {
+                storage: el.storage.clone(),
+                _marker: std::marker::PhantomData::default(),
+            });
+        }
+        Self{storage}
+    }
+
+    #[inline(always)]
+    fn clone_from(&mut self, other: &Self) {
+        self.storage.clear();
+        self.storage.reserve(other.storage.len());
+        for el in other.storage.iter() {
+            // Explicitly clone storage to preserve `Arc` semantics
+            self.storage.push(GenericPolynomial {
+                storage: el.storage.clone(),
+                _marker: std::marker::PhantomData::default(),
+            });
+        }
+    }
 }
 
 pub type ArcLdeStorage<F, A = Global, B = Global> = ArcGenericLdeStorage<F, F, A, B>;
