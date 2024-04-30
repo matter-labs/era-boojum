@@ -122,7 +122,7 @@ where
             .map(|el| cs.allocate_constant(F::from_u64_unchecked(el as u64)));
         // for rare case when our modulus is exactly 16 * K bits, but we use larger representation
         let els_to_skip = N - self.params.modulus_limbs;
-        let _ = u16_long_subtraction_noborrow(cs, &modulus, &self.limbs, els_to_skip);
+        let _ = u16_long_subtraction_noborrow_must_borrow(cs, &self.limbs, &modulus, els_to_skip);
         self.tracker.max_moduluses = 1;
     }
 
@@ -148,7 +148,8 @@ where
             .map(|el| cs.allocate_constant(F::from_u64_unchecked(el as u64)));
         // for rare case when our modulus is exactly 16 * K bits, but we use larger representation
         let els_to_skip = N - self.params.modulus_limbs;
-        let _ = u16_long_subtraction_noborrow(cs, &modulus, &normalized.limbs, els_to_skip);
+        let _ =
+            u16_long_subtraction_noborrow_must_borrow(cs, &normalized.limbs, &modulus, els_to_skip);
         assert!(normalized.form == RepresentationForm::Normalized);
         normalized.tracker.max_moduluses = 1;
 
@@ -763,7 +764,7 @@ where
             let new = Self {
                 limbs,
                 non_zero_limbs: used_words,
-                tracker: self.tracker,
+                tracker: OverflowTracker { max_moduluses: 2 }, // NOTE: if self == 0, then limbs will be == modulus, so use 2
                 form: RepresentationForm::Normalized,
                 params: self.params.clone(),
                 _marker: std::marker::PhantomData,

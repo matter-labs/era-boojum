@@ -11,7 +11,8 @@ use pairing::ff::PrimeField;
 use pairing::GenericCurveAffine;
 
 /// ExtendedSWProjectivePoint is the same structure as SWProjectivePoint, but with an additional
-/// feature where GenericCurveAffine::Base is not necessarily the PrimeField.
+/// feature where GenericCurveAffine::Base is not necessarily the PrimeField. This structure
+/// is done separately to avoid any potential conflicts with the existing SWProjectivePoint.
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
 pub struct ExtendedSWProjectivePoint<F, T, C, NN>
