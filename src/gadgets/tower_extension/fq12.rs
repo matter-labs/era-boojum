@@ -315,14 +315,6 @@ where
         let mut t = other.inverse(cs);
         self.mul(cs, &mut t)
     }
-
-    pub fn normalize<CS>(&mut self, cs: &mut CS)
-    where
-        CS: ConstraintSystem<F>,
-    {
-        self.c0.normalize(cs);
-        self.c1.normalize(cs);
-    }
 }
 
 impl<F, T, NN, P> CSAllocatable<F> for Fq12<F, T, NN, P>
