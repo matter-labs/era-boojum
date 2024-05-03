@@ -216,6 +216,23 @@ impl<F: SmallField> UInt512<F> {
         (result, borrow_out)
     }
 
+    /// Multiplies a number by 2^{32}. Panics if the number overflows.
+    #[must_use]
+    pub fn must_mul_by_two_pow_32<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+    ) -> Self {
+        let boolean_true = Boolean::allocated_constant(cs, true);
+        let last_limb_zero = self.inner[15].is_zero(cs);
+        Boolean::enforce_equal(cs, &last_limb_zero, &boolean_true);
+
+        let mut new_inner = self.inner.clone();
+        new_inner.copy_within(0..15, 1);
+        new_inner[0] = UInt32::zero(cs);
+        
+        Self {inner: new_inner}
+    }
+
     // Returns the value unchanges if `bit` is `true`, and 0 otherwise
     #[must_use]
     pub fn mask<CS: ConstraintSystem<F>>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self {
@@ -252,6 +269,11 @@ impl<F: SmallField> UInt512<F> {
         let inner = unsafe { inner.map(|el| el.assume_init()) };
 
         Self { inner }
+    }
+
+    #[must_use]
+    pub fn from_limbs(limbs: [UInt32<F>; 16]) -> Self {
+        Self { inner: limbs }
     }
 
     #[must_use]
