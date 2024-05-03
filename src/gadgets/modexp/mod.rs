@@ -1,9 +1,13 @@
 use ethereum_types::U256;
 
-use crate::{cs::traits::cs::ConstraintSystem, field::SmallField};
+use crate::{cs::traits::cs::ConstraintSystem, field::SmallField, gadgets::traits::witnessable::CSWitnessable};
 
 use super::{
-    boolean::Boolean, traits::selectable::Selectable, u256::UInt256, u32::UInt32, u512::UInt512
+    boolean::Boolean,
+    traits::{selectable::Selectable, witnessable::WitnessHookable},
+    u256::UInt256,
+    u32::UInt32,
+    u512::UInt512,
 };
 
 const U256_MAX_BITS: usize = 256;
@@ -33,9 +37,9 @@ where
     u512
 }
 
-/// Returns `true` if `a > b`, `false` otherwise. 
+/// Returns `true` if `a >= b`, `false` otherwise.
 /// Here, `a` and `b` are represented as `UInt512<F>` and `UInt256<F>` respectively.
-fn u512_greater_than_u256<F, CS>(cs: &mut CS, a: &UInt512<F>, b: &UInt256<F>) -> Boolean<F>
+fn u512_geq_than_u256<F, CS>(cs: &mut CS, a: &UInt512<F>, b: &UInt256<F>) -> Boolean<F>
 where
     F: SmallField,
     CS: ConstraintSystem<F>,
@@ -45,9 +49,11 @@ where
     limbs[..8].copy_from_slice(&b.inner);
 
     let b_u512 = UInt512::from_limbs(limbs);
-    // If a > b, then b-a should overflow
-    let (_, overflow) = b_u512.overflowing_sub(cs, a);
-    overflow
+    // If a >= b, then b-a should overflow or equal to 0
+    let (sub, overflow) = b_u512.overflowing_sub(cs, a);
+    let a_equal_b = sub.is_zero(cs);
+
+    overflow.or(cs, a_equal_b)
 }
 
 /// Find quotient and remainder of division of `n` by `m` using the naive long division algorithm in base 2^{32}
@@ -74,7 +80,7 @@ where
     r.inner.copy_within(1..U256_MAX_LIMBS, 0);
     r.inner[U256_MAX_LIMBS - 1] = UInt32::zero(cs);
 
-    for i in 0..U256_MAX_BITS + 1 {
+    for i in 0..U256_MAX_LIMBS + 1 {
         // \alpha_{i+l-1} is (k-l-i)th limb of n
         let alpha = n.inner[U256_MAX_LIMBS - i];
         let alpha = convert_limb_to_u512(cs, &alpha);
@@ -103,8 +109,8 @@ where
             let (new_beta, overflow) = right.overflowing_add(cs, &left);
             // Cannot overflow since right and left are less than b=2^{32}
             Boolean::enforce_equal(cs, &overflow, &boolean_false);
-            
-            // Since new_beta.div2 gives floor, we need to add 1 if new_beta is odd
+
+            // Since new_beta.div2 gives floor, we need to add 1 if new_beta is odd to get ceil
             let odd = new_beta.is_odd(cs);
             let beta_div_2 = new_beta.div2(cs);
             let (beta_div_2_plus_1, overflow) = beta_div_2.overflowing_add(cs, &one);
@@ -118,13 +124,15 @@ where
             let (r, r_negative) = d.overflowing_sub(cs, &m_beta);
 
             // if r < 0 (that is, overflow occurred), then right <- beta - 1
-            let (beta_minus_1, overflow) = beta.overflowing_sub(cs, &one);
-            // Cannot overflow since beta > 0
-            Boolean::enforce_equal(cs, &overflow, &boolean_false);
+            // beta - 1 might overflow at step 33, but we don't care about it
+            let (beta_minus_1, _) = beta.overflowing_sub(cs, &one);
             right = UInt256::conditionally_select(cs, r_negative, &beta_minus_1, &right);
 
-            // if r > m, then left <- beta + 1
-            let r_greater_m = u512_greater_than_u256(cs, &r, m);
+            // if r >= m, then left <- beta + 1
+            let r_geq_m = u512_geq_than_u256(cs, &r, m);
+            // We should handle the case when r overflowed
+            let r_positive = r_negative.negated(cs);
+            let r_greater_m = r_geq_m.and(cs, r_positive);
             let (beta_plus_1, overflow) = beta.overflowing_add(cs, &one);
             // Cannot overflow since beta < b=2^{32}
             Boolean::enforce_equal(cs, &overflow, &boolean_false);
@@ -133,7 +141,7 @@ where
             // Updating r
             new_r = r
         }
-        
+
         // Asserting that new_r is indeed fits in UInt256
         let boolean_true = Boolean::allocated_constant(cs, true);
         for limb in new_r.inner[8..].iter() {
@@ -151,7 +159,7 @@ where
         let beta_u512 = convert_u256_to_u512(cs, &beta);
         q = q.must_mul_by_two_pow_32(cs);
         let (new_q, overflow) = q.overflowing_add(cs, &beta_u512);
-        // Cannot overflow since q and beta are less than b=2^{32}
+        // Cannot overflow since quotient cannot exceed 2^{512}
         Boolean::enforce_equal(cs, &overflow, &boolean_false);
         q = new_q;
     }
@@ -193,9 +201,18 @@ where
     CS: ConstraintSystem<F>,
 {
     let mut a = UInt256::allocated_constant(cs, U256::one());
-    let mut exponent = exponent.clone();
+    let binary_expansion = exponent
+        .to_le_bytes(cs)
+        .into_iter()
+        .map(|x| x.into_num().spread_into_bits::<CS, 8>(cs))
+        .flatten()
+        .collect::<Vec<_>>();
 
-    for _ in 0..U256_MAX_BITS {
+    println!("binary_expansion={:?}", binary_expansion.iter().map(|x| x.witness_hook(cs)().unwrap()).collect::<Vec<_>>());
+
+    for e in binary_expansion.into_iter().rev() {
+        println!("a={:?}, ei={:?}", a.witness_hook(cs)().unwrap(), e.witness_hook(cs)().unwrap());
+
         // a <- a^2 mod (modulus)
         let a_squared = modmul(cs, &a, &a, &modulus);
 
@@ -204,9 +221,7 @@ where
 
         // If the i-th bit of the exponent is 1, then a <- a^2 * (base) mod (modulus)
         // Otherwise, we just set a <- a^2 mod (modulus)
-        let is_odd = exponent.is_odd(cs);
-        a = UInt256::conditionally_select(cs, is_odd, &a_base, &a_squared);
-        exponent = exponent.div2(cs);
+        a = UInt256::conditionally_select(cs, e, &a_base, &a_squared);
     }
 
     a
