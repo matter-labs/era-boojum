@@ -1,10 +1,10 @@
 use ethereum_types::U256;
 
-use crate::{cs::traits::cs::ConstraintSystem, field::SmallField, gadgets::traits::witnessable::CSWitnessable};
+use crate::{cs::traits::cs::ConstraintSystem, field::SmallField};
 
 use super::{
     boolean::Boolean,
-    traits::{selectable::Selectable, witnessable::WitnessHookable},
+    traits::selectable::Selectable,
     u256::UInt256,
     u32::UInt32,
     u512::UInt512,
@@ -89,6 +89,7 @@ where
         // d_i can safely be UInt512 in size.
         // r can have any number of limbs up to 8.
         // base is 2 limbs wide since b=(2^{32}-1)+1
+        // TODO: Mul by base might be optimized
         let d = base.widening_mul(cs, &mut r, 2, 8);
         let (d_plus_alpha, overflow) = d.overflowing_add(cs, &alpha);
         // d_i cannot overflow UInt512
@@ -208,11 +209,7 @@ where
         .flatten()
         .collect::<Vec<_>>();
 
-    println!("binary_expansion={:?}", binary_expansion.iter().map(|x| x.witness_hook(cs)().unwrap()).collect::<Vec<_>>());
-
     for e in binary_expansion.into_iter().rev() {
-        println!("a={:?}, ei={:?}", a.witness_hook(cs)().unwrap(), e.witness_hook(cs)().unwrap());
-
         // a <- a^2 mod (modulus)
         let a_squared = modmul(cs, &a, &a, &modulus);
 
