@@ -44,20 +44,17 @@ where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
-    let mut limbs = [UInt32::zero(cs); 16];
-    // Put b.inner into first 8 elements
-    limbs[..8].copy_from_slice(&b.inner);
-
-    let b_u512 = UInt512::from_limbs(limbs);
-    // If a >= b, then b-a should overflow or equal to 0
-    let (sub, overflow) = b_u512.overflowing_sub(cs, a);
+    let high = a.to_high();
+    let under_256 = high.is_zero(cs);
+    let over_256 = under_256.negated(cs);
+    let low = a.to_low();
+    let (sub, overflow) = b.overflowing_sub(cs, &low);
     let a_equal_b = sub.is_zero(cs);
-
-    overflow.or(cs, a_equal_b)
+    Boolean::multi_or(cs, &[overflow, a_equal_b, over_256])
 }
 
 /// Find quotient and remainder of division of `n` by `m` using the naive long division algorithm in base 2^{32}
-/// since both `UInt512<F>` and `UInt256<F>` are represented as arrays of `UInt8<F>`. The implementation is based on
+/// since both `UInt512<F>` and `UInt256<F>` are represented as arrays of `UInt32<F>`. The implementation is based on
 /// algorithm https://en.wikipedia.org/wiki/Long_division#Algorithm_for_arbitrary_base,
 /// where k=16, l=8, and base b=2^{32}.
 fn long_division<F, CS>(cs: &mut CS, n: &UInt512<F>, m: &UInt256<F>) -> (UInt512<F>, UInt256<F>)
