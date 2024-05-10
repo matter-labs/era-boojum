@@ -4,6 +4,7 @@ use pairing::{
     bn256::{Fq as BN256Fq, Fq2 as BN256Fq2, G2Affine},
     ff::PrimeField,
 };
+use pairing::bn256::Fq;
 
 use super::params::{bn256::BN256Extension2Params, Extension2Params};
 
@@ -18,6 +19,7 @@ use crate::{
         },
     },
 };
+use crate::gadgets::traits::allocatable::CSPlaceholder;
 
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
@@ -347,6 +349,21 @@ where
 
             Some((c0, c1))
         })
+    }
+}
+
+impl<F, T, NN, P> CSPlaceholder<F> for Fq2<F, T, NN, P>
+    where
+        F: SmallField,
+        T: PrimeField,
+        NN: NonNativeField<F, T> + CSPlaceholder<F>,
+        P: Extension2Params<T>,
+{
+    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
+        let c0 = NN::placeholder(cs);
+        let c1 = NN::placeholder(cs);
+
+        Self::new(c0, c1)
     }
 }
 

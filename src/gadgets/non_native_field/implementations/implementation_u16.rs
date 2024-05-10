@@ -6,7 +6,7 @@ use crate::cs::gates::{
 use crate::cs::traits::cs::DstBuffer;
 use crate::gadgets::boolean::Boolean;
 use crate::gadgets::num::Num;
-use crate::gadgets::traits::allocatable::CSAllocatable;
+use crate::gadgets::traits::allocatable::{CSAllocatable, CSPlaceholder};
 use crate::gadgets::traits::castable::WitnessCastable;
 use crate::gadgets::traits::selectable::Selectable;
 use crate::gadgets::traits::witnessable::{CSWitnessable, WitnessHookable};
@@ -1029,6 +1029,25 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSAllocatable<F>
     }
     fn allocate<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {
         unimplemented!("we need parameters to do it")
+    }
+}
+
+impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
+    for NonNativeFieldOverU16<F, T, N>
+{
+    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self  {
+        let variable = Variable::placeholder();
+
+        Self{
+            limbs: [variable; N],
+            non_zero_limbs: 0,
+            tracker: OverflowTracker{
+                max_moduluses: 0
+            },
+            form: RepresentationForm::Normalized,
+            params: Arc::new(NonNativeFieldOverU16Params::placeholder(cs)),
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 

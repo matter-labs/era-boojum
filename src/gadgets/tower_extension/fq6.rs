@@ -21,6 +21,8 @@ use crate::{
         },
     },
 };
+use crate::gadgets::tower_extension::params::Extension2Params;
+use crate::gadgets::traits::allocatable::CSPlaceholder;
 
 /// `Fq6` field extension implementation in the constraint system. It is implemented
 /// as `Fq2[v]/(v^3-xi)` where `xi=9+u`. In other words,
@@ -451,6 +453,20 @@ where
 
             Some((c0, c1, c2))
         })
+    }
+}
+
+impl<F, T, NN, P> CSPlaceholder<F> for Fq6<F, T, NN, P>
+    where
+        F: SmallField,
+        T: PrimeField,
+        NN: NonNativeField<F, T> + CSPlaceholder<F>,
+        P: Extension6Params<T>,
+{
+    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
+        let placeholder = <Fq2<F, T, NN, P::Ex2> as CSPlaceholder<F>>::placeholder(cs);
+
+        Self::new(placeholder.clone(), placeholder.clone(), placeholder)
     }
 }
 
