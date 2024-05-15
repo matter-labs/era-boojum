@@ -158,6 +158,8 @@ pub fn round_function<F: SmallField, CS: ConstraintSystem<F>>(
         let _ = tri_xor_many(cs, &[a], &[b], &[c]);
     }
 
+    drop(yet_unconstrained_chunks);
+
     // main part
     let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
 
@@ -249,13 +251,15 @@ pub fn round_function<F: SmallField, CS: ConstraintSystem<F>>(
         *dst = tmp;
     }
 
-    for chunk in yet_unconstrained_chunks.chunks(3) {
+    for chunk in yet_unchecked_chunks.chunks(3) {
         let a = chunk.get(0).copied().unwrap_or(zero);
         let b = chunk.get(1).copied().unwrap_or(zero);
         let c = chunk.get(2).copied().unwrap_or(zero);
 
         let _ = tri_xor_many(cs, &[a], &[b], &[c]);
     }
+
+    drop(yet_unchecked_chunks);
 
     if range_check_final_state {
         let mut le_4bit_chunks = [Variable::placeholder(); 64];
