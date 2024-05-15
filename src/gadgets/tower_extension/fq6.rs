@@ -21,8 +21,10 @@ use crate::{
         },
     },
 };
+use crate::cs::Variable;
 use crate::gadgets::tower_extension::params::Extension2Params;
 use crate::gadgets::traits::allocatable::CSPlaceholder;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 /// `Fq6` field extension implementation in the constraint system. It is implemented
 /// as `Fq2[v]/(v^3-xi)` where `xi=9+u`. In other words,
@@ -457,16 +459,34 @@ where
 }
 
 impl<F, T, NN, P> CSPlaceholder<F> for Fq6<F, T, NN, P>
-    where
-        F: SmallField,
-        T: PrimeField,
-        NN: NonNativeField<F, T> + CSPlaceholder<F>,
-        P: Extension6Params<T>,
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T> + CSPlaceholder<F>,
+    P: Extension6Params<T>,
 {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let placeholder = <Fq2<F, T, NN, P::Ex2> as CSPlaceholder<F>>::placeholder(cs);
 
         Self::new(placeholder.clone(), placeholder.clone(), placeholder)
+    }
+}
+
+impl<F, T, NN, P> CircuitVarLengthEncodable<F> for Fq6<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T> + CircuitVarLengthEncodable<F>,
+    P: Extension6Params<T>
+{
+    fn encoding_length(&self) -> usize {
+        self.c0.encoding_length() + self.c1.encoding_length() + self.c1.encoding_length()
+    }
+
+    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
+        self.c0.encode_to_buffer(cs, dst);
+        self.c1.encode_to_buffer(cs, dst);
+        self.c2.encode_to_buffer(cs, dst);
     }
 }
 

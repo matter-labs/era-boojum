@@ -1051,6 +1051,18 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
     }
 }
 
+impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CircuitVarLengthEncodable<F>
+for NonNativeFieldOverU16<F, T, N>
+{
+    fn encoding_length(&self) -> usize {
+        N
+    }
+
+    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
+        dst.extend_from_slice(self.limbs.as_slice())
+    }
+}
+
 // We need this to ensure no conflicting implementations without negative impls
 
 #[derive(Derivative)]
@@ -1099,6 +1111,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> WitnessCastable<
 }
 
 use crate::gadgets::traits::castable::Convertor;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSWitnessable<F, N>
     for NonNativeFieldOverU16<F, T, N>

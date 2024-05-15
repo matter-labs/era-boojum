@@ -19,7 +19,9 @@ use crate::{
         },
     },
 };
+use crate::cs::Variable;
 use crate::gadgets::traits::allocatable::CSPlaceholder;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
@@ -353,17 +355,34 @@ where
 }
 
 impl<F, T, NN, P> CSPlaceholder<F> for Fq2<F, T, NN, P>
-    where
-        F: SmallField,
-        T: PrimeField,
-        NN: NonNativeField<F, T> + CSPlaceholder<F>,
-        P: Extension2Params<T>,
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T> + CSPlaceholder<F>,
+    P: Extension2Params<T>,
 {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let c0 = NN::placeholder(cs);
         let c1 = NN::placeholder(cs);
 
         Self::new(c0, c1)
+    }
+}
+
+impl<F, T, NN, P> CircuitVarLengthEncodable<F> for Fq2<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T> + CircuitVarLengthEncodable<F>,
+    P: Extension2Params<T>
+{
+    fn encoding_length(&self) -> usize {
+        self.c0.encoding_length() + self.c1.encoding_length()
+    }
+
+    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
+        self.c0.encode_to_buffer(cs, dst);
+        self.c1.encode_to_buffer(cs, dst);
     }
 }
 
