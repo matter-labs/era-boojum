@@ -1068,8 +1068,8 @@ for NonNativeFieldOverU16<F, T, N>
 
 // We need this to ensure no conflicting implementations without negative impls
 
-#[derive(Derivative, Serialize)]
-#[derivative(Clone, Copy, Debug, Hash)]
+#[derive(Derivative, Serialize, PartialEq)]
+#[derivative(Clone, Copy, Debug, Hash, Eq)]
 pub struct FFProxyValue<T: pairing::ff::PrimeField, const N: usize> {
     value: T,
 }
