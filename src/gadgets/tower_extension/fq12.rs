@@ -5,7 +5,10 @@ use pairing::{bn256::Fq as BN256Fq, ff::PrimeField, BitIterator};
 use super::{
     fq2::Fq2,
     fq6::Fq6,
-    params::{bn256::{BN256Extension12Params, BN256Extension6Params}, Extension12Params, Extension6Params},
+    params::{
+        bn256::{BN256Extension12Params, BN256Extension6Params},
+        Extension12Params, Extension6Params,
+    },
 };
 
 use crate::{
@@ -14,7 +17,9 @@ use crate::{
     gadgets::{
         boolean::Boolean,
         non_native_field::traits::NonNativeField,
-        traits::{allocatable::CSAllocatable, selectable::Selectable, witnessable::WitnessHookable},
+        traits::{
+            allocatable::CSAllocatable, selectable::Selectable, witnessable::WitnessHookable,
+        },
     },
 };
 use crate::cs::Variable;
