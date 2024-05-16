@@ -1,4 +1,7 @@
+use std::fmt;
 use crypto_bigint::CheckedMul;
+use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::de::Visitor;
 
 use crate::cs::gates::{
     ConstantAllocatableCS, DotProductGate, FmaGateInBaseFieldWithoutConstant, UIntXAddGate,
@@ -6,7 +9,7 @@ use crate::cs::gates::{
 use crate::cs::traits::cs::DstBuffer;
 use crate::gadgets::boolean::Boolean;
 use crate::gadgets::num::Num;
-use crate::gadgets::traits::allocatable::CSAllocatable;
+use crate::gadgets::traits::allocatable::{CSAllocatable, CSPlaceholder};
 use crate::gadgets::traits::castable::WitnessCastable;
 use crate::gadgets::traits::selectable::Selectable;
 use crate::gadgets::traits::witnessable::{CSWitnessable, WitnessHookable};
@@ -1032,13 +1035,102 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSAllocatable<F>
     }
 }
 
+impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
+    for NonNativeFieldOverU16<F, T, N>
+{
+    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self  {
+        let variable = Variable::placeholder();
+
+        Self{
+            limbs: [variable; N],
+            non_zero_limbs: 0,
+            tracker: OverflowTracker{
+                max_moduluses: 0
+            },
+            form: RepresentationForm::Normalized,
+            params: Arc::new(NonNativeFieldOverU16Params::placeholder(cs)),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CircuitVarLengthEncodable<F>
+for NonNativeFieldOverU16<F, T, N>
+{
+    fn encoding_length(&self) -> usize {
+        N
+    }
+
+    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
+        dst.extend_from_slice(self.limbs.as_slice())
+    }
+}
+
 // We need this to ensure no conflicting implementations without negative impls
 
-#[derive(Derivative)]
-#[derivative(Clone, Copy, Debug, Hash)]
+#[derive(Derivative, Serialize, PartialEq)]
+#[derivative(Clone, Copy, Debug, Hash, Eq)]
 pub struct FFProxyValue<T: pairing::ff::PrimeField, const N: usize> {
     value: T,
 }
+
+// Implement custom Deserialize, because we cannot derive:
+// PrimeField inherits only DeserializeOwned.
+impl<'de, T, const N: usize> Deserialize<'de> for FFProxyValue<T, N>
+where
+    T: pairing::ff::PrimeField,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FFProxyValueVisitor<T, const N: usize>
+        where
+            T: pairing::ff::PrimeField,
+        {
+            marker: std::marker::PhantomData<T>,
+        }
+
+        impl<'de, T, const N: usize> Visitor<'de> for FFProxyValueVisitor<T, N>
+        where
+            T: pairing::ff::PrimeField + serde::de::DeserializeOwned,
+        {
+            type Value = FFProxyValue<T, N>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid PrimeField value")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+                where
+                    M: de::MapAccess<'de>,
+            {
+                let mut value = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "value" => {
+                            if value.is_some() {
+                                return Err(de::Error::duplicate_field("value"));
+                            }
+                            value = Some(map.next_value()?);
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(key, FIELDS));
+                        }
+                    }
+                }
+
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                Ok(FFProxyValue { value })
+            }
+        }
+
+        const FIELDS: &[&str] = &["value"];
+        deserializer.deserialize_struct("FFProxyValue", FIELDS, FFProxyValueVisitor { marker: std::marker::PhantomData })
+    }
+}
+
 
 impl<T: pairing::ff::PrimeField, const N: usize> FFProxyValue<T, N> {
     pub const fn get(&self) -> T {
@@ -1080,6 +1172,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> WitnessCastable<
 }
 
 use crate::gadgets::traits::castable::Convertor;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSWitnessable<F, N>
     for NonNativeFieldOverU16<F, T, N>
