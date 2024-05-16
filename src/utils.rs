@@ -6,6 +6,7 @@ use std::{
 };
 
 use derivative::Derivative;
+use ecow::EcoVec;
 
 use crate::cs::traits::GoodAllocator;
 
@@ -328,6 +329,130 @@ where
     }
     seq.end()
 }
+
+struct ArcSliceVisitor<T, A> {
+    element: std::marker::PhantomData<(T, A)>,
+}
+
+impl<'de, T, A: GoodAllocator> serde::de::Visitor<'de> for ArcSliceVisitor<T, A>
+where
+    T: serde::Deserialize<'de>,
+{
+    // FIXME: current version doesn't implement allocator API for Arc, check which one does
+    type Value = std::sync::Arc<[T], A>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a vector")
+    }
+
+    fn visit_seq<B>(self, mut seq: B) -> Result<Self::Value, B::Error>
+    where
+        B: serde::de::SeqAccess<'de>,
+    {
+        let expected_len = seq.size_hint().unwrap_or(0);
+        let mut slice = std::sync::Arc::new_uninit_slice_in(expected_len, A::default());
+        let data = std::sync::Arc::get_mut(&mut slice).unwrap();
+        for i in 0..expected_len {
+            let el = seq
+                .next_element()?
+                .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+            data[i].write(el);
+        }
+        let slice = unsafe { slice.assume_init() };
+
+        Ok(slice)
+    }
+}
+
+pub fn deserialize_arc_slice<'de, D, T: serde::Deserialize<'de> + Clone, A: GoodAllocator>(
+    deserializer: D,
+) -> Result<std::sync::Arc<[T], A>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let visitor = ArcSliceVisitor::<T, A> {
+        element: std::marker::PhantomData,
+    };
+    deserializer.deserialize_seq(visitor)
+}
+
+pub(crate) fn serialize_arc_slice<T: serde::Serialize, S, A: GoodAllocator>(
+    t: &std::sync::Arc<[T], A>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(t.len()))?;
+    use serde::ser::SerializeSeq;
+
+    for el in t.iter() {
+        let inner = &*el;
+        seq.serialize_element(inner)?;
+    }
+    seq.end()
+}
+
+struct EcoVecVisitor<T> {
+    element: std::marker::PhantomData<T>,
+}
+
+impl<'de, T> serde::de::Visitor<'de> for EcoVecVisitor<T>
+where
+    T: Clone + serde::Deserialize<'de>,
+{
+    type Value = EcoVec<T>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a vector")
+    }
+
+    fn visit_seq<B>(self, mut seq: B) -> Result<Self::Value, B::Error>
+    where
+        B: serde::de::SeqAccess<'de>,
+    {
+        let expected_len = seq.size_hint().unwrap_or(0);
+        let mut vector = EcoVec::with_capacity(expected_len);
+        for i in 0..expected_len {
+            let el = seq
+                .next_element()?
+                .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+            vector.push(el);
+        }
+
+        Ok(vector)
+    }
+}
+
+pub fn deserialize_ecovec<'de, D, T: serde::Deserialize<'de> + Clone>(
+    deserializer: D,
+) -> Result<EcoVec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let visitor = EcoVecVisitor::<T> {
+        element: std::marker::PhantomData,
+    };
+    deserializer.deserialize_seq(visitor)
+}
+
+pub(crate) fn serialize_ecovec<T: serde::Serialize, S>(
+    t: &EcoVec<T>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(t.len()))?;
+    use serde::ser::SerializeSeq;
+
+    for el in t.iter() {
+        let inner = &*el;
+        seq.serialize_element(inner)?;
+    }
+    seq.end()
+}
+
 
 struct VecVisitor<T, A> {
     element: std::marker::PhantomData<(T, A)>,

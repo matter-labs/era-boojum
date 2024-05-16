@@ -1,4 +1,5 @@
 use core::slice;
+use ecow::EcoVec;
 use std::{
     alloc::Allocator,
     error::Error,
@@ -132,6 +133,50 @@ impl<T: MemcopySerializable> MemcopySerializable for std::sync::Arc<T> {
         let inner: T = MemcopySerializable::read_from_buffer(src)?;
 
         Ok(std::sync::Arc::new(inner))
+    }
+}
+
+// FIXME: write a more optimized version :)
+impl<
+        F: SmallField,
+        P: crate::field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
+    > MemcopySerializable for EcoVec<P>
+{
+    fn write_into_buffer<W: Write>(&self, dst: W) -> Result<(), Box<dyn Error>> {
+        let mut as_vec = Vec::with_capacity(self.len());
+        as_vec.extend_from_slice(self.as_slice());
+        MemcopySerializable::write_into_buffer(&as_vec, dst)?;
+
+        Ok(())
+    }
+
+    fn read_from_buffer<R: Read>(src: R) -> Result<Self, Box<dyn Error>> {
+        let vec: Vec<P> = MemcopySerializable::read_from_buffer(src)?;
+        Ok(vec.as_slice().into())
+    }
+}
+
+impl<
+        F: SmallField,
+        P: crate::field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
+        A: GoodAllocator + 'static,
+    > MemcopySerializable for std::sync::Arc<[P], A>
+where Vec<P, A>: MemcopySerializable
+{
+    fn write_into_buffer<W: Write>(&self, dst: W) -> Result<(), Box<dyn Error>> {
+        MemcopySerializable::write_into_buffer(&self.as_ref().to_owned(), dst)?;
+
+        Ok(())
+    }
+
+    fn read_from_buffer<R: Read>(src: R) -> Result<Self, Box<dyn Error>> {
+        let vec: Vec<P, A> = MemcopySerializable::read_from_buffer(src)?;
+        let arc_slice = unsafe {
+            let mut arc_slice = std::sync::Arc::new_uninit_slice_in(vec.len(), A::default());
+            std::mem::MaybeUninit::write_slice(std::sync::Arc::get_mut_unchecked(&mut arc_slice), vec.as_slice());
+            arc_slice.assume_init()
+        };
+        Ok(arc_slice)
     }
 }
 

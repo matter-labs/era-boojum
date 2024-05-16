@@ -1082,20 +1082,16 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
                     // so we just add
 
                     unsafe {
-                        std::sync::Arc::get_mut_unchecked(
-                            &mut aggregated_lookup_columns_c0.storage[outer],
-                        )
-                        .storage[inner]
-                            .add_assign(&tmp_c0, &mut ctx);
-                    };
+                        std::sync::Arc::get_mut_unchecked(&mut aggregated_lookup_columns_c0.storage[outer].storage)
+                            [inner]
+                    }
+                        .add_assign(&tmp_c0, &mut ctx);
 
                     unsafe {
-                        std::sync::Arc::get_mut_unchecked(
-                            &mut aggregated_lookup_columns_c1.storage[outer],
-                        )
-                        .storage[inner]
-                            .add_assign(&tmp_c1, &mut ctx);
-                    };
+                        std::sync::Arc::get_mut_unchecked(&mut aggregated_lookup_columns_c1.storage[outer].storage)
+                            [inner]
+                    }
+                        .add_assign(&tmp_c1, &mut ctx);
 
                     lde_iter.advance();
                 }
@@ -1211,15 +1207,15 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
 
                         // add into accumulator
                         unsafe {
-                            std::sync::Arc::get_mut_unchecked(&mut dst_c0.storage[outer]).storage
+                            std::sync::Arc::get_mut_unchecked(&mut dst_c0.storage[outer].storage)
                                 [inner]
-                                .add_assign(&tmp_c0, &mut ctx);
-                        };
+                        }
+                        .add_assign(&tmp_c0, &mut ctx);
                         unsafe {
-                            std::sync::Arc::get_mut_unchecked(&mut dst_c1.storage[outer]).storage
+                            std::sync::Arc::get_mut_unchecked(&mut dst_c1.storage[outer].storage)
                                 [inner]
-                                .add_assign(&tmp_c1, &mut ctx);
-                        };
+                        }
+                        .add_assign(&tmp_c1, &mut ctx);
 
                         lde_iter.advance();
                     }
@@ -1300,15 +1296,15 @@ pub(crate) fn compute_quotient_terms_for_lookup_specialized<
 
                         // add into accumulator
                         unsafe {
-                            std::sync::Arc::get_mut_unchecked(&mut dst_c0.storage[outer]).storage
+                            std::sync::Arc::get_mut_unchecked(&mut dst_c0.storage[outer].storage)
                                 [inner]
-                                .add_assign(&tmp_c0, &mut ctx);
-                        };
+                        }
+                        .add_assign(&tmp_c0, &mut ctx);
                         unsafe {
-                            std::sync::Arc::get_mut_unchecked(&mut dst_c1.storage[outer]).storage
+                            std::sync::Arc::get_mut_unchecked(&mut dst_c1.storage[outer].storage)
                                 [inner]
-                                .add_assign(&tmp_c1, &mut ctx);
-                        };
+                        }
+                        .add_assign(&tmp_c1, &mut ctx);
 
                         lde_iter.advance();
                     }

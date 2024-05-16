@@ -185,61 +185,6 @@ pub fn u16_long_subtraction_noborrow<F: SmallField, CS: ConstraintSystem<F>, con
     result
 }
 
-pub fn u16_long_subtraction_noborrow_must_borrow<
-    F: SmallField,
-    CS: ConstraintSystem<F>,
-    const N: usize,
->(
-    cs: &mut CS,
-    a: &[Variable; N],
-    b: &[Variable; N],
-    top_els_to_skip: usize,
-) -> [Variable; N] {
-    assert!(top_els_to_skip < N - 1); // at least some useful work
-    let constant_false = Boolean::allocated_constant(cs, false);
-    let constant_true = Boolean::allocated_constant(cs, true);
-    let mut borrow = constant_false;
-    let mut result = [constant_false.variable; N];
-    let work_size = N - top_els_to_skip;
-    for (idx, ((a, b), dst)) in a[..work_size]
-        .iter()
-        .zip(b[..work_size].iter())
-        .zip(result[..work_size].iter_mut())
-        .enumerate()
-    {
-        let is_last = idx == work_size - 1;
-        if is_last == false {
-            // subtract with borrow
-            let (c, new_borrow) =
-                UIntXAddGate::<16>::perform_subtraction(cs, *a, *b, borrow.variable);
-            range_check_u16(cs, c);
-            *dst = c;
-            borrow = unsafe { Boolean::from_variable_unchecked(new_borrow) };
-        } else {
-            // final one without borrow
-            let c = UIntXAddGate::<16>::perform_subtraction_with_expected_borrow_out(
-                cs,
-                *a,
-                *b,
-                borrow.variable,
-                constant_false.variable,
-                constant_true.variable,
-            );
-            range_check_u16(cs, c);
-            *dst = c;
-        }
-    }
-
-    let zero = Num::allocated_constant(cs, F::ZERO);
-
-    for (a, b) in a[work_size..].iter().zip(b[work_size..].iter()) {
-        Num::enforce_equal(cs, &Num::from_variable(*a), &zero);
-        Num::enforce_equal(cs, &Num::from_variable(*b), &zero);
-    }
-
-    result
-}
-
 pub fn split_out_u32_carry_from_zero_low<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     lhs: Variable,
