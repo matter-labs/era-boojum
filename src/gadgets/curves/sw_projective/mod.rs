@@ -493,6 +493,15 @@ where
 
         ((x, y), is_point_at_infty)
     }
+
+    pub fn enforce_reduced<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS
+    ){
+        self.x.enforce_reduced(cs);
+        self.y.enforce_reduced(cs);
+        self.z.enforce_reduced(cs);
+    }
 }
 
 impl<F: SmallField, C: GenericCurveAffine, NN: NonNativeField<F, C::Base>> Selectable<F>

@@ -11,7 +11,8 @@ use pairing::ff::PrimeField;
 use pairing::GenericCurveAffine;
 
 /// ExtendedSWProjectivePoint is the same structure as SWProjectivePoint, but with an additional
-/// feature where GenericCurveAffine::Base is not necessarily the PrimeField.
+/// feature where GenericCurveAffine::Base is not necessarily the PrimeField. This structure
+/// is done separately to avoid any potential conflicts with the existing SWProjectivePoint.
 #[derive(Derivative)]
 #[derivative(Clone, Debug)]
 pub struct ExtendedSWProjectivePoint<F, T, C, NN>
@@ -44,6 +45,12 @@ where
             z,
             _marker: std::marker::PhantomData,
         }
+    }
+
+    /// Checks whether the Z coordinate is zero or not.
+    pub fn is_normalized<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Boolean<F> {
+        let mut one = NN::allocated_constant(cs, T::one(), self.x.get_params());
+        self.z.equals(cs, &mut one)
     }
 
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS, params: &std::sync::Arc<NN::Params>) -> Self {
@@ -491,6 +498,41 @@ where
         let y = NN::conditionally_select(cs, is_point_at_infty, &default_y, &y_for_safe_z);
 
         ((x, y), is_point_at_infty)
+    }
+
+    pub fn convert_to_affine_jacobian<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        default: C,
+    ) -> ((NN, NN), Boolean<F>) {
+        let params = self.x.get_params().clone();
+        let is_point_at_infty = NN::is_zero(&mut self.z, cs);
+
+        let one_nn = NN::allocated_constant(cs, T::one(), &params);
+        let mut safe_z = NN::conditionally_select(cs, is_point_at_infty, &one_nn, &self.z);
+        let mut safe_z_squared = safe_z.square(cs);
+        let mut safe_z_cubed = safe_z.mul(cs, &mut safe_z_squared);
+        let x_for_safe_z = self.x.div_unchecked(cs, &mut safe_z_squared);
+        let y_for_safe_z = self.y.div_unchecked(cs, &mut safe_z_cubed);
+
+        let (default_x, default_y) = default.into_xy_unchecked();
+
+        let default_x = NN::from_curve_base(cs, &default_x, &params);
+        let default_y = NN::from_curve_base(cs, &default_y, &params);
+
+        let x = NN::conditionally_select(cs, is_point_at_infty, &default_x, &x_for_safe_z);
+        let y = NN::conditionally_select(cs, is_point_at_infty, &default_y, &y_for_safe_z);
+
+        ((x, y), is_point_at_infty)
+    }
+
+    pub fn enforce_reduced<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS
+    ){
+        self.x.enforce_reduced(cs);
+        self.y.enforce_reduced(cs);
+        self.z.enforce_reduced(cs);
     }
 }
 
