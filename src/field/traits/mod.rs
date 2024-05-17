@@ -1,3 +1,3 @@
-pub mod field;
 pub mod field_like;
-pub mod representation;
+pub use boojum_stable::field::traits::field;
+pub use boojum_stable::field::traits::representation;

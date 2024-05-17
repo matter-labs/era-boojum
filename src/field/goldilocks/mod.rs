@@ -602,7 +602,7 @@ const unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     res_wrapped + EPSILON * (carry as u64)
 }
 
-crate::impl_std_ops_for_field!(GoldilocksField);
+boojum_stable::impl_std_ops_for_field!(GoldilocksField);
 
 #[cfg(test)]
 mod test {

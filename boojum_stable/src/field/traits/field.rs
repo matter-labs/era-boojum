@@ -6,6 +6,11 @@
 // and also assuming that 99.999% of calls below will be inlined, we only keep
 // "standard" methods line "mul_assign", and do not add "by value" counterparts
 
+#[inline]
+pub const fn num_bits_u64(n: u64) -> usize {
+    (64 - n.leading_zeros()) as usize
+}
+
 pub trait Field:
     'static
     + Clone
@@ -44,7 +49,7 @@ pub trait Field:
         let mut product = Self::ONE;
 
         let mut j = 0;
-        let num_bits = crate::utils::num_bits_u64(power);
+        let num_bits = num_bits_u64(power);
         while j < num_bits {
             if (power >> j & 1) != 0 {
                 product.mul_assign(&current);
@@ -65,7 +70,7 @@ pub trait Field:
         while word_idx < exp.len() {
             let power = exp[word_idx];
             let num_bits = if word_idx == exp.len() - 1 {
-                crate::utils::num_bits_u64(power)
+                num_bits_u64(power)
             } else {
                 64
             };

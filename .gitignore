@@ -3,3 +3,4 @@
 /target
 /profiling-target/target
 /Cargo.lock
+boojum_stable/target

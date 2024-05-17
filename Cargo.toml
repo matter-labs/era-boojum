@@ -29,6 +29,7 @@ crypto-bigint = "0.5"
 convert_case = "*"
 firestorm = "*"
 tracing = { version = "0.1.37", optional = true }
+boojum_stable = { path = "boojum_stable" }
 
 [dev-dependencies]
 criterion = "0.4"
