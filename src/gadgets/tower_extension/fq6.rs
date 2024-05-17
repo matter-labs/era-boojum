@@ -22,7 +22,6 @@ use crate::{
     },
 };
 use crate::cs::Variable;
-use crate::gadgets::tower_extension::params::Extension2Params;
 use crate::gadgets::traits::allocatable::CSPlaceholder;
 use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
@@ -84,6 +83,26 @@ where
         let one = Fq2::one(cs, params);
         let zero = Fq2::zero(cs, params);
         Self::new(one, zero.clone(), zero)
+    }
+
+    /// Returns the `\gamma`: square root of `w`, being just a `0+1*v+0*v^2` element.
+    pub fn gamma<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let one = Fq2::one(cs, params);
+        let zero = Fq2::zero(cs, params);
+        Self::new(zero.clone(), one, zero)
+    }
+
+    /// Returns `Fq6::one()` if `b` is true, and `Fq6::zero()` if `b` is false.
+    pub fn from_boolean<CS>(cs: &mut CS, b: Boolean<F>, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let zero = Self::zero(cs, params);
+        let one = Self::one(cs, params);
+        Self::conditionally_select(cs, b, &one, &zero)
     }
 
     /// Returns true if the `Fq6` element is zero.

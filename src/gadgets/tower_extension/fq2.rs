@@ -4,7 +4,6 @@ use pairing::{
     bn256::{Fq as BN256Fq, Fq2 as BN256Fq2, G2Affine},
     ff::PrimeField,
 };
-use pairing::bn256::Fq;
 
 use super::params::{bn256::BN256Extension2Params, Extension2Params};
 

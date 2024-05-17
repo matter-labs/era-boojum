@@ -23,7 +23,6 @@ use crate::{
     },
 };
 use crate::cs::Variable;
-use crate::gadgets::tower_extension::params::Extension2Params;
 use crate::gadgets::traits::allocatable::CSPlaceholder;
 use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
@@ -118,6 +117,16 @@ where
     {
         let one = Fq6::one(cs, params);
         let zero = Fq6::zero(cs, params);
+        Self::new(one, zero)
+    }  
+
+    /// Creates a unit `Fq12` in a form `0+1*w`
+    pub fn one_imaginary<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let one = Fq6::zero(cs, params);
+        let zero = Fq6::one(cs, params);
         Self::new(one, zero)
     }
 
