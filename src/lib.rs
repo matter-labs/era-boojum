@@ -43,7 +43,6 @@
 #![feature(generic_const_exprs)]
 #![feature(iter_array_chunks)]
 // #![recursion_limit = "1024"]
-#![feature(stdsimd)]
 #![feature(avx512_target_feature)]
 #![feature(associated_type_defaults)]
 #![feature(trait_alias)]
@@ -51,6 +50,8 @@
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_changing_struct_update)]
 #![feature(slice_flatten)]
+//#![cfg(feature = "optimized_impl")]
+//#![feature(stdsimd)]
 
 pub mod algebraic_props;
 pub mod config;
