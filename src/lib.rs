@@ -50,8 +50,7 @@
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_changing_struct_update)]
 #![feature(slice_flatten)]
-//#![cfg(feature = "optimized_impl")]
-//#![feature(stdsimd)]
+#![cfg_attr(feature = "include_packed_simd", feature(stdsimd))]
 
 pub mod algebraic_props;
 pub mod config;

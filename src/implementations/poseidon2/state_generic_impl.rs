@@ -29,8 +29,10 @@ impl State {
     pub const T: u64 = (Self::ORDER - 1) >> Self::TWO_ADICITY;
     pub const BARRETT: u128 = 18446744078004518912; // 0x10000000100000000
     pub const EPSILON: u64 = (1 << 32) - 1;
-    //pub const EPSILON_VECTOR: packed_simd::u64x4 = packed_simd::u64x4::splat(Self::EPSILON);
-    //pub const EPSILON_VECTOR_D: packed_simd::u64x8 = packed_simd::u64x8::splat(Self::EPSILON);
+    #[cfg(feature = "include_packed_simd")]
+    pub const EPSILON_VECTOR: packed_simd::u64x4 = packed_simd::u64x4::splat(Self::EPSILON);
+    #[cfg(feature = "include_packed_simd")]
+    pub const EPSILON_VECTOR_D: packed_simd::u64x8 = packed_simd::u64x8::splat(Self::EPSILON);
 
     pub const RATE: usize = poseidon_goldilocks_params::RATE;
     pub const CAPACITY: usize = poseidon_goldilocks_params::CAPACITY;
