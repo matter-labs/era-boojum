@@ -106,6 +106,7 @@ pub fn clone_respecting_allignment<T: Sized + Clone, U: Sized, A: GoodAllocator>
 
 // Allocate a vector of type T, but with extra restriction that it has an alignment
 // of type U. Capacity should be divisible by size_of::<U>/size_of::<T>
+// sanity
 #[inline]
 pub fn cast_check_alignment<T: Sized, U: Sized, A: GoodAllocator>(a: Vec<T, A>) -> Vec<U, A> {
     debug_assert!(std::mem::size_of::<T>() > 0);
