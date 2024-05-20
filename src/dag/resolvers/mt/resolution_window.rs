@@ -163,8 +163,12 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
             comms,
 
             track_list: Vec::new(),
-            execution_list: if cfg!(feature="cr_paranoia_mode") { 1 << 26 } else { 0 }
-                .to(|x| Vec::with_capacity(x).op(|v| v.resize(x, 0))),
+            execution_list: if cfg!(feature = "cr_paranoia_mode") {
+                1 << 26
+            } else {
+                0
+            }
+            .to(|x| Vec::with_capacity(x).op(|v| v.resize(x, 0))),
             phantom: PhantomData,
         };
 
@@ -207,7 +211,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
 
                 data[data_ix].push(order_ix.into(), task.order_info.value);
 
-                if cfg!(feature="cr_paranoia_mode") {
+                if cfg!(feature = "cr_paranoia_mode") {
                     self.execution_list[order_ix] += 1;
 
                     if self.execution_list[order_ix] > 1 {
@@ -238,7 +242,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
                 }
             }
 
-            if (cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA) && true {
+            if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA) && true {
                 log!("RW: Batch! {} tasks.", count);
             }
 
@@ -264,7 +268,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
                 .for_each(|x| {
                     x.state = ResolverState::Done;
 
-                    if cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+                    if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
                         unsafe {
                             let r = self.common.resolvers.u_deref().get(x.order_info.value);
 
@@ -291,7 +295,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
                     }
                 });
 
-            if cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+            if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
                 if self
                     .exec_order_buffer
                     .iter()
@@ -343,7 +347,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
 
                     drop(awaiters);
 
-                    if cfg!(feature="cr_paranoia_mode") && count > 0 {
+                    if cfg!(feature = "cr_paranoia_mode") && count > 0 {
                         log!(
                             "RW: Shifted by {}, new range is: {}..{}, buffer len: {}",
                             count,
@@ -412,7 +416,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
 
                 self.stats.total_consumption = extend_to as u64;
 
-                if crate::dag::resolvers::mt::PARANOIA || cfg!(feature="cr_paranoia_mode") {
+                if crate::dag::resolvers::mt::PARANOIA || cfg!(feature = "cr_paranoia_mode") {
                     log!(
                         "RW: Extended range by {}, new range {}..{}",
                         extend_to,
@@ -474,7 +478,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
             }
         }
 
-        if crate::dag::resolvers::mt::PARANOIA || cfg!(feature="cr_paranoia_mode") {
+        if crate::dag::resolvers::mt::PARANOIA || cfg!(feature = "cr_paranoia_mode") {
             log!("[{:?}] RW: Exit conditions met.", std::time::Instant::now())
         }
 
@@ -484,7 +488,7 @@ impl<V: SmallField + 'static, T: TrackId + 'static, Cfg: RWConfig<T> + 'static>
 
         self.stats.total_time = start_instant.elapsed();
 
-        if cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+        if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
             log!("CR {:#?}", self.stats);
             log!("CR {:#?}", unsafe { &*self.channel.stats.get() });
 
@@ -590,7 +594,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize>
             });
         }
 
-        if cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+        if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
             log!(
                 "{}\n{:#?}\n{:#?}",
                 std::thread::current().name().unwrap_or_default(),
@@ -629,7 +633,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize>
             .map(|x| {
                 let (vs, md) = self.common.values.u_deref().get_item_ref(*x);
 
-                if cfg!(feature="cr_paranoia_mode") || true {
+                if cfg!(feature = "cr_paranoia_mode") || true {
                     if Cfg::ASSERT_TRACKED_VALUES {
                         assert!(md.is_tracked());
                     }
@@ -678,7 +682,7 @@ impl<V: SmallField, T: TrackId + 'static, Cfg: RWConfig<T>, const SIZE: usize>
 
         let mut track = false;
 
-        if cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+        if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
             if let Some(x) = self
                 .debug_track
                 .iter()
@@ -831,7 +835,7 @@ impl LockStepChannel {
     fn execute(&self) {
         use std::sync::atomic::Ordering::*;
 
-        if (cfg!(feature="cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA) && false {
+        if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA) && false {
             log!("RW: batch sent {:#?}", unsafe { self.data.u_deref() });
         }
 
