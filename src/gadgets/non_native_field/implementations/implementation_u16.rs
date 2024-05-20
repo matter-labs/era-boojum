@@ -1,7 +1,7 @@
-use std::fmt;
 use crypto_bigint::CheckedMul;
-use serde::{de, Deserialize, Deserializer, Serialize};
 use serde::de::Visitor;
+use serde::{de, Deserialize, Deserializer, Serialize};
+use std::fmt;
 
 use crate::cs::gates::{
     ConstantAllocatableCS, DotProductGate, FmaGateInBaseFieldWithoutConstant, UIntXAddGate,
@@ -1038,15 +1038,13 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSAllocatable<F>
 impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
     for NonNativeFieldOverU16<F, T, N>
 {
-    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self  {
+    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let variable = Variable::placeholder();
 
-        Self{
+        Self {
             limbs: [variable; N],
             non_zero_limbs: 0,
-            tracker: OverflowTracker{
-                max_moduluses: 0
-            },
+            tracker: OverflowTracker { max_moduluses: 0 },
             form: RepresentationForm::Normalized,
             params: Arc::new(NonNativeFieldOverU16Params::placeholder(cs)),
             _marker: std::marker::PhantomData,
@@ -1055,7 +1053,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
 }
 
 impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CircuitVarLengthEncodable<F>
-for NonNativeFieldOverU16<F, T, N>
+    for NonNativeFieldOverU16<F, T, N>
 {
     fn encoding_length(&self) -> usize {
         N
@@ -1102,8 +1100,8 @@ where
             }
 
             fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-                where
-                    M: de::MapAccess<'de>,
+            where
+                M: de::MapAccess<'de>,
             {
                 let mut value = None;
 
@@ -1127,10 +1125,15 @@ where
         }
 
         const FIELDS: &[&str] = &["value"];
-        deserializer.deserialize_struct("FFProxyValue", FIELDS, FFProxyValueVisitor { marker: std::marker::PhantomData })
+        deserializer.deserialize_struct(
+            "FFProxyValue",
+            FIELDS,
+            FFProxyValueVisitor {
+                marker: std::marker::PhantomData,
+            },
+        )
     }
 }
-
 
 impl<T: pairing::ff::PrimeField, const N: usize> FFProxyValue<T, N> {
     pub const fn get(&self) -> T {

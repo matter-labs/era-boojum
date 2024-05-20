@@ -7,6 +7,9 @@ use pairing::{
 
 use super::params::{bn256::BN256Extension2Params, Extension2Params};
 
+use crate::cs::Variable;
+use crate::gadgets::traits::allocatable::CSPlaceholder;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -18,9 +21,6 @@ use crate::{
         },
     },
 };
-use crate::cs::Variable;
-use crate::gadgets::traits::allocatable::CSPlaceholder;
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
@@ -375,7 +375,7 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T> + CircuitVarLengthEncodable<F>,
-    P: Extension2Params<T>
+    P: Extension2Params<T>,
 {
     fn encoding_length(&self) -> usize {
         self.c0.encoding_length() + self.c1.encoding_length()

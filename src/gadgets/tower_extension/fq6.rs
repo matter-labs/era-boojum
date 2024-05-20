@@ -10,6 +10,9 @@ use super::{
     },
 };
 
+use crate::cs::Variable;
+use crate::gadgets::traits::allocatable::CSPlaceholder;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -21,9 +24,6 @@ use crate::{
         },
     },
 };
-use crate::cs::Variable;
-use crate::gadgets::traits::allocatable::CSPlaceholder;
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 /// `Fq6` field extension implementation in the constraint system. It is implemented
 /// as `Fq2[v]/(v^3-xi)` where `xi=9+u`. In other words,
@@ -340,6 +340,7 @@ where
         CS: ConstraintSystem<F>,
     {
         let mut inv = other.inverse(cs);
+        inv.normalize(cs);
         self.mul(cs, &mut inv)
     }
 
@@ -496,7 +497,7 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T> + CircuitVarLengthEncodable<F>,
-    P: Extension6Params<T>
+    P: Extension6Params<T>,
 {
     fn encoding_length(&self) -> usize {
         self.c0.encoding_length() + self.c1.encoding_length() + self.c1.encoding_length()
@@ -667,7 +668,11 @@ where
         a: &Self,
         b: &Self,
     ) -> Self {
-        unimplemented!("conditionally_select is not implemented for generic Fq6, only for BN256-specific parameters");
+        let c0 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(cs, flag, &a.c0, &b.c0);
+        let c1 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(cs, flag, &a.c1, &b.c1);
+        let c2 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(cs, flag, &a.c2, &b.c2);
+
+        Self::new(c0, c1, c2)
     }
 
     #[allow(unused_variables)]

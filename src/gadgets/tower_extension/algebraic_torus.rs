@@ -12,7 +12,7 @@ use super::{fq12::Fq12, fq6::Fq6, params::Extension12Params};
 
 /// [`TorusWrapper`] is an algebraic compression of the `Fq12` element via underlying encoding of `Fq6`.
 /// In compressed form operations over Fq12 are less expensive.
-/// 
+///
 /// The implementation is based on the following paper:
 /// https://eprint.iacr.org/2022/1162.pdf.
 #[derive(Clone, Debug, Copy)]
@@ -60,10 +60,10 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     }
 
     /// Compresses the `Fq12` element `c0 + c1*w` to the Torus (`T2`) element.
-    /// 
+    ///
     /// Uses the formula `m <- (1 + c0) / c1` to compress the `Fq12` element with the additional
     /// check for the exceptional case when `c1` is zero.
-    /// 
+    ///
     /// If `SAFE=false`, then the function will not check for the exceptional case when `c1` is zero.
     pub fn compress<CS, const SAFE: bool>(cs: &mut CS, f: &mut Fq12<F, T, NN, P>) -> Self
     where
@@ -74,10 +74,10 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         let mut c1 = f.c1.clone();
 
         let encoding = if SAFE {
+            // Preparing flags for exception cases
             let is_exceptional = Fq6::is_zero(&mut c1, cs);
             let mut c0_is_one = Fq6::one(cs, params);
             let c0_is_one = c0_is_one.equals(cs, &mut c0);
-
             let mut is_exceptional = Fq6::from_boolean(cs, is_exceptional, params);
             let mut c0_is_one = Fq6::from_boolean(cs, c0_is_one, params);
             
@@ -88,8 +88,8 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut c0_is_one_doubled = c0_is_one.double(cs);
             let mut numerator = numerator.sub(cs, &mut c0_is_one_doubled);
             let mut denominator = f.c1.add(cs, &mut is_exceptional);
+            
             let encoding = numerator.div(cs, &mut denominator);
-
             encoding
         } else {
             // Verifying that c1 is non-zero
@@ -109,7 +109,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     }
 
     /// Decompresses the Torus (`T2`) element `g` back to the `Fq12` element by using the formula
-    /// 
+    ///
     /// `zeta^{-1} = (g + w)/(g - w)`
     pub fn decompress<CS>(&self, cs: &mut CS) -> Fq12<F, T, NN, P>
     where
@@ -148,7 +148,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     }
 
     /// Computes the Frobenius map of the Torus element with the given power using the formula
-    /// 
+    ///
     /// frob_map(g, i) = g^(p^i) / \gamma^{(p^i-1)/2}
     pub fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
     where
@@ -173,16 +173,16 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         let c1_is_zero = g.c1.is_zero(cs);
         Boolean::enforce_equal(cs, &c1_is_zero, &boolean_true);
         let mut denominator = denominator.c0.clone();
-        
+
         // frob_map(g, i) / \gamma^{(p^i-1)/2}
         let encoding = numerator.div(cs, &mut denominator);
         Self::new(encoding)
     }
 
     /// Computes the product of two Torus elements using the formula
-    /// 
+    ///
     /// `(g, g') -> (g * g' + \gamma) / (g + g')`
-    /// 
+    ///
     /// The formula handles the exceptional case when `g + g'` is zero.
     pub fn mul<CS, const SAFE: bool>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
@@ -190,7 +190,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     {
         let params = self.get_params();
         let mut gamma = Fq6::gamma(cs, params);
-        
+
         // g1 <- g, g2 <- g'
         let mut g1 = self.encoding.clone();
         let mut g2 = other.encoding.clone();
@@ -201,7 +201,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
 
         // y <- g + g'
         let mut y = g1.add(cs, &mut g2);
-        
+
         let encoding = if SAFE {
             // Exception occurs when g = -g'. To account for such case,
             // the following formula is used (flag = (y == 0)? 1 : 0 --- exception case):
@@ -210,7 +210,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut zero = Fq6::zero(cs, params);
             let exception = y.equals(cs, &mut zero);
             let mut flag = Fq6::from_boolean(cs, exception, params);
-            
+
             let mut numerator = flag.mul(cs, &mut x);
             let mut numerator = x.sub(cs, &mut numerator);
             let mut denominator = y.add(cs, &mut flag);
@@ -223,7 +223,11 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         Self::new(encoding)
     }
 
-    pub fn pow_u32<CS, S: AsRef<[u64]>, const SAFE: bool>(&mut self, cs: &mut CS, exponent: S) -> Self
+    pub fn pow_u32<CS, S: AsRef<[u64]>, const SAFE: bool>(
+        &mut self,
+        cs: &mut CS,
+        exponent: S,
+    ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -250,9 +254,9 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     }
 
     /// Squares the Torus element using the formula
-    /// 
+    ///
     /// `g -> (1/2)(g + \gamma/g)`
-    /// 
+    ///
     /// The formula handles the exceptional case when `g` is zero.
     pub fn square<CS, const SAFE: bool>(&mut self, cs: &mut CS) -> Self
     where
@@ -272,7 +276,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut zero = Fq6::zero(cs, params);
             let exception = g.equals(cs, &mut zero);
             let mut flag = Fq6::from_boolean(cs, exception, params);
-            
+
             let mut flag_negated = one.sub(cs, &mut flag);
             let mut numerator = gamma.mul(cs, &mut flag_negated);
             let mut denominator = g.add(cs, &mut flag);
