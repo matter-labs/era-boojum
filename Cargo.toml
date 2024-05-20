@@ -55,3 +55,5 @@ opt-level = 3
 log_tracing = ["tracing"]
 # Currently packed_simd is no longer working with the newest nightly.
 include_packed_simd = ["packed_simd"]
+cr_paranoia_mode = []
+debug_track = []

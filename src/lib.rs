@@ -21,6 +21,9 @@
 #![allow(dead_code)]
 #![allow(dropping_references)] // Required to explicitly show that mutable references are dropped.
 #![allow(incomplete_features)]
+#![allow(internal_features)] // Required for core_intrinsics
+#![allow(stable_features)]
+#![allow(unused_unsafe)]
 // Enabled features
 #![feature(allocator_api)]
 #![feature(const_mut_refs)]

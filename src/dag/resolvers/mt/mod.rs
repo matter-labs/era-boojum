@@ -169,7 +169,7 @@ impl<V: SmallField, RS: ResolverSortingMode<V>, CFG: CSResolverConfig>
 
         let debug_track = vec![];
 
-        if cfg!(cr_paranoia_mode) || PARANOIA {
+        if cfg!(feature="cr_paranoia_mode") || PARANOIA {
             log!("Contains tracked keys {:?} ", debug_track);
         }
 
@@ -269,7 +269,7 @@ impl<V: SmallField, RS: ResolverSortingMode<V>, CFG: CSResolverConfig>
 
         self.sorter.write_sequence();
 
-        if cfg!(cr_paranoia_mode) || PARANOIA {
+        if cfg!(feature="cr_paranoia_mode") || PARANOIA {
             log!("CR {:?}", unsafe {
                 self.common.awaiters_broker.stats.u_deref()
             });
@@ -1487,7 +1487,7 @@ mod test {
 
         storage.wait_till_resolved();
 
-        if cfg!(cr_paranoia_mode) {
+        if cfg!(feature="cr_paranoia_mode") {
             log!("Test: total value result: \n   - {}", unsafe {
                 (*storage.common.values.get())
                     .variables
@@ -1509,7 +1509,7 @@ mod test {
                 let act = Place::from_variable(Variable::from_variable_index(ix as u64))
                     .to(|x| storage.get_value_unchecked(x));
 
-                if cfg!(cr_paranoia_mode) {
+                if cfg!(feature="cr_paranoia_mode") {
                     log!("Test: per item value: ix {}, value {}", ix, act);
                 }
 
@@ -1542,7 +1542,7 @@ mod test {
 
         storage.wait_till_resolved();
 
-        if cfg!(cr_paranoia_mode) {
+        if cfg!(feature="cr_paranoia_mode") {
             log!("Test: total value result: \n   - {}", unsafe {
                 (*storage.common.values.get())
                     .variables
@@ -1564,7 +1564,7 @@ mod test {
                 let act = Place::from_variable(Variable::from_variable_index(ix as u64))
                     .to(|x| storage.get_value_unchecked(x));
 
-                if cfg!(cr_paranoia_mode) {
+                if cfg!(feature="cr_paranoia_mode") {
                     log!("Test: per item value: ix {}, value {}", ix, act);
                 }
 
