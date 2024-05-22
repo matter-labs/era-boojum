@@ -3,11 +3,7 @@ use ethereum_types::U256;
 use crate::{cs::traits::cs::ConstraintSystem, field::SmallField};
 
 use super::{
-    boolean::Boolean,
-    traits::selectable::Selectable,
-    u256::UInt256,
-    u32::UInt32,
-    u512::UInt512,
+    boolean::Boolean, traits::selectable::Selectable, u256::UInt256, u32::UInt32, u512::UInt512,
 };
 
 const U256_MAX_BITS: usize = 256;

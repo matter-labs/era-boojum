@@ -4,10 +4,12 @@ use pairing::{
     bn256::{Fq as BN256Fq, Fq2 as BN256Fq2, G2Affine},
     ff::PrimeField,
 };
-use pairing::bn256::Fq;
 
 use super::params::{bn256::BN256Extension2Params, Extension2Params};
 
+use crate::cs::Variable;
+use crate::gadgets::traits::allocatable::CSPlaceholder;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -19,9 +21,6 @@ use crate::{
         },
     },
 };
-use crate::cs::Variable;
-use crate::gadgets::traits::allocatable::CSPlaceholder;
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 /// BN256Fq2Params represents a pair of elements in the extension field `Fq2=Fq[u]/(u^2-beta)`
 /// where `beta^2=-1`. The implementation is primarily based on the following paper:
@@ -36,6 +35,7 @@ where
 {
     pub c0: NN,
     pub c1: NN,
+    wit: Option<P::Witness>,
     _marker: std::marker::PhantomData<(F, T, P)>,
 }
 
@@ -51,6 +51,7 @@ where
         Self {
             c0,
             c1,
+            wit: Option::None, // to get placeholder_witness we need CS
             _marker: std::marker::PhantomData::<(F, T, P)>,
         }
     }
@@ -374,7 +375,7 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T> + CircuitVarLengthEncodable<F>,
-    P: Extension2Params<T>
+    P: Extension2Params<T>,
 {
     fn encoding_length(&self) -> usize {
         self.c0.encoding_length() + self.c1.encoding_length()

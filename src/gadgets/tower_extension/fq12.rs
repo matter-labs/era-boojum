@@ -11,6 +11,9 @@ use super::{
     },
 };
 
+use crate::cs::Variable;
+use crate::gadgets::traits::allocatable::CSPlaceholder;
+use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -22,10 +25,6 @@ use crate::{
         },
     },
 };
-use crate::cs::Variable;
-use crate::gadgets::tower_extension::params::Extension2Params;
-use crate::gadgets::traits::allocatable::CSPlaceholder;
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
 /// `Fq12` field extension implementation in the constraint system. It is implemented
 /// as `Fq6[w]/(w^2-v)` where `w^6=9+u`. In other words, it is a set of
@@ -118,6 +117,16 @@ where
     {
         let one = Fq6::one(cs, params);
         let zero = Fq6::zero(cs, params);
+        Self::new(one, zero)
+    }
+
+    /// Creates a unit `Fq12` in a form `0+1*w`
+    pub fn one_imaginary<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let one = Fq6::zero(cs, params);
+        let zero = Fq6::one(cs, params);
         Self::new(one, zero)
     }
 
@@ -426,7 +435,7 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T> + CircuitVarLengthEncodable<F>,
-    P: Extension12Params<T>
+    P: Extension12Params<T>,
 {
     fn encoding_length(&self) -> usize {
         self.c0.encoding_length() + self.c1.encoding_length()
