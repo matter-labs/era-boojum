@@ -191,7 +191,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter>
                 }
             }
 
-            if cfg!(feature = "cr_paranoia_mode") {
+            if cfg!(cr_paranoia_mode) {
                 // This ugly block checks that the calculated parallelism is
                 // correct. It's a bit slower than O(n^2). Also note, that it
                 // checks only the last 1050 items, so it's not a full check,
@@ -297,7 +297,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
     }
 
     fn set_value(&mut self, key: crate::cs::Place, value: F) {
-        if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA)
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA)
             && self.debug_track.contains(&key)
             && false
         {
@@ -378,7 +378,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
         let mut hit = false;
 
-        if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA) && true {
+        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && true {
             if let Some(x) = self.debug_track.iter().find(|x| inputs.contains(x)) {
                 log!("CR: added resolution with tracked input {:?}", x);
 
@@ -498,7 +498,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         outputs: &[Place],
         added_at: RegistrationNum,
     ) -> Vec<ResolverIx> {
-        if cfg!(feature = "cr_paranoia_mode") {
+        if cfg!(cr_paranoia_mode) {
             if let Some(x) = self.debug_track.iter().find(|x| inputs.contains(x)) {
                 log!("CR: internalized resolution with tracked input {:?}", x);
             }
@@ -519,7 +519,7 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
 
         let deps = inputs.iter().map(|x| &values.get_item_ref(*x).1);
 
-        if cfg!(feature = "cr_paranoia_mode") {
+        if cfg!(cr_paranoia_mode) {
             debug_assert!(
                 deps.clone().all(|x| { x.is_tracked() }),
                 "Attempting to internalize a resolution with an untracked input. All inputs must be tracked."
@@ -610,14 +610,14 @@ impl<F: SmallField, Cfg: CSResolverConfig, RW: ResolutionRecordWriter> ResolverS
         self.record.values_count = unsafe { self.common.values.u_deref().max_tracked + 1 } as usize;
         self.record.registrations_count = self.stats.registrations_added as usize;
 
-        if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             log!(
                 "CR: Final order written. Order len {}",
                 self.common.exec_order.lock().unwrap().items.len()
             );
         }
 
-        if cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA {
+        if cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA {
             self.guide.stats.finalize();
 
             log!("CR {:?}", self.guide.stats);

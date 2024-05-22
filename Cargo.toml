@@ -23,7 +23,7 @@ itertools = "0.10"
 blake2 = "0.10"
 sha2 = "0.10"
 num-modular = "0.5.1"
-packed_simd = { version = "0.3.9" , optional = true}
+packed_simd = { version = "0.3.9" }
 pairing = { package = "pairing_ce", git = "https://github.com/matter-labs/pairing.git" }
 crypto-bigint = "0.5"
 convert_case = "*"
@@ -53,7 +53,3 @@ opt-level = 3
 
 [features]
 log_tracing = ["tracing"]
-# Currently packed_simd is no longer working with the newest nightly.
-include_packed_simd = ["packed_simd"]
-cr_paranoia_mode = []
-debug_track = []

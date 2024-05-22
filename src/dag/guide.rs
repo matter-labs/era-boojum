@@ -384,7 +384,7 @@ impl<'a, T: Copy + Debug, F: SmallField, Cfg: CSResolverConfig> GuideOrder<'a, T
             pos += span.buffer.len();
         }
 
-        if cfg!(feature = "cr_paranoia_mode") && self.guide.tracing {
+        if cfg!(cr_paranoia_mode) && self.guide.tracing {
             log!(
                 "Released span {}: {:?}",
                 self.guide.spans[0].id.0,
@@ -684,7 +684,7 @@ impl<T: Debug, F: SmallField, Cfg: CSResolverConfig> BufferGuide<T, F, Cfg> {
     }
 
     pub(crate) fn flush(&mut self) -> BufferGuideFinalization<'_, T, F, Cfg> {
-        if cfg!(feature = "cr_paranoia_mode") && self.tracing {
+        if cfg!(cr_paranoia_mode) && self.tracing {
             log!("CRG: flush.");
         }
 
