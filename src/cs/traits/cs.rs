@@ -20,7 +20,7 @@ impl<'set, 'tgt: 'set, T: SmallField> DstBuffer<'set, 'tgt, T> {
                 *offset += 1;
             }
             DstBuffer::MutSliceIndirect(dst, debug_track, offset) => {
-                if cfg!(feature = "debug_track") && *debug_track {
+                if cfg!(debug_track) && *debug_track {
                     log!("   set out {} <- {}", *offset, value.as_raw_u64())
                 }
 
