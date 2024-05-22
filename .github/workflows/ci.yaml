@@ -7,7 +7,7 @@ jobs:
     name: cargo build and test
     strategy:
       matrix:
-        # Needs big runners for the tests
+        # Needs big runners to run tests
         os: [ubuntu-22.04-github-hosted-16core, macos-13-large]
     runs-on: ${{ matrix.os }}
     steps:
