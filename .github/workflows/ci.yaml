@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         # Needs big runners to run tests
-        # Only macos-13-xlarge is Apple Silicon, as per
+        # Only macos-13-xlarge is Apple Silicon, as per:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-larger-runners/about-larger-runners#about-macos-larger-runners
         os: [ubuntu-22.04-github-hosted-16core, macos-13-xlarge]
     runs-on: ${{ matrix.os }}
