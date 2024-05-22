@@ -5,10 +5,15 @@ on:
 jobs:
   build:
     name: cargo build and test
-    # Needs big runner for the test.
-    runs-on: ubuntu-22.04-github-hosted-16core
+    strategy:
+      matrix:
+        # Needs big runners to run tests
+        # Only macos-13-xlarge is Apple Silicon, as per:
+        # https://docs.github.com/en/actions/using-github-hosted-runners/about-larger-runners/about-larger-runners#about-macos-larger-runners
+        os: [ubuntu-22.04-github-hosted-16core, macos-13-xlarge]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo build --verbose
       - run: cargo test --verbose --all
