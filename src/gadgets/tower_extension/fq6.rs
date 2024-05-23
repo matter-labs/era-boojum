@@ -350,15 +350,6 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        // TODO: explain:
-
-        match power % 6 {
-            0 | 1 | 2 | 3 => {}
-            _ => {
-                unreachable!("can not reach power {}", power);
-            }
-        }
-
         let c0 = self.c0.frobenius_map(cs, power);
         let mut c1 = self.c1.frobenius_map(cs, power);
         let mut c2 = self.c2.frobenius_map(cs, power);
@@ -668,9 +659,15 @@ where
         a: &Self,
         b: &Self,
     ) -> Self {
-        let c0 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(cs, flag, &a.c0, &b.c0);
-        let c1 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(cs, flag, &a.c1, &b.c1);
-        let c2 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(cs, flag, &a.c2, &b.c2);
+        let c0 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(
+            cs, flag, &a.c0, &b.c0,
+        );
+        let c1 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(
+            cs, flag, &a.c1, &b.c1,
+        );
+        let c2 = <Fq2<F, T, NN, <P as Extension6Params<T>>::Ex2>>::conditionally_select(
+            cs, flag, &a.c2, &b.c2,
+        );
 
         Self::new(c0, c1, c2)
     }

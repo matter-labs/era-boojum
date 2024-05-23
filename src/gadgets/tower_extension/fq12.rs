@@ -278,15 +278,6 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        // TODO: explain:
-
-        match power {
-            1 | 2 | 3 | 6 => {}
-            _ => {
-                unreachable!("can not reach power {}", power);
-            }
-        }
-
         let c0 = self.c0.frobenius_map(cs, power);
         let mut c1 = self.c1.frobenius_map(cs, power);
 

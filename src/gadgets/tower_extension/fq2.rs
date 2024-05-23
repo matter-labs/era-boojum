@@ -252,9 +252,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        if power % 2 == 0 {
-            return self.clone();
-        }
+        let is_even = Boolean::allocated_constant(cs, power % 2 == 0);
 
         // TODO: check what non-residue == -1.
 
@@ -263,7 +261,12 @@ where
 
         // TODO: assert what Fp2 under CS computes frobenius map same as without CS and this optimizational hack.
 
-        Self::new(c0, c1)
+        <Fq2<F, T, NN, P> as NonNativeField<F, T>>::conditionally_select(
+            cs,
+            is_even,
+            &self.clone(),
+            &Self::new(c0, c1),
+        )
     }
 
     /// Allocate `Fq2` tower extension element from the Witness represented in two PrimeField components `c0` and `c1`.

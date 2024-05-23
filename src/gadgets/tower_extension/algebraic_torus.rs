@@ -80,7 +80,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let c0_is_one = c0_is_one.equals(cs, &mut c0);
             let mut is_exceptional = Fq6::from_boolean(cs, is_exceptional, params);
             let mut c0_is_one = Fq6::from_boolean(cs, c0_is_one, params);
-            
+
             // m <- (1 + c0) / c1 if c1 is non-zero. However, to account for the case where
             // c1 is zero, we set numerator to 1 + c0 - 2*c0_is_one and denominator to c1 + is_exceptional.
             let mut numerator = Fq6::one(cs, params);
@@ -88,7 +88,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut c0_is_one_doubled = c0_is_one.double(cs);
             let mut numerator = numerator.sub(cs, &mut c0_is_one_doubled);
             let mut denominator = f.c1.add(cs, &mut is_exceptional);
-            
+
             let encoding = numerator.div(cs, &mut denominator);
             encoding
         } else {
