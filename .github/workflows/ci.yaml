@@ -30,6 +30,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly-2023-05-31 
+
       # Still compile the old rust nightly with packed simd - until we have a good replacement in poseidon.
       - run: cargo +nightly-2023-05-31 build --features include_packed_simd
       - run: cargo +nightly-2023-05-31 test --features include_packed_simd
