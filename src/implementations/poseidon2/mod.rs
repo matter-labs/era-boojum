@@ -25,7 +25,7 @@ pub use state_generic_impl::*;
         target_feature = "avx512vl"
     ))
 ))]
-pub mod state_vectorized_double;
+//pub mod state_vectorized_double;
 
 #[cfg(all(
     any(target_feature = "neon", target_feature = "avx2"),
@@ -37,7 +37,9 @@ pub mod state_vectorized_double;
         target_feature = "avx512vl"
     ))
 ))]
-pub use state_vectorized_double::*;
+//pub use state_vectorized_double::*;
+pub use state_generic_impl::*;
+
 
 #[cfg(all(
     target_feature = "avx512bw",
