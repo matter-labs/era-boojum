@@ -54,6 +54,8 @@ opt-level = 3
 [features]
 log_tracing = ["tracing"]
 # Currently packed_simd is no longer working with the newest nightly.
+# But we still keep it as a feature, as we didn't migrate all the code, and 
+# some people might want to use older rust nightly, to be able to gain some performance.
 include_packed_simd = ["packed_simd"]
 cr_paranoia_mode = []
 debug_track = []
