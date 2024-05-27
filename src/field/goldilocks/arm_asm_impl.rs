@@ -280,9 +280,6 @@ impl MixedGL {
 
         res1.copy_to_slice(u);
         res2.copy_to_slice(v);
-
-        //res1.write_to_slice(u);
-        //res2.write_to_slice(v);
     }
 
     /// # Safety
