@@ -34,8 +34,8 @@ jobs:
           toolchain: nightly-2023-05-31 
 
       # Still compile the old rust nightly with packed simd - until we have a good replacement in poseidon.
-      - run: cargo +nightly-2023-05-31 build --features include_packed_simd
-      - run: cargo +nightly-2023-05-31 test --features include_packed_simd
+      - run: RUSTFLAGS=-Awarnings cargo +nightly-2023-05-31 build --features include_packed_simd
+      - run: RUSTFLAGS=-Awarnings cargo +nightly-2023-05-31 test --features include_packed_simd
 
   formatting:
     name: cargo fmt
