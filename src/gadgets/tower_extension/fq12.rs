@@ -84,15 +84,17 @@ where
         let mut found_one = false;
 
         for i in BitIterator::new(exponent) {
-            if found_one {
-                result = result.square(cs);
-            } else {
+            let apply_squaring = Boolean::allocated_constant(cs, found_one);
+            let result_squared = result.square(cs);
+            result = Self::conditionally_select(cs, apply_squaring, &result_squared, &result);
+            if !found_one {
                 found_one = i;
             }
 
-            if i {
-                result = result.mul(cs, self);
-            }
+            let result_multiplied = result.mul(cs, self);
+            let apply_multiplication = Boolean::allocated_constant(cs, i);
+            result =
+                Self::conditionally_select(cs, apply_multiplication, &result_multiplied, &result);
 
             // Normalize the result to stay in field
             result.normalize(cs);

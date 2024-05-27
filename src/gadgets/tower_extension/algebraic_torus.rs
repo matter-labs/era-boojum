@@ -5,7 +5,9 @@ use pairing::{ff::PrimeField, BitIterator};
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
-    gadgets::{boolean::Boolean, non_native_field::traits::NonNativeField},
+    gadgets::{
+        boolean::Boolean, non_native_field::traits::NonNativeField, traits::selectable::Selectable,
+    },
 };
 
 use super::{fq12::Fq12, fq6::Fq6, params::Extension12Params};
@@ -54,7 +56,8 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         CS: ConstraintSystem<F>,
     {
         let zero = Fq6::zero(cs, self.get_params());
-        let new_encoding = Fq6::conditionally_select(cs, flag, &self.encoding, &zero);
+        let new_encoding =
+            <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, flag, &self.encoding, &zero);
 
         Self::new(new_encoding)
     }
@@ -231,20 +234,23 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     where
         CS: ConstraintSystem<F>,
     {
+        // TODO: Verify that this is working fine in tests once the uintx issue is resolved.
         let mut one = Fq12::one(cs, self.get_params());
         let mut result = Self::compress::<CS, false>(cs, &mut one);
         let mut found_one = false;
 
         for i in BitIterator::new(exponent) {
-            if found_one {
-                result = result.square::<CS, SAFE>(cs);
-            } else {
+            let result_squared = result.square::<CS, SAFE>(cs);
+            let apply_squaring = Boolean::allocated_constant(cs, found_one);
+            result = Self::conditionally_select(cs, apply_squaring, &result_squared, &result);
+            if !found_one {
                 found_one = i;
             }
 
-            if i {
-                result = result.mul::<CS, SAFE>(cs, self);
-            }
+            let result_multiplied = result.mul::<CS, SAFE>(cs, self);
+            let apply_multiplication = Boolean::allocated_constant(cs, i);
+            result =
+                Self::conditionally_select(cs, apply_multiplication, &result_multiplied, &result);
 
             // Normalize the result to stay in field
             result.normalize(cs);
@@ -293,6 +299,24 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         let mut two = one.double(cs);
         let mut two_inverse = two.inverse(cs);
         encoding = encoding.mul(cs, &mut two_inverse);
+
+        Self::new(encoding)
+    }
+}
+
+impl<F, T, NN, P> Selectable<F> for TorusWrapper<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+    P: Extension12Params<T>,
+{
+    fn conditionally_select<CS>(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let encoding =
+            <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, flag, &a.encoding, &b.encoding);
 
         Self::new(encoding)
     }
