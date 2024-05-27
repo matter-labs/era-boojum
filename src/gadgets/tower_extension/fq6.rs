@@ -191,6 +191,7 @@ where
         let mut t1 = t1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut v1);
         let mut t1 = t1.sub(cs, &mut v2);
+        t1.normalize(cs);
         let mut t1 = t1.mul_by_nonresidue(cs);
         let t1 = t1.add(cs, &mut v0);
 
