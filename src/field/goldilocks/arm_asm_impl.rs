@@ -5,8 +5,8 @@ use crate::worker::Worker;
 use std::intrinsics::simd::simd_shuffle;
 use std::ops::{Add, BitOr, Sub};
 use std::simd::cmp::{SimdPartialEq, SimdPartialOrd};
-use std::usize;
 use std::simd::{u64x4, u64x8};
+use std::usize;
 
 use super::GoldilocksField;
 
@@ -161,9 +161,9 @@ impl MixedGL {
 
     pub unsafe fn butterfly_1x1_impl(&mut self) -> &mut Self {
         let [part1, part2] = MixedGL::as_u64x8_arrays(&*self);
-        
-        let u: u64x8 = simd_shuffle(part1, part2, const{[0u32, 2, 4, 6, 8, 10, 12, 14]});
-        let v: u64x8 = simd_shuffle(part1, part2, const{[1u32, 3, 5, 7, 9, 11, 13, 15]});
+
+        let u: u64x8 = simd_shuffle(part1, part2, const { [0u32, 2, 4, 6, 8, 10, 12, 14] });
+        let v: u64x8 = simd_shuffle(part1, part2, const { [1u32, 3, 5, 7, 9, 11, 13, 15] });
         //additional reduction over v
         let v_reduced = v.add(Self::EPSILON_VECTOR_D);
         let cmp = v_reduced.simd_lt(Self::EPSILON_VECTOR_D);
@@ -181,8 +181,8 @@ impl MixedGL {
         let cmp = u.simd_lt(v);
         let res2 = cmp.select(diff_reduced, diff);
 
-        let part1: u64x8 = simd_shuffle(res1, res2, const{[0u32, 8, 1, 9, 2, 10, 3, 11]});
-        let part2: u64x8 = simd_shuffle(res1, res2, const{[4u32, 12, 5, 13, 6, 14, 7, 15]});
+        let part1: u64x8 = simd_shuffle(res1, res2, const { [0u32, 8, 1, 9, 2, 10, 3, 11] });
+        let part2: u64x8 = simd_shuffle(res1, res2, const { [4u32, 12, 5, 13, 6, 14, 7, 15] });
 
         *self = MixedGL::from_u64x8_arrays([part1, part2]);
 
@@ -191,8 +191,8 @@ impl MixedGL {
 
     pub unsafe fn butterfly_2x2_impl(&mut self) -> &mut Self {
         let [part1, part2] = MixedGL::as_u64x8_arrays(&*self);
-        let u: u64x8 = simd_shuffle(part1, part2, const {[0u32, 1, 4, 5, 8, 9, 12, 13]});
-        let v: u64x8 = simd_shuffle(part1, part2, const {[2u32, 3, 6, 7, 10, 11, 14, 15]});
+        let u: u64x8 = simd_shuffle(part1, part2, const { [0u32, 1, 4, 5, 8, 9, 12, 13] });
+        let v: u64x8 = simd_shuffle(part1, part2, const { [2u32, 3, 6, 7, 10, 11, 14, 15] });
         //additional reduction over v
         let v_reduced = v.add(Self::EPSILON_VECTOR_D);
         let cmp = v_reduced.simd_lt(Self::EPSILON_VECTOR_D);
@@ -210,8 +210,8 @@ impl MixedGL {
         let cmp = u.simd_lt(v);
         let res2 = cmp.select(diff_reduced, diff);
 
-        let part1: u64x8 = simd_shuffle(res1, res2, const{[0u32, 1, 8, 9, 2, 3, 10, 11]});
-        let part2: u64x8 = simd_shuffle(res1, res2, const{[4u32, 5, 12, 13, 6, 7, 14, 15]});
+        let part1: u64x8 = simd_shuffle(res1, res2, const { [0u32, 1, 8, 9, 2, 3, 10, 11] });
+        let part2: u64x8 = simd_shuffle(res1, res2, const { [4u32, 5, 12, 13, 6, 7, 14, 15] });
 
         *self = MixedGL::from_u64x8_arrays([part1, part2]);
 
@@ -220,8 +220,8 @@ impl MixedGL {
 
     pub unsafe fn butterfly_4x4_impl(&mut self) -> &mut Self {
         let [part1, part2] = MixedGL::as_u64x8_arrays(&*self);
-        let u: u64x8 = simd_shuffle(part1, part2, const{[0u32, 1, 2, 3, 8, 9, 10, 11]});
-        let v: u64x8 = simd_shuffle(part1, part2, const{[4u32, 5, 6, 7, 12, 13, 14, 15]});
+        let u: u64x8 = simd_shuffle(part1, part2, const { [0u32, 1, 2, 3, 8, 9, 10, 11] });
+        let v: u64x8 = simd_shuffle(part1, part2, const { [4u32, 5, 6, 7, 12, 13, 14, 15] });
         //additional reduction over v
         let v_reduced = v.add(Self::EPSILON_VECTOR_D);
         let cmp = v_reduced.simd_lt(Self::EPSILON_VECTOR_D);
@@ -239,8 +239,8 @@ impl MixedGL {
         let cmp = u.simd_lt(v);
         let res2 = cmp.select(diff_reduced, diff);
 
-        let part1: u64x8 = simd_shuffle(res1, res2, const {[0u32, 1, 2, 3, 8, 9, 10, 11]});
-        let part2: u64x8 = simd_shuffle(res1, res2, const {[4u32, 5, 6, 7, 12, 13, 14, 15]});
+        let part1: u64x8 = simd_shuffle(res1, res2, const { [0u32, 1, 2, 3, 8, 9, 10, 11] });
+        let part2: u64x8 = simd_shuffle(res1, res2, const { [4u32, 5, 6, 7, 12, 13, 14, 15] });
 
         *self = MixedGL::from_u64x8_arrays([part1, part2]);
 

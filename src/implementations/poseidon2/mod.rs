@@ -4,9 +4,9 @@ use crate::field::goldilocks::GoldilocksField;
 pub mod params;
 
 pub mod state_generic_impl;
-#[cfg(not(
-    all(feature="include_packed_simd",
-        any(
+#[cfg(not(all(
+    feature = "include_packed_simd",
+    any(
         target_feature = "neon",
         target_feature = "avx2",
         target_feature = "avx512bw",
@@ -14,14 +14,15 @@ pub mod state_generic_impl;
         target_feature = "avx512dq",
         target_feature = "avx512f",
         target_feature = "avx512vl",
-))))]
+    )
+)))]
 pub use state_generic_impl::*;
 
 // Other poseidon implementations depend on packed_simd 128
 // which is no longer available in std::simd (and packed_simd is no longer
 // supported in the newest rust nightly).
 #[cfg(all(
-    feature="include_packed_simd",
+    feature = "include_packed_simd",
     any(target_feature = "neon", target_feature = "avx2"),
     not(any(
         target_feature = "avx512bw",
@@ -34,7 +35,7 @@ pub use state_generic_impl::*;
 pub mod state_vectorized_double;
 
 #[cfg(all(
-    feature="include_packed_simd",
+    feature = "include_packed_simd",
     any(target_feature = "neon", target_feature = "avx2"),
     not(any(
         target_feature = "avx512bw",
@@ -46,10 +47,8 @@ pub mod state_vectorized_double;
 ))]
 pub use state_vectorized_double::*;
 
-
-
 #[cfg(all(
-    feature="include_packed_simd",
+    feature = "include_packed_simd",
     target_feature = "avx512bw",
     target_feature = "avx512cd",
     target_feature = "avx512dq",
@@ -59,7 +58,7 @@ pub use state_vectorized_double::*;
 pub mod state_avx512;
 
 #[cfg(all(
-    feature="include_packed_simd",
+    feature = "include_packed_simd",
     target_feature = "avx512bw",
     target_feature = "avx512cd",
     target_feature = "avx512dq",

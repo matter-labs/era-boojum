@@ -12,14 +12,14 @@ mod extension;
 mod inversion;
 
 #[cfg(all(
-    not(feature="include_packed_simd"),
+    not(feature = "include_packed_simd"),
     any(target_feature = "neon", target_feature = "avx2"),
     not(all(target_feature = "avx512f", target_feature = "avx512vl"))
 ))]
 pub mod arm_asm_impl;
 
 #[cfg(all(
-    feature="include_packed_simd",
+    feature = "include_packed_simd",
     any(target_feature = "neon", target_feature = "avx2"),
     not(all(target_feature = "avx512f", target_feature = "avx512vl"))
 ))]
@@ -51,19 +51,18 @@ pub mod x86_64_asm_impl;
 pub mod avx512_impl;
 
 #[cfg(all(
-    not(feature="include_packed_simd"),
+    not(feature = "include_packed_simd"),
     any(target_feature = "neon", target_feature = "avx2"),
     not(all(target_feature = "avx512f", target_feature = "avx512vl"))
 ))]
 pub use arm_asm_impl::*;
 
 #[cfg(all(
-    feature="include_packed_simd",
+    feature = "include_packed_simd",
     any(target_feature = "neon", target_feature = "avx2"),
     not(all(target_feature = "avx512f", target_feature = "avx512vl"))
 ))]
 pub use arm_asm_packed_impl::*;
-
 
 #[cfg(not(any(
     all(target_feature = "avx512f", target_feature = "avx512vl"),
