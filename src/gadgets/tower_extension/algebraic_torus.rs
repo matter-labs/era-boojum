@@ -137,7 +137,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     where
         CS: ConstraintSystem<F>,
     {
-        let encoding = self.encoding.inverse(cs);
+        let encoding = self.encoding.negated(cs);
         Self::new(encoding)
     }
 
