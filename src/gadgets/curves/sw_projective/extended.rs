@@ -511,9 +511,13 @@ where
         let one_nn = NN::allocated_constant(cs, T::one(), &params);
         let mut safe_z = NN::conditionally_select(cs, is_point_at_infty, &one_nn, &self.z);
         let mut safe_z_squared = safe_z.square(cs);
+        safe_z_squared.normalize(cs);
         let mut safe_z_cubed = safe_z.mul(cs, &mut safe_z_squared);
-        let x_for_safe_z = self.x.div_unchecked(cs, &mut safe_z_squared);
-        let y_for_safe_z = self.y.div_unchecked(cs, &mut safe_z_cubed);
+        safe_z_cubed.normalize(cs);
+        let mut x_for_safe_z = self.x.div_unchecked(cs, &mut safe_z_squared);
+        x_for_safe_z.normalize(cs);
+        let mut y_for_safe_z = self.y.div_unchecked(cs, &mut safe_z_cubed);
+        y_for_safe_z.normalize(cs);
 
         let (default_x, default_y) = default.into_xy_unchecked();
 
