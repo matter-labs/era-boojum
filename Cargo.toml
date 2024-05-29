@@ -52,4 +52,5 @@ lto = "fat"
 opt-level = 3
 
 [features]
+# If enabled, logs will be using trace, if disabled, they will be printed to stdout.
 log_tracing = ["tracing"]
