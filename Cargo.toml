@@ -52,6 +52,7 @@ lto = "fat"
 opt-level = 3
 
 [features]
+# If enabled, logs will be using trace, if disabled, they will be printed to stdout.
 log_tracing = ["tracing"]
 # Currently packed_simd is no longer working with the newest nightly.
 # But we still keep it as a feature, as we didn't migrate all the code, and 
