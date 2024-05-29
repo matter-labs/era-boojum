@@ -116,7 +116,7 @@ impl Registrar {
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        if cfg!(cr_paranoia_mode) {
+        if cfg!(feature = "cr_paranoia_mode") {
             log!(
                 "CRR: total remaining resolvers: {}",
                 self.vars.values().map(|x| x.len()).sum::<usize>()
