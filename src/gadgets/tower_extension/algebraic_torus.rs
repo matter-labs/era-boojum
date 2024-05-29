@@ -1,3 +1,4 @@
+use core::num;
 use std::sync::Arc;
 
 use pairing::{ff::PrimeField, BitIterator};
@@ -92,7 +93,8 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut numerator = numerator.sub(cs, &mut c0_is_one_doubled);
             let mut denominator = f.c1.add(cs, &mut is_exceptional);
 
-            let encoding = numerator.div(cs, &mut denominator);
+            let mut encoding = numerator.div(cs, &mut denominator);
+            encoding.normalize(cs);
             encoding
         } else {
             // Verifying that c1 is non-zero
@@ -103,7 +105,8 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             // m <- (1 + c0) / c1
             let mut encoding = Fq6::one(cs, params);
             let mut encoding = encoding.add(cs, &mut f.c0);
-            let encoding = encoding.div(cs, &mut f.c1);
+            let mut encoding = encoding.div(cs, &mut f.c1);
+            encoding.normalize(cs);
 
             encoding
         };
@@ -128,7 +131,9 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         let mut denominator = Fq12::new(self.encoding.clone(), negative_one);
 
         // zeta^{-1} = (g + w)/(g - w)
-        let decompressed = numerator.div(cs, &mut denominator);
+        let mut decompressed = numerator.div(cs, &mut denominator);
+        decompressed.normalize(cs);
+
         decompressed
     }
 
@@ -137,7 +142,8 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     where
         CS: ConstraintSystem<F>,
     {
-        let encoding = self.encoding.negated(cs);
+        let mut encoding = self.encoding.negated(cs);
+        encoding.normalize(cs);
         Self::new(encoding)
     }
 
@@ -169,11 +175,11 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         // TODO: w_inverse can be known in compile-time so there is no need to allocate it in run-time.
         let mut w_inverse = w.inverse(cs);
         let mut denominator = w.frobenius_map(cs, power);
-        let denominator = denominator.mul(cs, &mut w_inverse);
+        let mut denominator = denominator.mul(cs, &mut w_inverse);
 
         // Asserting that c1 is zero since denominator must be a pure Fq6 element.
         let boolean_true = Boolean::allocated_constant(cs, true);
-        let c1_is_zero = g.c1.is_zero(cs);
+        let c1_is_zero = denominator.c1.is_zero(cs);
         Boolean::enforce_equal(cs, &c1_is_zero, &boolean_true);
         let mut denominator = denominator.c0.clone();
 
@@ -200,10 +206,12 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
 
         // x <- g * g' + \gamma
         let mut x = g1.mul(cs, &mut g2);
+        x.normalize(cs);
         let mut x = x.add(cs, &mut gamma);
-
+        x.normalize(cs);
         // y <- g + g'
         let mut y = g1.add(cs, &mut g2);
+        y.normalize(cs);
 
         let encoding = if SAFE {
             // Exception occurs when g = -g'. To account for such case,
@@ -215,44 +223,58 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut flag = Fq6::from_boolean(cs, exception, params);
 
             let mut numerator = flag.mul(cs, &mut x);
+            numerator.normalize(cs);
             let mut numerator = x.sub(cs, &mut numerator);
+            numerator.normalize(cs);
             let mut denominator = y.add(cs, &mut flag);
-            numerator.div(cs, &mut denominator)
+            denominator.normalize(cs);
+            let mut result = numerator.div(cs, &mut denominator);
+            result.normalize(cs);
+            result
         } else {
             // Here we do not check whether g = -g' since the function is unsafe
-            x.div(cs, &mut y)
+            let mut result = x.div(cs, &mut y);
+            result.normalize(cs);
+            result
         };
 
         Self::new(encoding)
     }
 
-    pub fn pow_u32<CS, S: AsRef<[u64]>, const SAFE: bool>(
+    pub fn pow_naf_decomposition<CS, S: AsRef<[i8]>, const SAFE: bool>(
         &mut self,
         cs: &mut CS,
-        exponent: S,
+        decomposition: S,
     ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        // TODO: Verify that this is working fine in tests once the uintx issue is resolved.
-        let mut one = Fq12::one(cs, self.get_params());
-        let mut result = Self::compress::<CS, false>(cs, &mut one);
-        let mut found_one = false;
+        // Intializing the result with 1
+        let mut one: Fq12<F, T, NN, P> = Fq12::one(cs, self.get_params());
+        let mut result = Self::compress::<_, true>(cs, &mut one);
+        result.normalize(cs);
 
-        for i in BitIterator::new(exponent) {
-            let result_squared = result.square::<CS, SAFE>(cs);
-            let apply_squaring = Boolean::allocated_constant(cs, found_one);
-            result = Self::conditionally_select(cs, apply_squaring, &result_squared, &result);
-            if !found_one {
-                found_one = i;
-            }
+        // Preparing self and self inverse in advance
+        let mut self_cloned = self.clone();
+        let mut self_inverse = self.conjugate(cs);
+        self_inverse.normalize(cs);
 
-            let result_multiplied = result.mul::<CS, SAFE>(cs, self);
-            let apply_multiplication = Boolean::allocated_constant(cs, i);
-            result =
-                Self::conditionally_select(cs, apply_multiplication, &result_multiplied, &result);
+        for bit in decomposition.as_ref().iter() {
+            result = result.square::<_, SAFE>(cs);
+            result.normalize(cs);
 
-            // Normalize the result to stay in field
+            // If bit is 1, multiply by initial torus
+            let bit_is_one = Boolean::allocated_constant(cs, *bit == 1);
+            let mut result_times_self = result.mul::<_, SAFE>(cs, &mut self_cloned);
+            result_times_self.normalize(cs);
+            result = Self::conditionally_select(cs, bit_is_one, &result_times_self, &result);
+            result.normalize(cs);
+
+            // If bit is -1, multiply by inverse initial torus
+            let bit_is_minus_one = Boolean::allocated_constant(cs, *bit == -1);
+            let mut result_times_self_inverse = result.mul::<_, SAFE>(cs, &mut self_inverse);
+            result_times_self_inverse.normalize(cs);
+            result = Self::conditionally_select(cs, bit_is_minus_one, &result_times_self_inverse, &result);
             result.normalize(cs);
         }
 
@@ -284,21 +306,30 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let mut flag = Fq6::from_boolean(cs, exception, params);
 
             let mut flag_negated = one.sub(cs, &mut flag);
+            flag_negated.normalize(cs);
             let mut numerator = gamma.mul(cs, &mut flag_negated);
+            numerator.normalize(cs);
             let mut denominator = g.add(cs, &mut flag);
-
-            numerator.div(cs, &mut denominator)
+            denominator.normalize(cs);
+            let mut result = numerator.div(cs, &mut denominator);
+            result.normalize(cs);
+            result
         } else {
             // Here we do not check whether g = 0 since the function is unsafe
-            gamma.div(cs, &mut g)
+            let mut result = gamma.div(cs, &mut g);
+            result.normalize(cs);
+            result
         };
 
         // Calculating (1/2)(g + \gamma/g)
         let mut encoding = g.add(cs, &mut exception_term);
+        encoding.normalize(cs);
         // TODO: 2^{-1} might be known in compile-time so there is no need to allocate it in run-time.
         let mut two = one.double(cs);
         let mut two_inverse = two.inverse(cs);
+        two_inverse.normalize(cs);
         encoding = encoding.mul(cs, &mut two_inverse);
+        encoding.normalize(cs);
 
         Self::new(encoding)
     }

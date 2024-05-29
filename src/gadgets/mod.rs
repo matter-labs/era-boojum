@@ -23,5 +23,6 @@ pub mod u160;
 pub mod u256;
 pub mod u32;
 pub mod u512;
-
+pub mod u1024;
+pub mod u2048;
 pub mod u8;
