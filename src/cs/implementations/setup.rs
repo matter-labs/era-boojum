@@ -189,11 +189,26 @@ impl<
             .unwrap_or(0);
 
         log!("required size = {}", required_size);
-        log!("{}", max_copiable_in_specialized_columns);
-        log!("{}", max_witnesses_in_general_purpose_columns);
-        log!("{}", max_witnesses_in_specialized_columns);
-        log!("{}", max_constants_for_general_purpose_gates);
-        log!("{}", max_in_column_for_specialized_gates);
+        log!(
+            "max_copiable_in_specialized_columns = {}",
+            max_copiable_in_specialized_columns
+        );
+        log!(
+            "max_witnesses_in_general_purpose_columns = {}",
+            max_witnesses_in_general_purpose_columns
+        );
+        log!(
+            "max_witnesses_in_specialized_columns = {}",
+            max_witnesses_in_specialized_columns
+        );
+        log!(
+            "max_constants_for_general_purpose_gates = {}",
+            max_constants_for_general_purpose_gates
+        );
+        log!(
+            "max_in_column_for_specialized_gates = {}",
+            max_in_column_for_specialized_gates
+        );
 
         assert!(max_constants_for_general_purpose_gates <= required_size);
 
