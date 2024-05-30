@@ -301,7 +301,7 @@ where
     {
         let mut a_a = self.c0.mul(cs, c0);
         let mut b_b = self.c1.mul(cs, c1);
-        
+
         a_a.normalize(cs);
         b_b.normalize(cs);
 
@@ -416,7 +416,7 @@ where
 
         c1.normalize(cs);
         c2.normalize(cs);
-        
+
         Self::new(c0, c1, c2)
     }
 

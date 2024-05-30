@@ -274,7 +274,12 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             let bit_is_minus_one = Boolean::allocated_constant(cs, *bit == -1);
             let mut result_times_self_inverse = result.mul::<_, SAFE>(cs, &mut self_inverse);
             result_times_self_inverse.normalize(cs);
-            result = Self::conditionally_select(cs, bit_is_minus_one, &result_times_self_inverse, &result);
+            result = Self::conditionally_select(
+                cs,
+                bit_is_minus_one,
+                &result_times_self_inverse,
+                &result,
+            );
             result.normalize(cs);
         }
 

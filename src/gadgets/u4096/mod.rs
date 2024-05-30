@@ -102,7 +102,8 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt4096<F> {
     }
 
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
-        decompose_u4096_as_u32x128(witness).map(|el| UInt32::set_internal_variables_values(el, dst));
+        decompose_u4096_as_u32x128(witness)
+            .map(|el| UInt32::set_internal_variables_values(el, dst));
     }
 }
 

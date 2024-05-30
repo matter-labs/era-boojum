@@ -11,6 +11,7 @@ use crate::gadgets::u32::UInt32;
 use crate::gadgets::u8::UInt8;
 use crypto_bigint::U1024;
 use u1024::UInt1024;
+use u4096::UInt4096;
 
 use crate::config::*;
 
@@ -213,6 +214,42 @@ impl<F: SmallField> UInt2048<F> {
         }
 
         (result, borrow_out)
+    }
+
+    #[must_use]
+    pub fn widening_mul<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        other: &Self,
+        self_limbs: usize,
+        other_limbs: usize,
+    ) -> UInt4096<F> {
+        assert!(
+            self_limbs + other_limbs <= 128,
+            "total number of limbs must be <= 128"
+        );
+
+        let zero = UInt32::allocated_constant(cs, 0);
+        let mut remainders = vec![UInt32::<F>::zero(cs); self_limbs + other_limbs];
+
+        for i in 0..self_limbs {
+            let mut carry = UInt32::allocated_constant(cs, 0);
+            for j in 0..other_limbs {
+                let res = UInt32::fma_with_carry(
+                    cs,
+                    self.inner[i],
+                    other.inner[j],
+                    if i == 0 { zero } else { remainders[i + j] },
+                    carry,
+                );
+                (remainders[i + j], carry) = (res[0].0, res[1].0);
+            }
+            remainders[i + other_limbs] = carry;
+        }
+
+        let mut inner = [UInt32::<F>::zero(cs); 128];
+        inner[..self_limbs + other_limbs].copy_from_slice(&remainders);
+        UInt4096 { inner }
     }
 
     /// Multiplies a number by 2^{32}. Panics if the number overflows.
