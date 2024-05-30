@@ -266,12 +266,12 @@ impl<F: SmallField> UInt4096<F> {
     where
         CS: ConstraintSystem<F>,
     {
-        const U2048_MAX_LIMBS: usize = 256;
-        const U4096_MAX_LIMBS: usize = 512;
+        const U2048_MAX_LIMBS: usize = 64;
+        const U4096_MAX_LIMBS: usize = 128;
         const MAX_BINARY_SEARCH_ITERATIONS: usize = 1025;
 
         // Initializing constants
-        let base = U1024::from_le_hex("0x100000000");
+        let base = U1024::from_le_hex("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000");
         let base = UInt2048::allocated_constant(cs, (base, U1024::ZERO));
         let boolean_false = Boolean::allocated_constant(cs, false);
         let one = UInt2048::allocated_constant(cs, (U1024::ONE, U1024::ZERO));
