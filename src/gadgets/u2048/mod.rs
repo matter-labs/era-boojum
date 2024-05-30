@@ -9,7 +9,9 @@ use crate::gadgets::traits::witnessable::CSWitnessable;
 use crate::gadgets::traits::witnessable::WitnessHookable;
 use crate::gadgets::u32::UInt32;
 use crate::gadgets::u8::UInt8;
+use blake2s::mixing_function::merge_byte_using_table;
 use crypto_bigint::U1024;
+use tables::ByteSplitTable;
 use u1024::UInt1024;
 use u4096::UInt4096;
 
@@ -266,6 +268,47 @@ impl<F: SmallField> UInt2048<F> {
         Self { inner: new_inner }
     }
 
+    #[must_use]
+    pub fn div2<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
+        let byte_split_id = cs
+            .get_table_id_for_marker::<ByteSplitTable<1>>()
+            .expect("table should exist");
+        let mut bytes = self.to_le_bytes(cs);
+        let mut bit: Option<Variable> = None;
+        bytes.iter_mut().rev().for_each(|b| {
+            let res = cs.perform_lookup::<1, 2>(byte_split_id, &[b.get_variable()]);
+            let mut shifted = res[1];
+            let new_bit = res[0];
+            if let Some(top_bit) = bit {
+                shifted = merge_byte_using_table::<_, _, 7>(cs, shifted, top_bit);
+            }
+            *b = UInt8 {
+                variable: shifted,
+                _marker: std::marker::PhantomData,
+            };
+            bit = Some(new_bit);
+        });
+        Self::from_le_bytes(cs, bytes)
+    }
+
+    /// Finds the result of multiplying `self` by `other` mod `modulo`.
+    pub fn modmul<CS: ConstraintSystem<F>>(
+        &self, 
+        cs: &mut CS,
+        other: &UInt2048<F>,
+        modulo: &UInt2048<F>,
+    ) -> UInt2048<F> {
+        // We take 8 limbs since scalar can be of any size
+        let product = self.widening_mul(cs, &other, 64, 64);
+        let (_, remainder) = product.long_division(cs, modulo);
+        remainder
+    }
+
+    #[must_use]
+    pub fn is_odd<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Boolean<F> {
+        self.inner[0].into_num().spread_into_bits::<CS, 32>(cs)[0]
+    }
+
     // Returns the value unchanges if `bit` is `true`, and 0 otherwise
     #[must_use]
     pub fn mask<CS: ConstraintSystem<F>>(&self, cs: &mut CS, masking_bit: Boolean<F>) -> Self {
@@ -282,6 +325,13 @@ impl<F: SmallField> UInt2048<F> {
     ) -> Self {
         let new_inner = self.inner.map(|el| el.mask_negated(cs, masking_bit));
         Self { inner: new_inner }
+    }
+
+    #[must_use]
+    pub fn to_u4096<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> UInt4096<F> {
+        let mut u4096: UInt4096<F> = UInt4096::zero(cs);
+        u4096.inner[..64].copy_from_slice(&self.inner);
+        u4096
     }
 
     #[must_use]

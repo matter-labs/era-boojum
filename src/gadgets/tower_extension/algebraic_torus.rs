@@ -1,7 +1,5 @@
-use core::num;
 use std::sync::Arc;
-
-use pairing::{ff::PrimeField, BitIterator};
+use pairing::ff::PrimeField;
 
 use crate::{
     cs::traits::cs::ConstraintSystem,

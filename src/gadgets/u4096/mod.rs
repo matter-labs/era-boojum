@@ -9,6 +9,7 @@ use crate::gadgets::traits::witnessable::CSWitnessable;
 use crate::gadgets::traits::witnessable::WitnessHookable;
 use crate::gadgets::u32::UInt32;
 use crate::gadgets::u8::UInt8;
+use crypto_bigint::U1024;
 use crypto_bigint::U2048;
 use u2048::UInt2048;
 
@@ -53,6 +54,16 @@ pub fn recompose_u4096_as_u32x128(value: [u32; 128]) -> (U2048, U2048) {
     }
 
     (U2048::from_words(low), U2048::from_words(high))
+}
+
+pub fn convert_limb_to_u4096<F, CS>(cs: &mut CS, limb: &UInt32<F>) -> UInt4096<F>
+where
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+{
+    let mut u4096 = UInt4096::zero(cs);
+    u4096.inner[0] = limb.clone();
+    u4096
 }
 
 impl<F: SmallField> CSAllocatable<F> for UInt4096<F> {
@@ -172,6 +183,22 @@ impl<F: SmallField> UInt4096<F> {
         Self::allocated_constant(cs, (U2048::ZERO, U2048::ZERO))
     }
 
+    /// Returns `true` if `self >= other`, and `false` otherwise.
+    /// Here, `self` and `other` are represented as [`UInt4096<F>`] and [`UInt2048<F>`] respectively.
+    #[must_use]
+    pub fn geq_than_u2048<CS>(&self, cs: &mut CS, other: &UInt2048<F>) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let high = self.to_high();
+        let under_2048 = high.is_zero(cs);
+        let over_2048 = under_2048.negated(cs);
+        let low = self.to_low();
+        let (sub, overflow) = other.overflowing_sub(cs, &low);
+        let a_equal_b = sub.is_zero(cs);
+        Boolean::multi_or(cs, &[overflow, a_equal_b, over_2048])
+    }
+
     #[must_use]
     pub fn overflowing_add<CS: ConstraintSystem<F>>(
         &self,
@@ -228,6 +255,122 @@ impl<F: SmallField> UInt4096<F> {
         new_inner[0] = UInt32::zero(cs);
 
         Self { inner: new_inner }
+    }
+
+    /// Find quotient and remainder of division of `self` by `other` using the naive long division algorithm in base `2^{32}`
+    /// since both [`UInt4096<F>`] and [`UInt2048<F>`] are represented as arrays of [`UInt32<F>`]. The implementation is based on
+    /// algorithm https://en.wikipedia.org/wiki/Long_division#Algorithm_for_arbitrary_base,
+    /// where `k=128`, `l=64`, and base `b=2^{32}`.
+    #[must_use]
+    pub fn long_division<CS>(&self, cs: &mut CS, other: &UInt2048<F>) -> (UInt4096<F>, UInt2048<F>)
+    where
+        CS: ConstraintSystem<F>,
+    {
+        const U2048_MAX_LIMBS: usize = 256;
+        const U4096_MAX_LIMBS: usize = 512;
+        const MAX_BINARY_SEARCH_ITERATIONS: usize = 1025;
+
+        // Initializing constants
+        let base = U1024::from_le_hex("0x100000000");
+        let base = UInt2048::allocated_constant(cs, (base, U1024::ZERO));
+        let boolean_false = Boolean::allocated_constant(cs, false);
+        let one = UInt2048::allocated_constant(cs, (U1024::ONE, U1024::ZERO));
+
+        // q <- 0
+        let mut q = UInt4096::zero(cs);
+
+        // r <- first 63 limbs of self, thus it fits in UInt2048
+        let mut r = self.to_high();
+        r.inner[0] = UInt32::zero(cs);
+        r.inner.copy_within(1..U2048_MAX_LIMBS, 0);
+        r.inner[U2048_MAX_LIMBS - 1] = UInt32::zero(cs);
+
+        for i in 0..U2048_MAX_LIMBS + 1 {
+            // \alpha_{i+l-1} is (k-l-i)th limb of n
+            let alpha = self.inner[U2048_MAX_LIMBS - i];
+            let alpha = convert_limb_to_u4096(cs, &alpha);
+
+            // d_i <- b*r_{i-1} + \alpha_{i+l-1}
+            // d_i can safely be UInt512 in size.
+            // r can have any number of limbs up to 8.
+            // base is 2 limbs wide since b=(2^{32}-1)+1
+            // TODO: Mul by base might be optimized
+            let d = base.widening_mul(cs, &mut r, 2, 8);
+            let (d_plus_alpha, overflow) = d.overflowing_add(cs, &alpha);
+            // d_i cannot overflow UInt512
+            Boolean::enforce_equal(cs, &overflow, &boolean_false);
+            let d = d_plus_alpha;
+
+            // beta_i <- next digit of quotient. We use
+            // binary search to find suitable beta_i
+            let mut beta = UInt2048::zero(cs);
+            let mut left = UInt2048::zero(cs);
+            let mut right = base.clone();
+
+            // Preparing new_r to further update r
+            let mut new_r = UInt4096::zero(cs);
+
+            for _ in 0..MAX_BINARY_SEARCH_ITERATIONS {
+                // beta <- ceil((right + left) / 2)
+                let (new_beta, overflow) = right.overflowing_add(cs, &left);
+                // Cannot overflow since right and left are less than b=2^{32}
+                Boolean::enforce_equal(cs, &overflow, &boolean_false);
+
+                // Since new_beta.div2 gives floor, we need to add 1 if new_beta is odd to get ceil
+                let odd = new_beta.is_odd(cs);
+                let beta_div_2 = new_beta.div2(cs);
+                let (beta_div_2_plus_1, overflow) = beta_div_2.overflowing_add(cs, &one);
+                // Cannot overflow since beta_div_2+one is less than b=2^{32}
+                Boolean::enforce_equal(cs, &overflow, &boolean_false);
+                beta = UInt2048::conditionally_select(cs, odd, &beta_div_2_plus_1, &beta_div_2);
+
+                // r <- d - m * beta
+                // beta can fit in 2 limbs since it is less or equal to b=2^{32}
+                let m_beta = other.widening_mul(cs, &beta, 8, 2);
+                let (r, r_negative) = d.overflowing_sub(cs, &m_beta);
+
+                // if r < 0 (that is, overflow occurred), then right <- beta - 1
+                // beta - 1 might overflow at step 33, but we don't care about it
+                let (beta_minus_1, _) = beta.overflowing_sub(cs, &one);
+                right = UInt2048::conditionally_select(cs, r_negative, &beta_minus_1, &right);
+
+                // if r >= m, then left <- beta + 1
+                let r_geq_m = r.geq_than_u2048(cs, other);
+                // We should handle the case when r overflowed
+                let r_positive = r_negative.negated(cs);
+                let r_greater_m = r_geq_m.and(cs, r_positive);
+                let (beta_plus_1, overflow) = beta.overflowing_add(cs, &one);
+                // Cannot overflow since beta < b=2^{32}
+                Boolean::enforce_equal(cs, &overflow, &boolean_false);
+                left = UInt2048::conditionally_select(cs, r_greater_m, &beta_plus_1, &left);
+
+                // Updating r
+                new_r = r
+            }
+
+            // Asserting that new_r is indeed fits in UInt256
+            let boolean_true = Boolean::allocated_constant(cs, true);
+            for limb in new_r.inner[8..].iter() {
+                let limb_is_zero = limb.is_zero(cs);
+                Boolean::enforce_equal(cs, &limb_is_zero, &boolean_true);
+            }
+            // Update r
+            r = new_r.to_low();
+
+            // Asserting that r < m
+            let (_, overflow) = other.overflowing_sub(cs, &r);
+            Boolean::enforce_equal(cs, &overflow, &boolean_false);
+
+            // q_i <- b*q_{i-1} + beta_i
+            let beta_u512 = beta.to_u4096(cs);
+            q = q.must_mul_by_two_pow_32(cs);
+            let (new_q, overflow) = q.overflowing_add(cs, &beta_u512);
+            // Cannot overflow since quotient cannot exceed 2^{512}
+            Boolean::enforce_equal(cs, &overflow, &boolean_false);
+            q = new_q;
+        }
+
+        (q, r)
     }
 
     // Returns the value unchanges if `bit` is `true`, and 0 otherwise

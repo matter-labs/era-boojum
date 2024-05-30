@@ -330,6 +330,13 @@ impl<F: SmallField> UInt256<F> {
     }
 
     #[must_use]
+    pub fn to_u512<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> UInt512<F> {
+        let mut u512 = UInt512::zero(cs);
+        u512.inner[..8].copy_from_slice(&self.inner);
+        u512
+    }
+
+    #[must_use]
     pub fn div2<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let byte_split_id = cs
             .get_table_id_for_marker::<ByteSplitTable<1>>()
@@ -350,6 +357,19 @@ impl<F: SmallField> UInt256<F> {
             bit = Some(new_bit);
         });
         Self::from_le_bytes(cs, bytes)
+    }
+
+    /// Finds the result of multiplying `self` by `other` mod `modulo`.
+    pub fn modmul<CS: ConstraintSystem<F>>(
+        &self, 
+        cs: &mut CS,
+        other: &UInt256<F>,
+        modulo: &UInt256<F>,
+    ) -> UInt256<F> {
+        // We take 8 limbs since scalar can be of any size
+        let product = self.widening_mul(cs, &other, 8, 8);
+        let (_, remainder) = product.long_division(cs, modulo);
+        remainder
     }
 }
 
