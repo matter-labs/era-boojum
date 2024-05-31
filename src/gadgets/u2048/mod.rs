@@ -293,7 +293,7 @@ impl<F: SmallField> UInt2048<F> {
 
     /// Finds the result of multiplying `self` by `other` mod `modulo`.
     pub fn modmul<CS: ConstraintSystem<F>>(
-        &self, 
+        &self,
         cs: &mut CS,
         other: &UInt2048<F>,
         modulo: &UInt2048<F>,

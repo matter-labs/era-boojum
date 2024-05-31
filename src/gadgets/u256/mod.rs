@@ -361,7 +361,7 @@ impl<F: SmallField> UInt256<F> {
 
     /// Finds the result of multiplying `self` by `other` mod `modulo`.
     pub fn modmul<CS: ConstraintSystem<F>>(
-        &self, 
+        &self,
         cs: &mut CS,
         other: &UInt256<F>,
         modulo: &UInt256<F>,

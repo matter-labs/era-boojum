@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use pairing::ff::PrimeField;
+use std::sync::Arc;
 
 use crate::{
     cs::traits::cs::ConstraintSystem,

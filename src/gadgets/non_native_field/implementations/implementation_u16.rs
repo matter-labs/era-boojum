@@ -1059,7 +1059,7 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CircuitVarLength
         N
     }
 
-    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
+    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.extend_from_slice(self.limbs.as_slice())
     }
 }

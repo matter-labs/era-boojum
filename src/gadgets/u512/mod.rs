@@ -259,7 +259,7 @@ impl<F: SmallField> UInt512<F> {
     /// since both [`UInt512<F>`] and [`UInt256<F>`] are represented as arrays of [`UInt32<F>`]. The implementation is based on
     /// algorithm https://en.wikipedia.org/wiki/Long_division#Algorithm_for_arbitrary_base,
     /// where `k=16`, `l=8`, and base `b=2^{32}`.
-    /// 
+    ///
     /// Currently, only the division by [`UInt256<F>`] is supported.
     #[must_use]
     pub fn long_division<CS>(&self, cs: &mut CS, other: &UInt256<F>) -> (UInt512<F>, UInt256<F>)

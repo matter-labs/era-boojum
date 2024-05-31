@@ -181,7 +181,7 @@ impl<T: pairing::ff::PrimeField, const N: usize> NonNativeFieldOverU16Params<T, 
 impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
     for NonNativeFieldOverU16Params<T, N>
 {
-    fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
+    fn placeholder<CS: ConstraintSystem<F>>(_cs: &mut CS) -> Self {
         Self {
             modulus: [0u16; N],
             modulus_bits: 0,
