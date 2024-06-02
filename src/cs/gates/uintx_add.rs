@@ -6,7 +6,7 @@ use crate::{
 use super::*;
 
 // a + b + carry_in = c + 2^N * carry_out,
-// `carry_out` is boolean constrainted
+// `carry_out` is boolean constrained
 // but `c` is NOT. We will use reduction gate to perform decomposition of `c`, and separate range checks
 
 const UNIQUE_IDENTIFIER: &str = "a + b + carry_in = c + 2^N * carry_out";
