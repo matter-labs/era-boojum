@@ -3,6 +3,7 @@ use crate::field::traits::field_like::PrimeFieldLikeVectorized;
 use crate::field::PrimeField;
 use crate::utils::*;
 use std::alloc::Global;
+use ecow::EcoVec;
 
 use super::fast_serialization::MemcopySerializable;
 use super::*;
@@ -42,10 +43,10 @@ pub struct GenericPolynomial<
     P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
     A: GoodAllocator = Global,
 > {
-    #[serde(serialize_with = "crate::utils::serialize_vec_with_allocator")]
-    #[serde(deserialize_with = "crate::utils::deserialize_vec_with_allocator")]
-    pub storage: Vec<P, A>,
-    pub _marker: std::marker::PhantomData<(F, P, FORM)>,
+    #[serde(serialize_with = "crate::utils::serialize_ecovec")]
+    #[serde(deserialize_with = "crate::utils::deserialize_ecovec")]
+    pub storage: EcoVec<P>,
+    pub _marker: std::marker::PhantomData<(F, P, FORM, A)>,
 }
 
 impl<
@@ -57,7 +58,7 @@ impl<
 {
     #[inline(always)]
     fn clone(&self) -> Self {
-        let storage = Vec::clone(&self.storage);
+        let storage = self.storage.to_owned();
 
         Self {
             storage,
@@ -67,7 +68,7 @@ impl<
 
     #[inline(always)]
     fn clone_from(&mut self, source: &Self) {
-        Vec::clone_from(&mut self.storage, &source.storage);
+        EcoVec::clone_from(&mut self.storage, &source.storage);
     }
 }
 
@@ -125,7 +126,7 @@ impl<
         P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F>,
         A: GoodAllocator,
         B: GoodAllocator,
-    > MemcopySerializable for Vec<std::sync::Arc<GenericPolynomial<F, FORM, P, A>>, B>
+    > MemcopySerializable for Vec<GenericPolynomial<F, FORM, P, A>, B>
 where
     Self: 'static,
 {
@@ -156,7 +157,7 @@ where
         for _ in 0..capacity {
             let inner: GenericPolynomial<F, FORM, P, A> =
                 MemcopySerializable::read_from_buffer(&mut src)?;
-            result.push(std::sync::Arc::new(inner));
+            result.push(inner);
         }
 
         Ok(result)
@@ -175,7 +176,7 @@ impl<
     #[inline]
     pub fn new() -> Self {
         Self {
-            storage: Vec::new_in(A::default()),
+            storage: EcoVec::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -195,15 +196,19 @@ impl<
     #[inline]
     pub(crate) fn from_storage(storage: Vec<P, A>) -> Self {
         debug_assert!(storage.as_ptr().addr() % std::mem::align_of::<P>() == 0);
+        let mut ecovec = EcoVec::with_capacity(storage.capacity());
+        ecovec.extend_from_slice(storage.as_slice());
         Self {
-            storage,
+            storage: ecovec,
             _marker: std::marker::PhantomData,
         }
     }
 
     #[inline]
     pub(crate) fn into_storage(self) -> Vec<P, A> {
-        self.storage
+        let mut storage = Vec::with_capacity_in(self.storage.len(), A::default());
+        storage.extend_from_slice(self.storage.as_slice());
+        storage
     }
 
     #[inline]
@@ -222,15 +227,15 @@ impl<
 
     #[inline]
     pub(crate) fn clone_respecting_allignment<U: Sized>(&self) -> Self {
-        let buffer = clone_respecting_allignment::<_, U, _>(&self.storage);
+        // FIXME: allignment
         Self {
-            storage: buffer,
+            storage: self.storage.to_owned(),
             _marker: std::marker::PhantomData,
         }
     }
 
     pub(crate) fn chunks<B: GoodAllocator>(
-        self: &std::sync::Arc<Self>,
+        self: &Self,
         chunk_size: usize,
     ) -> Vec<GenericPolynomialChunk<F, FORM, P, A>, B> {
         let len = self.storage.len();
@@ -244,7 +249,7 @@ impl<
             }
 
             let chunk = GenericPolynomialChunk {
-                over: std::sync::Arc::clone(self),
+                over: self.clone(),
                 range: start..end,
                 _marker: std::marker::PhantomData,
             };
@@ -270,15 +275,11 @@ impl<
 
         let num_chunks = self.domain_size() / degree;
 
-        let mut storage = self.storage;
-
         // there is no easy way to split the allocation
         let mut result = Vec::with_capacity_in(num_chunks, B::default());
-        for _ in 0..num_chunks {
-            let mut subchunk = Vec::with_capacity_in(degree / P::SIZE_FACTOR, A::default());
-            subchunk.extend(storage.drain(..degree / P::SIZE_FACTOR));
+        for subchunk in self.storage.chunks(degree / P::SIZE_FACTOR) {
             result.push(Self {
-                storage: subchunk,
+                storage: subchunk.into(),
                 _marker: std::marker::PhantomData,
             });
         }
@@ -295,7 +296,7 @@ pub(crate) struct GenericPolynomialChunk<
     P: field::traits::field_like::PrimeFieldLikeVectorized<Base = F> = F,
     A: GoodAllocator = Global,
 > {
-    pub(crate) over: std::sync::Arc<GenericPolynomial<F, FORM, P, A>>,
+    pub(crate) over: GenericPolynomial<F, FORM, P, A>,
     pub(crate) range: std::ops::Range<usize>,
     _marker: std::marker::PhantomData<(FORM, A)>,
 }
@@ -445,7 +446,10 @@ impl<'a, F: PrimeField, FORM: PolynomialForm, A: GoodAllocator, B: GoodAllocator
 
         let mut tmp: Vec<_> = polys
             .iter_mut()
-            .map(|el| el.storage.chunks_mut(chunk_size))
+            .map(|el| {
+                assert!(el.storage.is_unique(), "el.storage is not unique!");
+                el.storage.make_mut().chunks_mut(chunk_size)
+            })
             .collect();
         for chunk_idx in 0..num_chunks {
             for poly_chunks in tmp.iter_mut() {

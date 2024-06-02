@@ -1165,12 +1165,12 @@ impl<
             for el in quotient_c0s.into_iter() {
                 q_c0_as_lde
                     .storage
-                    .push(Arc::new(GenericPolynomial::from_storage(el)));
+                    .push(GenericPolynomial::from_storage(el));
             }
             for el in quotient_c1s.into_iter() {
                 q_c1_as_lde
                     .storage
-                    .push(Arc::new(GenericPolynomial::from_storage(el)));
+                    .push(GenericPolynomial::from_storage(el));
             }
 
             let mut challenges_it = remaining_challenges.iter();
@@ -1215,13 +1215,11 @@ impl<
                         ctx,
                     );
 
-                    unsafe {
-                        Arc::get_mut_unchecked(&mut dst[0].storage[outer]).storage[inner]
-                            .add_assign(&z_c0, ctx);
+                    dst[0].storage[outer].storage.make_mut()[inner]
+                        .add_assign(&z_c0, ctx);
 
-                        Arc::get_mut_unchecked(&mut dst[1].storage[outer]).storage[inner]
-                            .add_assign(&z_c1, ctx);
-                    }
+                    dst[1].storage[outer].storage.make_mut()[inner]
+                        .add_assign(&z_c1, ctx);
                 };
 
                 apply_multiop(&mut dst, &src, &op, worker, ctx)
@@ -1366,21 +1364,13 @@ impl<
             let mut q_c0_as_vectors: Vec<Vec<P>> = q_c0_as_lde
                 .storage
                 .into_iter()
-                .map(|el| {
-                    Arc::try_unwrap(el)
-                        .expect("must be exclusively owned")
-                        .into_storage()
-                })
+                .map(|el| el.into_storage())
                 .collect();
 
             let mut q_c1_as_vectors: Vec<Vec<P>> = q_c1_as_lde
                 .storage
                 .into_iter()
-                .map(|el| {
-                    Arc::try_unwrap(el)
-                        .expect("must be exclusively owned")
-                        .into_storage()
-                })
+                .map(|el| el.into_storage())
                 .collect();
 
             if crate::config::DEBUG_SATISFIABLE == false {
@@ -1552,7 +1542,7 @@ impl<
                 .variables
                 .variables_columns
                 .iter()
-                .map(|el| &el.storage[0].as_ref().storage)
+                .map(|el| &el.storage[0].storage)
                 .map(|el| evaluate_from_base(el))
                 .map(|el| ExtensionField::<F, 2, EXT>::from_coeff_in_base(el)),
         );
@@ -1561,7 +1551,7 @@ impl<
                 .variables
                 .witness_columns
                 .iter()
-                .map(|el| &el.storage[0].as_ref().storage)
+                .map(|el| &el.storage[0].storage)
                 .map(|el| evaluate_from_base(el))
                 .map(|el| ExtensionField::<F, 2, EXT>::from_coeff_in_base(el)),
         );
@@ -1571,7 +1561,7 @@ impl<
                 .setup
                 .constant_columns
                 .iter()
-                .map(|el| &el.storage[0].as_ref().storage)
+                .map(|el| &el.storage[0].storage)
                 .map(|el| evaluate_from_base(el))
                 .map(|el| ExtensionField::<F, 2, EXT>::from_coeff_in_base(el)),
         );
@@ -1580,7 +1570,7 @@ impl<
                 .setup
                 .copy_permutation_polys
                 .iter()
-                .map(|el| &el.storage[0].as_ref().storage)
+                .map(|el| &el.storage[0].storage)
                 .map(|el| evaluate_from_base(el))
                 .map(|el| ExtensionField::<F, 2, EXT>::from_coeff_in_base(el)),
         );
@@ -1588,10 +1578,8 @@ impl<
         all_polys_at_zs.push(ExtensionField::<F, 2, EXT>::from_coeff_in_base(
             evaluate_from_extension(
                 &second_stage_polys_storage.z_poly[0].storage[0]
-                    .as_ref()
                     .storage,
                 &second_stage_polys_storage.z_poly[1].storage[0]
-                    .as_ref()
                     .storage,
             ),
         ));
@@ -1601,8 +1589,8 @@ impl<
                 .iter()
                 .map(|[a, b]| {
                     [
-                        &a.storage[0].as_ref().storage,
-                        &b.storage[0].as_ref().storage,
+                        &a.storage[0].storage,
+                        &b.storage[0].storage,
                     ]
                 })
                 .map(|[a, b]| evaluate_from_extension(a, b))
@@ -1625,7 +1613,7 @@ impl<
                 .variables
                 .lookup_multiplicities_polys
                 .iter()
-                .map(|el| &el.storage[0].as_ref().storage)
+                .map(|el| &el.storage[0].storage)
                 .map(|el| evaluate_from_base(el))
                 .map(|el| ExtensionField::<F, 2, EXT>::from_coeff_in_base(el)),
         );
@@ -1636,8 +1624,8 @@ impl<
                 .iter()
                 .map(|[a, b]| {
                     [
-                        &a.storage[0].as_ref().storage,
-                        &b.storage[0].as_ref().storage,
+                        &a.storage[0].storage,
+                        &b.storage[0].storage,
                     ]
                 })
                 .map(|[a, b]| evaluate_from_extension(a, b))
@@ -1649,8 +1637,8 @@ impl<
                 .iter()
                 .map(|[a, b]| {
                     [
-                        &a.storage[0].as_ref().storage,
-                        &b.storage[0].as_ref().storage,
+                        &a.storage[0].storage,
+                        &b.storage[0].storage,
                     ]
                 })
                 .map(|[a, b]| evaluate_from_extension(a, b))
@@ -1663,7 +1651,7 @@ impl<
                 .setup
                 .lookup_tables_columns
                 .iter()
-                .map(|el| &el.storage[0].as_ref().storage)
+                .map(|el| &el.storage[0].storage)
                 .map(|el| evaluate_from_base(el))
                 .map(|el| ExtensionField::<F, 2, EXT>::from_coeff_in_base(el)),
         );
@@ -1674,8 +1662,8 @@ impl<
                 .array_chunks::<2>()
                 .map(|[a, b]| {
                     [
-                        &a.storage[0].as_ref().storage,
-                        &b.storage[0].as_ref().storage,
+                        &a.storage[0].storage,
+                        &b.storage[0].storage,
                     ]
                 })
                 .map(|[a, b]| evaluate_from_extension(a, b))
@@ -1728,12 +1716,8 @@ impl<
 
         let all_polys_at_zomegas = vec![ExtensionField::<F, 2, EXT>::from_coeff_in_base(
             evaluate_from_extension(
-                &second_stage_polys_storage.z_poly[0].storage[0]
-                    .as_ref()
-                    .storage,
-                &second_stage_polys_storage.z_poly[1].storage[0]
-                    .as_ref()
-                    .storage,
+                &second_stage_polys_storage.z_poly[0].storage[0].storage,
+                &second_stage_polys_storage.z_poly[1].storage[0].storage,
             ),
         )];
         assert_eq!(all_polys_at_zomegas.len(), 1);
@@ -1773,8 +1757,8 @@ impl<
                     .iter()
                     .map(|[a, b]| {
                         [
-                            &a.storage[0].as_ref().storage,
-                            &b.storage[0].as_ref().storage,
+                            &a.storage[0].storage,
+                            &b.storage[0].storage,
                         ]
                     })
                     .map(|[a, b]| evaluate_from_extension(a, b))
@@ -1786,8 +1770,8 @@ impl<
                     .iter()
                     .map(|[a, b]| {
                         [
-                            &a.storage[0].as_ref().storage,
-                            &b.storage[0].as_ref().storage,
+                            &a.storage[0].storage,
+                            &b.storage[0].storage,
                         ]
                     })
                     .map(|[a, b]| evaluate_from_extension(a, b))
@@ -2815,9 +2799,7 @@ pub fn compute_selector_subpath<
                             let (outer, inner) = chunk.current();
                             let mut tmp = one;
                             tmp.sub_assign(&dst.storage[outer].storage[inner], &mut ctx);
-                            unsafe {
-                                Arc::get_mut_unchecked(&mut dst.storage[outer]).storage[inner] = tmp
-                            };
+                            dst.storage[outer].storage.make_mut()[inner] = tmp;
                             chunk.advance();
                         }
                     })
@@ -2871,16 +2853,12 @@ pub fn compute_selector_subpath<
                         let mut result = one;
                         result.sub_assign(&dst.storage[outer].storage[inner], &mut ctx);
                         result.mul_assign(&prefix_poly.storage[outer].storage[inner], &mut ctx);
-                        unsafe {
-                            Arc::get_mut_unchecked(&mut dst.storage[outer]).storage[inner] = result
-                        };
+                        dst.storage[outer].storage.make_mut()[inner] = result;
                     } else {
                         // we need prefix * this
                         let mut result = dst.storage[outer].storage[inner];
                         result.mul_assign(&prefix_poly.storage[outer].storage[inner], &mut ctx);
-                        unsafe {
-                            Arc::get_mut_unchecked(&mut dst.storage[outer]).storage[inner] = result
-                        };
+                        dst.storage[outer].storage.make_mut()[inner] = result;
                     }
 
                     chunk.advance();

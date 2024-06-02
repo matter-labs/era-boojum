@@ -394,7 +394,7 @@ pub(crate) fn transform_monomials_to_lde<
         let as_polynomial = GenericPolynomial::from_storage(el);
         columns[dst_poly_idx]
             .storage
-            .push(std::sync::Arc::new(as_polynomial));
+            .push(as_polynomial);
     }
 
     // log!("{} LDEs of degree {} taken {:?}", num_polys, lde_degree, now.elapsed());
@@ -761,7 +761,7 @@ pub(crate) fn materialize_x_poly_as_arc_lde<
 
         result
             .storage
-            .push(std::sync::Arc::new(GenericPolynomial::from_storage(dst)));
+            .push(GenericPolynomial::from_storage(dst));
     }
 
     result
@@ -1315,10 +1315,7 @@ pub(crate) fn fused_multiply_sub<
                     let mut r = a.storage[outer].storage[inner];
                     r.sub_assign(&t, &mut ctx);
 
-                    unsafe { Arc::get_mut_unchecked(&mut result.storage[outer]) }
-                        .storage
-                        .spare_capacity_mut()[inner]
-                        .write(r);
+                    result.storage[outer].storage.make_mut()[inner] = r;
 
                     iterator.advance();
                 }
@@ -1326,7 +1323,7 @@ pub(crate) fn fused_multiply_sub<
         }
     });
 
-    unsafe { result.assume_init(inner_size) };
+    //unsafe { result.assume_init(inner_size) };
 
     result
 }
@@ -1371,8 +1368,7 @@ pub(crate) fn apply_binop_into<
 
                     // inliner should take care of references here
                     op.apply(
-                        &mut unsafe { Arc::get_mut_unchecked(&mut dst.storage[outer]) }.storage
-                            [inner],
+                        &mut dst.storage[outer].storage.make_mut()[inner],
                         a,
                         b,
                         &mut ctx,
@@ -1500,8 +1496,7 @@ pub(crate) fn apply_ternop_into<
 
                     // inliner should take care of references here
                     op.apply(
-                        &mut unsafe { Arc::get_mut_unchecked(&mut dst.storage[outer]) }.storage
-                            [inner],
+                        &mut dst.storage[outer].storage.make_mut()[inner],
                         a,
                         b,
                         c,
@@ -1565,8 +1560,7 @@ pub(crate) fn apply_quad_into<
 
                     // inliner should take care of references here
                     op.apply(
-                        &mut unsafe { Arc::get_mut_unchecked(&mut dst.storage[outer]) }.storage
-                            [inner],
+                        &mut dst.storage[outer].storage.make_mut()[inner],
                         a,
                         b,
                         c,
@@ -1658,7 +1652,7 @@ pub(crate) fn unnormalized_l1_inverse<
 
         result
             .storage
-            .push(Arc::new(GenericPolynomial::from_storage(r)));
+            .push(GenericPolynomial::from_storage(r));
     }
 
     result

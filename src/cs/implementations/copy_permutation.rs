@@ -60,10 +60,11 @@ pub(crate) fn pointwise_rational<
     {
         let non_residue = P::constant(*non_residue, ctx);
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(basis.storage.is_unique(), "basis.storage is not unique!");
             for (((w, sigma), x_poly), dst) in (witness_poly.storage.chunks(chunk_size))
                 .zip(sigma_poly.storage.chunks(chunk_size))
                 .zip(precomputed_x_poly.storage.chunks(chunk_size))
-                .zip(basis.storage.chunks_mut(chunk_size))
+                .zip(basis.storage.make_mut().chunks_mut(chunk_size))
             {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -149,12 +150,14 @@ pub(crate) fn pointwise_rational_in_extension<
     {
         let non_residue = P::constant(*non_residue, ctx);
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(basis_c0.storage.is_unique(), "basis_c0.storage is not unique!");
+            assert!(basis_c1.storage.is_unique(), "basis_c1.storage is not unique!");
             for ((((w, sigma), x_poly), dst_c0), dst_c1) in
                 (witness_poly.storage.chunks(chunk_size))
                     .zip(sigma_poly.storage.chunks(chunk_size))
                     .zip(precomputed_x_poly.storage.chunks(chunk_size))
-                    .zip(basis_c0.storage.chunks_mut(chunk_size))
-                    .zip(basis_c1.storage.chunks_mut(chunk_size))
+                    .zip(basis_c0.storage.make_mut().chunks_mut(chunk_size))
+                    .zip(basis_c1.storage.make_mut().chunks_mut(chunk_size))
             {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -281,8 +284,9 @@ pub(crate) fn pointwise_product_into<
 
     for source in inputs.iter() {
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(into.storage.is_unique(), "into.storage is not unique!");
             for (dst, src) in
-                (into.storage.chunks_mut(chunk_size)).zip(source.storage.chunks(chunk_size))
+                (into.storage.make_mut().chunks_mut(chunk_size)).zip(source.storage.chunks(chunk_size))
             {
                 let mut ctx = *ctx;
                 scope.spawn(move |_| {
@@ -311,6 +315,11 @@ pub(crate) fn pointwise_product_in_extension<
 
     let [mut result_c0, mut result_c1] = inputs[0].clone();
 
+    let _ = (result_c0.storage.make_mut(), result_c1.storage.make_mut());
+
+    assert!(result_c0.storage.is_unique());
+    assert!(result_c1.storage.is_unique());
+
     pointwise_product_in_extension_into::<F, P, EXT, A>(
         &inputs[1..],
         &mut result_c0,
@@ -336,13 +345,25 @@ pub(crate) fn pointwise_product_in_extension_into<
 ) {
     let typical_size = into_c0.storage.len(); // we need raw length in counts of P
 
+    assert!(into_c0.storage.is_unique(), "into_c0.storage is not unique!");
+    assert!(into_c1.storage.is_unique(), "into_c1.storage is not unique!");
+
+    //   18:     0x5617ec14977f - boojum::cs::implementations::copy_permutation::pointwise_product_in_extension_into::h7afc923f8b42188e
+    //   19:     0x5617ec14a7b6 - boojum::cs::implementations::copy_permutation::compute_partial_products_in_extension::h2e6bd4b1c53ed759
+    //   20:     0x5617ebcb9319 - boojum::cs::implementations::prover::<impl boojum::cs::implementations::reference_cs::CSReferenceAssembly<F,P,CFG,A>>::prove_cpu_basic::h088688d6cd7fed3a
+    //   21:     0x5617ebbdff22 - boojum::cs::implementations::convenience::<impl boojum::cs::implementations::reference_cs::CSReferenceAssembly<F,P,CFG,A>>::prove_from_precomputations::hb5faa7c379034a0a
+    //   22:     0x5617ebeecd3a - zkevm_test_harness::prover_utils::prove_base_layer_circuit::h6ca12e453ce37157
+
     for source in inputs.iter() {
         let [src_c0, src_c1] = source;
         worker.scope(typical_size, |scope, chunk_size| {
+            assert!(into_c0.storage.is_unique(), "into_c0.storage is not unique!");
+            assert!(into_c1.storage.is_unique(), "into_c1.storage is not unique!");
             for (((dst_c0, dst_c1), src_c0), src_c1) in into_c0
                 .storage
+                .make_mut()
                 .chunks_mut(chunk_size)
-                .zip(into_c1.storage.chunks_mut(chunk_size))
+                .zip(into_c1.storage.make_mut().chunks_mut(chunk_size))
                 .zip(src_c0.storage.chunks(chunk_size))
                 .zip(src_c1.storage.chunks(chunk_size))
             {
@@ -625,8 +646,8 @@ pub(crate) fn compute_partial_products<
 
             // we have to apply pointwise products on top of Z(x)
 
-            for el in partial_elementwise_products.into_iter() {
-                let mut el = el;
+            for mut el in partial_elementwise_products.into_iter() {
+                assert!(el.storage.is_unique());
                 pointwise_product_into(&previous, &mut el, worker, ctx);
 
                 // we have new pointwise in el, and untouched previous, so we can reuse the storage
@@ -721,6 +742,8 @@ pub(crate) fn compute_partial_products_in_extension<
         ]);
     }
 
+    assert!(partial_elementwise_products.iter_mut().all(|[el_c0, el_c1]| el_c0.storage.is_unique() && el_c1.storage.is_unique()));
+
     let [almost_z_poly_c0, almost_z_poly_c1] =
         pointwise_product_in_extension::<F, P, EXT, A>(&partial_elementwise_products, worker, ctx);
 
@@ -756,8 +779,9 @@ pub(crate) fn compute_partial_products_in_extension<
 
         // we have to apply pointwise products on top of Z(x)
 
-        for el in partial_elementwise_products.into_iter() {
-            let [mut el_c0, mut el_c1] = el;
+        for [mut el_c0, mut el_c1] in partial_elementwise_products.into_iter() {
+            assert!(el_c0.storage.is_unique());
+            assert!(el_c1.storage.is_unique());
             pointwise_product_in_extension_into::<F, P, EXT, A>(
                 &previous, &mut el_c0, &mut el_c1, worker, ctx,
             );
@@ -1232,12 +1256,16 @@ pub(crate) fn compute_quotient_terms_in_extension<
                             }
                         }
 
-                        unsafe { std::sync::Arc::get_mut_unchecked(&mut dst_c0.storage[outer]) }
-                            .storage[inner]
+                        assert!(dst_c0.storage[outer].storage.is_unique(), "dst_c0.storage is not unique!");
+                        dst_c0.storage[outer]
+                            .storage
+                            .make_mut()[inner]
                             .add_assign(&contribution_c0, &mut ctx);
 
-                        unsafe { std::sync::Arc::get_mut_unchecked(&mut dst_c1.storage[outer]) }
-                            .storage[inner]
+                        assert!(dst_c1.storage[outer].storage.is_unique(), "dst_c1.storage is not unique!");
+                        dst_c1.storage[outer]
+                            .storage
+                            .make_mut()[inner]
                             .add_assign(&contribution_c1, &mut ctx);
 
                         iterator.advance();
