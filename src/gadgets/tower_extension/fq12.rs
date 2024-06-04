@@ -142,6 +142,19 @@ where
         is_c0_zero.and(cs, is_c1_zero)
     }
 
+    /// Allocate `Fq12` tower extension element from the Witness represented in two components
+    /// from the `Fq6` tower extension.
+    pub fn constant<CS>(cs: &mut CS, wit: P::Witness, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = P::convert_from_structured_witness(wit);
+        let c0 = Fq6::constant(cs, c0, params);
+        let c1 = Fq6::constant(cs, c1, params);
+
+        Self::new(c0, c1)
+    }
+
     /// Conjugates the `Fq12` element by negating the `c1` component.
     pub fn conjugate<CS>(&mut self, cs: &mut CS) -> Self
     where
@@ -265,6 +278,8 @@ where
         Self::new(new_c0, new_c1)
     }
 
+    /// Sparse multiplication by constants `c0` and `c3` and `c4` in the form `c0 + (c3 + c4*v)*w`.
+    /// See _Algorithm_ 21 from https://eprint.iacr.org/2010/354.pdf.
     pub fn mul_by_c0c3c4<CS>(
         &mut self,
         cs: &mut CS,
@@ -275,9 +290,46 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let zero = Fq2::zero(cs, c0.c0.get_params());
-        let c0 = Fq6::new(c0.clone(), zero.clone(), zero.clone());
-        let c1 = Fq6::new(c3.clone(), c4.clone(), zero);
+        // Below, a0+a1*w is self b0+b1*w with b0=b00=c0 and b1=b10+b11*v=c3+c4*v
+        // is the element to multiply with
+
+        // t0 <- a0*b0
+        let mut t0 = self.c0.mul_by_c0(cs, c0);
+        t0.normalize(cs);
+        // t1 <- a1*b1
+        let mut t1 = self.c1.mul_by_c0c1(cs, c3, c4);
+        t1.normalize(cs);
+        // c0 <- t0 + t1*gamma
+        let mut t1_gamma = t1.mul_by_nonresidue(cs);
+        t1_gamma.normalize(cs);
+        let new_c0 = t0.add(cs, &mut t1_gamma);
+        // t2 <- (b0+b10)v + b11*v + 0*v^2
+        let mut t2_c0 = c0.add(cs, c3);
+        let mut t2_c1 = c4.clone();
+        // c1 <- (a0 + a1) * t2
+        let mut new_c1 = self.c0.add(cs, &mut self.c1);
+        let mut new_c1 = new_c1.mul_by_c0c1(cs, &mut t2_c0, &mut t2_c1);
+        new_c1.normalize(cs);
+        // c1 <- c1 - t0 - t1
+        let mut new_c1 = new_c1.sub(cs, &mut t0);
+        let mut new_c1 = new_c1.sub(cs, &mut t1);
+        new_c1.normalize(cs);
+
+        Self::new(new_c0, new_c1)
+    }
+
+    /// Multiplies the `Fq12` element by a constant `c6*v^2` represented as `Fq2`.
+    pub fn mul_by_c6<CS>(
+        &mut self,
+        cs: &mut CS,
+        c6: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+    ) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let zero = Fq2::zero(cs, c6.c0.get_params());
+        let c0 = Fq6::new(zero.clone(), zero.clone(), zero.clone());
+        let c1 = Fq6::new(zero.clone(), zero.clone(), c6.clone());
         let mut other = Fq12::new(c0, c1);
 
         // TODO: make it hand optimized

@@ -1,15 +1,17 @@
-use pairing::ff::PrimeField;
+use pairing::{ff::PrimeField, BitIterator};
 use std::sync::Arc;
 
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
     gadgets::{
-        boolean::Boolean, non_native_field::traits::NonNativeField, traits::selectable::Selectable,
+        boolean::Boolean,
+        non_native_field::traits::NonNativeField,
+        traits::selectable::Selectable,
     },
 };
 
-use super::{fq12::Fq12, fq6::Fq6, params::Extension12Params};
+use super::{fq12::Fq12, fq2::Fq2, fq6::Fq6, params::TorusExtension12Params};
 
 /// [`TorusWrapper`] is an algebraic compression of the `Fq12` element via underlying encoding of `Fq6`.
 /// In compressed form operations over Fq12 are less expensive.
@@ -22,18 +24,26 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
-    P: Extension12Params<T>,
+    P: TorusExtension12Params<T>,
 {
     pub encoding: Fq6<F, T, NN, P::Ex6>,
 }
 
 // TODO: Probably, this could be implemented generally for any two Fqk and Fq(k/2) elements.
-impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Params<T>>
+impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12Params<T>>
     TorusWrapper<F, T, NN, P>
 {
     /// Creates a new instance of the [`TorusWrapper`] with the given encoding.
     pub fn new(encoding: Fq6<F, T, NN, P::Ex6>) -> Self {
         Self { encoding }
+    }
+
+    pub fn one<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let encoding = Fq6::zero(cs, params);
+        Self::new(encoding)
     }
 
     /// Returns the underlying parameters of the encoded `Fq6` element.
@@ -169,11 +179,14 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         // Since w^2 = \gamma, that means \gamma^{1/2} = w and therefore
         // \gamma^{(p^i-1)/2} = w^{p^i-1} = frob_map(w, i)*w^{-1}. Thus,
         // denominator is frob_map(w, i)*w^{-1}
+
+        // First, allocating the w^{-1}
+        let w_inverse = P::get_w_inverse_coeffs_c6();
+        let mut w_inverse = Fq2::constant(cs, w_inverse, params);
+        // Then, computing frob_map(w, i)*w^{-1}
         let mut w: Fq12<F, T, NN, P> = Fq12::one_imaginary(cs, params);
-        // TODO: w_inverse can be known in compile-time so there is no need to allocate it in run-time.
-        let mut w_inverse = w.inverse(cs);
         let mut denominator = w.frobenius_map(cs, power);
-        let mut denominator = denominator.mul(cs, &mut w_inverse);
+        let mut denominator = denominator.mul_by_c6(cs, &mut w_inverse);
 
         // Asserting that c1 is zero since denominator must be a pure Fq6 element.
         let boolean_true = Boolean::allocated_constant(cs, true);
@@ -196,7 +209,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         CS: ConstraintSystem<F>,
     {
         let params = self.get_params();
-        let mut gamma = Fq6::gamma(cs, params);
+        let mut one = Fq2::one(cs, params);
 
         // g1 <- g, g2 <- g'
         let mut g1 = self.encoding.clone();
@@ -205,7 +218,8 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         // x <- g * g' + \gamma
         let mut x = g1.mul(cs, &mut g2);
         x.normalize(cs);
-        let mut x = x.add(cs, &mut gamma);
+        // Adding gamma to x
+        x.c1 = x.c1.add(cs, &mut one);
         x.normalize(cs);
         // y <- g + g'
         let mut y = g1.add(cs, &mut g2);
@@ -213,7 +227,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
 
         let encoding = if SAFE {
             // Exception occurs when g = -g'. To account for such case,
-            // the following formula is used (flag = (y == 0)? 1 : 0 --- exception case):
+            // the following formula is used (where flag = (y == 0)? 1 : 0 --- exception case):
             // result <- (x - flag * x) / (g + g' + flag)
 
             let mut zero = Fq6::zero(cs, params);
@@ -248,8 +262,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         CS: ConstraintSystem<F>,
     {
         // Intializing the result with 1
-        let mut one: Fq12<F, T, NN, P> = Fq12::one(cs, self.get_params());
-        let mut result = Self::compress::<_, true>(cs, &mut one);
+        let mut result = Self::one(cs, self.get_params());
         result.normalize(cs);
 
         // Preparing self and self inverse in advance
@@ -284,6 +297,33 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
         result
     }
 
+    pub fn pow_u32<CS, S: AsRef<[u64]>>(&mut self, cs: &mut CS, exponent: S) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let mut result = Self::one(cs, self.get_params());
+        let mut found_one = false;
+
+        for bit in BitIterator::new(exponent) {
+            let apply_squaring = Boolean::allocated_constant(cs, found_one);
+            let result_squared = result.square::<_, true>(cs);
+            result = Self::conditionally_select(cs, apply_squaring, &result_squared, &result);
+            if !found_one {
+                found_one = bit;
+            }
+
+            let result_multiplied = result.mul::<_, true>(cs, self);
+            let apply_multiplication = Boolean::allocated_constant(cs, bit);
+            result =
+                Self::conditionally_select(cs, apply_multiplication, &result_multiplied, &result);
+
+            // Normalize the result to stay in field
+            result.normalize(cs);
+        }
+
+        result
+    }
+
     /// Squares the Torus element using the formula
     ///
     /// `g -> (1/2)(g + \gamma/g)`
@@ -295,7 +335,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
     {
         let params = self.get_params();
         let mut one = Fq6::one(cs, params);
-        let mut gamma = Fq6::gamma(cs, params);
         let mut g = self.encoding.clone();
 
         // Calculating \gamma/g safely
@@ -310,7 +349,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
 
             let mut flag_negated = one.sub(cs, &mut flag);
             flag_negated.normalize(cs);
-            let mut numerator = gamma.mul(cs, &mut flag_negated);
+            let mut numerator = flag_negated.mul_by_nonresidue(cs);
             numerator.normalize(cs);
             let mut denominator = g.add(cs, &mut flag);
             denominator.normalize(cs);
@@ -319,19 +358,21 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: Extension12Param
             result
         } else {
             // Here we do not check whether g = 0 since the function is unsafe
-            let mut result = gamma.div(cs, &mut g);
+            let mut result = g.inverse(cs);
             result.normalize(cs);
-            result
+            result.mul_by_nonresidue(cs)
         };
 
         // Calculating (1/2)(g + \gamma/g)
         let mut encoding = g.add(cs, &mut exception_term);
         encoding.normalize(cs);
-        // TODO: 2^{-1} might be known in compile-time so there is no need to allocate it in run-time.
-        let mut two = one.double(cs);
-        let mut two_inverse = two.inverse(cs);
-        two_inverse.normalize(cs);
-        encoding = encoding.mul(cs, &mut two_inverse);
+        
+        // Allocating 2^{-1}
+        let two_inverse = P::get_two_inverse_coeffs_c0();
+        let mut two_inverse = Fq2::constant(cs, two_inverse, params);
+
+        // Calculating (1/2)(g + \gamma/g)
+        encoding = encoding.mul_by_c0(cs, &mut two_inverse);
         encoding.normalize(cs);
 
         Self::new(encoding)
@@ -343,7 +384,7 @@ where
     F: SmallField,
     T: PrimeField,
     NN: NonNativeField<F, T>,
-    P: Extension12Params<T>,
+    P: TorusExtension12Params<T>,
 {
     fn conditionally_select<CS>(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self
     where

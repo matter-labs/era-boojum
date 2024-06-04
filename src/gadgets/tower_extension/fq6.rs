@@ -289,6 +289,19 @@ where
         Self::new(t1, t2, b_b)
     }
 
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `c=c0` in `Fq2`
+    pub fn mul_by_c0<CS>(&mut self, cs: &mut CS, c0: &mut Fq2<F, T, NN, P::Ex2>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // Simply multiply element-wise
+        let t0 = self.c0.mul(cs, c0);
+        let t1 = self.c1.mul(cs, c0);
+        let t2 = self.c2.mul(cs, c0);
+
+        Self::new(t0, t1, t2)
+    }
+
     /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `b = b0+b1*v`
     pub fn mul_by_c0c1<CS>(
         &mut self,
@@ -428,6 +441,20 @@ where
         self.c0.normalize(cs);
         self.c1.normalize(cs);
         self.c2.normalize(cs);
+    }
+
+    /// Allocate `Fq6` tower extension element from the Witness represented in three components
+    /// from the `Fq2` tower extension.
+    pub fn constant<CS>(cs: &mut CS, wit: P::Witness, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let constants = P::convert_from_structured_witness(wit);
+        let c0 = Fq2::constant(cs, constants[0], params);
+        let c1 = Fq2::constant(cs, constants[1], params);
+        let c2 = Fq2::constant(cs, constants[2], params);
+
+        Self::new(c0, c1, c2)
     }
 }
 
