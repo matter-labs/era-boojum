@@ -424,7 +424,7 @@ pub(crate) fn invocation_binder<Fn, F: SmallField>(
         // Safety: This is the actual type of the provided function.
         let bound = resolver.resolve_fn::<Fn>();
 
-        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && false {
+        if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA) && false {
             log!(
                 "Ivk: Ins [{}], Out [{}], Out-addr [{}], Thread [{}]",
                 resolver
@@ -448,7 +448,10 @@ pub(crate) fn invocation_binder<Fn, F: SmallField>(
             )
         }
 
-        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && debug_track && false {
+        if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA)
+            && debug_track
+            && false
+        {
             log!(
                 "Ivk: provided inputs:\n   - {:?}",
                 ins.iter().map(|x| x.as_raw_u64()).collect_vec()
@@ -457,7 +460,10 @@ pub(crate) fn invocation_binder<Fn, F: SmallField>(
 
         bound(ins, &mut DstBuffer::MutSliceIndirect(out, debug_track, 0));
 
-        if (cfg!(cr_paranoia_mode) || crate::dag::resolvers::mt::PARANOIA) && debug_track && true {
+        if (cfg!(feature = "cr_paranoia_mode") || crate::dag::resolvers::mt::PARANOIA)
+            && debug_track
+            && true
+        {
             log!(
                 "Ivk: calculated outputs:\n   - {:?}",
                 out.iter().map(|x| x.as_raw_u64()).collect_vec()
