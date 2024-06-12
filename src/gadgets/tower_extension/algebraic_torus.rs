@@ -85,7 +85,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         let mut c0 = f.c0.clone();
         let mut c1 = f.c1.clone();
 
-        let encoding = if SAFE {
+        let mut encoding = if SAFE {
             // Preparing flags for exception cases
             let is_exceptional = Fq6::is_zero(&mut c1, cs);
             let mut c0_is_one = Fq6::one(cs, params);
@@ -103,7 +103,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             denominator.normalize(cs);
 
             let mut encoding = numerator.div(cs, &mut denominator);
-            encoding.normalize(cs);
             encoding
         } else {
             // Verifying that c1 is non-zero
@@ -115,11 +114,11 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut encoding = Fq6::one(cs, params);
             let mut encoding = encoding.add(cs, &mut f.c0);
             let mut encoding = encoding.div(cs, &mut f.c1);
-            encoding.normalize(cs);
 
             encoding
         };
 
+        encoding.normalize(cs);
         Self::new(encoding)
     }
 
@@ -141,7 +140,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
 
         // zeta^{-1} = (g + w)/(g - w)
         let mut decompressed = numerator.div(cs, &mut denominator);
-        decompressed.normalize(cs);
 
         decompressed
     }
@@ -152,7 +150,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         CS: ConstraintSystem<F>,
     {
         let mut encoding = self.encoding.negated(cs);
-        encoding.normalize(cs);
         Self::new(encoding)
     }
 
@@ -220,15 +217,12 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
 
         // x <- g * g' + \gamma
         let mut x = g1.mul(cs, &mut g2);
-        x.normalize(cs);
         // Adding gamma to x
         x.c1 = x.c1.add(cs, &mut one);
-        x.normalize(cs);
         // y <- g + g'
         let mut y = g1.add(cs, &mut g2);
-        y.normalize(cs);
 
-        let encoding = if SAFE {
+        let mut encoding = if SAFE {
             // Exception occurs when g = -g'. To account for such case,
             // the following formula is used (where flag = (y == 0)? 1 : 0 --- exception case):
             // result <- (x - flag * x) / (g + g' + flag)
@@ -238,18 +232,13 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut flag = Fq6::from_boolean(cs, exception, params);
 
             let mut numerator = flag.mul(cs, &mut x);
-            numerator.normalize(cs);
             let mut numerator = x.sub(cs, &mut numerator);
-            numerator.normalize(cs);
             let mut denominator = y.add(cs, &mut flag);
-            denominator.normalize(cs);
             let mut result = numerator.div(cs, &mut denominator);
-            result.normalize(cs);
             result
         } else {
             // Here we do not check whether g = -g' since the function is unsafe
             let mut result = x.div(cs, &mut y);
-            result.normalize(cs);
             result
         };
 
@@ -266,34 +255,29 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
     {
         // Intializing the result with 1
         let mut result = Self::one(cs, self.get_params());
-        result.normalize(cs);
 
         // Preparing self and self inverse in advance
         let mut self_cloned = self.clone();
         let mut self_inverse = self.conjugate(cs);
-        self_inverse.normalize(cs);
 
         for bit in decomposition.as_ref().iter() {
             result = result.square::<_, SAFE>(cs);
-            result.normalize(cs);
 
             // If bit is 1, multiply by initial torus
             let bit_is_one = Boolean::allocated_constant(cs, *bit == 1);
             let mut result_times_self = result.mul::<_, SAFE>(cs, &mut self_cloned);
-            result_times_self.normalize(cs);
             result = Self::conditionally_select(cs, bit_is_one, &result_times_self, &result);
-            result.normalize(cs);
 
             // If bit is -1, multiply by inverse initial torus
             let bit_is_minus_one = Boolean::allocated_constant(cs, *bit == -1);
             let mut result_times_self_inverse = result.mul::<_, SAFE>(cs, &mut self_inverse);
-            result_times_self_inverse.normalize(cs);
             result = Self::conditionally_select(
                 cs,
                 bit_is_minus_one,
                 &result_times_self_inverse,
                 &result,
             );
+
             result.normalize(cs);
         }
 
@@ -320,7 +304,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             result =
                 Self::conditionally_select(cs, apply_multiplication, &result_multiplied, &result);
 
-            // Normalize the result to stay in field
             result.normalize(cs);
         }
 
@@ -351,24 +334,18 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut flag = Fq6::from_boolean(cs, exception, params);
 
             let mut flag_negated = one.sub(cs, &mut flag);
-            flag_negated.normalize(cs);
             let mut numerator = flag_negated.mul_by_nonresidue(cs);
-            numerator.normalize(cs);
             let mut denominator = g.add(cs, &mut flag);
-            denominator.normalize(cs);
             let mut result = numerator.div(cs, &mut denominator);
-            result.normalize(cs);
             result
         } else {
             // Here we do not check whether g = 0 since the function is unsafe
             let mut result = g.inverse(cs);
-            result.normalize(cs);
             result.mul_by_nonresidue(cs)
         };
 
         // Calculating (1/2)(g + \gamma/g)
         let mut encoding = g.add(cs, &mut exception_term);
-        encoding.normalize(cs);
         
         // Allocating 2^{-1}
         let two_inverse = P::get_two_inverse_coeffs_c0();
@@ -376,7 +353,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
 
         // Calculating (1/2)(g + \gamma/g)
         encoding = encoding.mul_by_c0(cs, &mut two_inverse);
-        encoding.normalize(cs);
 
         Self::new(encoding)
     }
