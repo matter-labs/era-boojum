@@ -210,19 +210,15 @@ where
         CS: ConstraintSystem<F>,
     {
         let mut v0 = self.c0.mul(cs, &mut other.c0);
-        v0.normalize(cs);
         let mut v1 = self.c1.mul(cs, &mut other.c1);
-        v1.normalize(cs);
         let mut o = other.c0.add(cs, &mut other.c1);
 
         let mut c1 = self.c1.add(cs, &mut self.c0);
-        c1.normalize(cs);
         let mut c1 = c1.mul(cs, &mut o);
         let mut c1 = c1.sub(cs, &mut v0);
         let c1 = c1.sub(cs, &mut v1);
 
         let mut c0 = v1.mul_by_nonresidue(cs);
-        c0.normalize(cs);
         let c0 = c0.add(cs, &mut v0);
 
         Self::new(c0, c1)
@@ -241,9 +237,7 @@ where
         let mut c0 = c0.mul(cs, &mut c0c1);
         let mut c0 = c0.sub(cs, &mut ab);
 
-        ab.normalize(cs);
         let c1 = ab.double(cs);
-        ab.normalize(cs);
         let mut ab_residue = ab.mul_by_nonresidue(cs);
         let c0 = c0.sub(cs, &mut ab_residue);
 
@@ -265,13 +259,10 @@ where
         let mut o = c1.add(cs, c4);
 
         let mut new_c1 = self.c1.add(cs, &mut self.c0);
-        new_c1.normalize(cs);
         let mut new_c1 = new_c1.mul_by_c0c1(cs, c0, &mut o);
-        aa.normalize(cs);
         let mut new_c1 = new_c1.sub(cs, &mut aa);
         let new_c1 = new_c1.sub(cs, &mut bb);
 
-        bb.normalize(cs);
         let mut new_c0 = bb.mul_by_nonresidue(cs);
         let new_c0 = new_c0.add(cs, &mut aa);
 
@@ -295,13 +286,10 @@ where
 
         // t0 <- a0*b0
         let mut t0 = self.c0.mul_by_c0(cs, c0);
-        t0.normalize(cs);
         // t1 <- a1*b1
         let mut t1 = self.c1.mul_by_c0c1(cs, c3, c4);
-        t1.normalize(cs);
         // c0 <- t0 + t1*gamma
         let mut t1_gamma = t1.mul_by_nonresidue(cs);
-        t1_gamma.normalize(cs);
         let new_c0 = t0.add(cs, &mut t1_gamma);
         // t2 <- (b0+b10)v + b11*v + 0*v^2
         let mut t2_c0 = c0.add(cs, c3);
@@ -309,11 +297,9 @@ where
         // c1 <- (a0 + a1) * t2
         let mut new_c1 = self.c0.add(cs, &mut self.c1);
         let mut new_c1 = new_c1.mul_by_c0c1(cs, &mut t2_c0, &mut t2_c1);
-        new_c1.normalize(cs);
         // c1 <- c1 - t0 - t1
         let mut new_c1 = new_c1.sub(cs, &mut t0);
-        let mut new_c1 = new_c1.sub(cs, &mut t1);
-        new_c1.normalize(cs);
+        let new_c1 = new_c1.sub(cs, &mut t1);
 
         Self::new(new_c0, new_c1)
     }
@@ -367,24 +353,16 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        self.c0.normalize(cs);
-        self.c1.normalize(cs);
         let mut c0s = self.c0.square(cs);
         let mut c1s = self.c1.square(cs);
-        c0s.normalize(cs);
-        c1s.normalize(cs);
         let mut c1s = c1s.mul_by_nonresidue(cs);
-        c1s.normalize(cs);
         let mut c0s = c0s.sub(cs, &mut c1s);
 
         c0s.normalize(cs);
         let mut t = c0s.inverse(cs);
-        let mut c0_new = t.mul(cs, &mut self.c0);
-        c0_new.normalize(cs);
+        let c0_new = t.mul(cs, &mut self.c0);
         let mut c1_new = t.mul(cs, &mut self.c1);
-        c1_new.normalize(cs);
-        let mut c1_new = c1_new.negated(cs);
-        c1_new.normalize(cs);
+        let c1_new = c1_new.negated(cs);
 
         Self::new(c0_new, c1_new)
     }

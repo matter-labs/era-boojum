@@ -100,6 +100,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut c0_is_one_doubled = c0_is_one.double(cs);
             let mut numerator = numerator.sub(cs, &mut c0_is_one_doubled);
             let mut denominator = f.c1.add(cs, &mut is_exceptional);
+            denominator.normalize(cs);
 
             let mut encoding = numerator.div(cs, &mut denominator);
             encoding.normalize(cs);
@@ -193,9 +194,11 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         let c1_is_zero = denominator.c1.is_zero(cs);
         Boolean::enforce_equal(cs, &c1_is_zero, &boolean_true);
         let mut denominator = denominator.c0.clone();
+        denominator.normalize(cs);
 
         // frob_map(g, i) / \gamma^{(p^i-1)/2}
-        let encoding = numerator.div(cs, &mut denominator);
+        let mut encoding = numerator.div(cs, &mut denominator);
+        encoding.normalize(cs);
         Self::new(encoding)
     }
 

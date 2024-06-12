@@ -185,23 +185,17 @@ where
         let mut v1 = self.c1.mul(cs, &mut other.c1);
         let mut v2 = self.c2.mul(cs, &mut other.c2);
 
-        v0.normalize(cs);
-        v1.normalize(cs);
-        v2.normalize(cs);
-
         let mut t1 = other.c1.add(cs, &mut other.c2);
         let mut tmp = self.c1.add(cs, &mut self.c2);
 
         let mut t1 = t1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut v1);
         let mut t1 = t1.sub(cs, &mut v2);
-        t1.normalize(cs);
         let mut t1 = t1.mul_by_nonresidue(cs);
         let t1 = t1.add(cs, &mut v0);
 
         let mut t3 = other.c0.add(cs, &mut other.c2);
         let mut tmp = self.c0.add(cs, &mut self.c2);
-        t3.normalize(cs);
         let mut t3 = t3.mul(cs, &mut tmp);
         let mut t3 = t3.sub(cs, &mut v0);
         let mut t3 = t3.add(cs, &mut v1);
@@ -209,11 +203,9 @@ where
 
         let mut t2 = other.c0.add(cs, &mut other.c1);
         let mut tmp = self.c0.add(cs, &mut self.c1);
-        t2.normalize(cs);
         let mut t2 = t2.mul(cs, &mut tmp);
         let mut t2 = t2.sub(cs, &mut v0);
         let mut t2 = t2.sub(cs, &mut v1);
-        v2.normalize(cs);
         let mut v2 = v2.mul_by_nonresidue(cs);
         let t2 = t2.add(cs, &mut v2);
 
@@ -225,41 +217,28 @@ where
     pub fn square<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         // v0 <- a0^2, v1 <- a1^2, v2 <- a2^2
         let mut v0 = self.c0.square(cs);
-        v0.normalize(cs);
         let mut v1 = self.c1.square(cs);
-        v1.normalize(cs);
         let mut v2 = self.c2.square(cs);
-        v2.normalize(cs);
 
         // c0 <- v0 + xi*((a1 + a2)^2 - v1 - v2)
         let mut a1_plus_a2 = self.c1.add(cs, &mut self.c2);
-        a1_plus_a2.normalize(cs);
         let mut c0 = a1_plus_a2.square(cs);
-        c0.normalize(cs);
         let mut c0 = c0.sub(cs, &mut v1);
         let mut c0 = c0.sub(cs, &mut v2);
-        c0.normalize(cs);
         let mut c0 = c0.mul_by_nonresidue(cs);
-        c0.normalize(cs);
         let c0 = c0.add(cs, &mut v0);
 
         // c1 <- (a0 + a1)^2 - v0 - v1 + xi*v2
         let mut a0_plus_a1 = self.c0.add(cs, &mut self.c1);
-        a0_plus_a1.normalize(cs);
         let mut c1 = a0_plus_a1.square(cs);
-        c1.normalize(cs);
         let mut c1 = c1.sub(cs, &mut v0);
         let mut c1 = c1.sub(cs, &mut v1);
-        v2.normalize(cs);
         let mut xi_v2 = v2.mul_by_nonresidue(cs);
-        xi_v2.normalize(cs);
         let c1 = c1.add(cs, &mut xi_v2);
 
         // c2 <- (a0 + a2)^2 - v0 + v1 - v2
         let mut a0_plus_a2 = self.c0.add(cs, &mut self.c2);
-        a0_plus_a2.normalize(cs);
         let mut c2 = a0_plus_a2.square(cs);
-        c2.normalize(cs);
         let mut c2 = c2.sub(cs, &mut v0);
         let mut c2 = c2.add(cs, &mut v1);
         let c2 = c2.sub(cs, &mut v2);
@@ -275,14 +254,11 @@ where
         let mut b_b = self.c1.mul(cs, c1);
         let mut tmp = self.c1.add(cs, &mut self.c2);
 
-        c1.normalize(cs);
         let mut t1 = c1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut b_b);
-        t1.normalize(cs);
         let t1 = t1.mul_by_nonresidue(cs);
 
         let mut tmp = self.c0.add(cs, &mut self.c1);
-        c1.normalize(cs);
         let mut t2 = c1.mul(cs, &mut tmp);
         let t2 = t2.sub(cs, &mut b_b);
 
@@ -315,25 +291,19 @@ where
         let mut a_a = self.c0.mul(cs, c0);
         let mut b_b = self.c1.mul(cs, c1);
 
-        a_a.normalize(cs);
-        b_b.normalize(cs);
-
         let mut tmp = self.c1.add(cs, &mut self.c2);
         let mut t1 = c1.mul(cs, &mut tmp);
         let mut t1 = t1.sub(cs, &mut b_b);
-        t1.normalize(cs);
         let mut t1 = t1.mul_by_nonresidue(cs);
         let t1 = t1.add(cs, &mut a_a);
 
         let mut tmp = self.c0.add(cs, &mut self.c2);
-        c0.normalize(cs);
         let mut t3 = c0.mul(cs, &mut tmp);
         let mut t3 = t3.sub(cs, &mut a_a);
         let t3 = t3.add(cs, &mut b_b);
 
         let mut t2 = c0.add(cs, c1);
         let mut tmp = self.c0.add(cs, &mut self.c1);
-        t2.normalize(cs);
         let mut t2 = t2.mul(cs, &mut tmp);
         let mut t2 = t2.sub(cs, &mut a_a);
         let t2 = t2.sub(cs, &mut b_b);
@@ -347,52 +317,33 @@ where
         CS: ConstraintSystem<F>,
     {
         let mut c0 = self.c2.mul_by_nonresidue(cs);
-        c0.normalize(cs);
         let mut c0 = c0.mul(cs, &mut self.c1);
-        c0.normalize(cs);
         let mut c0 = c0.negated(cs);
 
         let mut c0s = self.c0.square(cs);
-        c0s.normalize(cs);
         let mut c0 = c0.add(cs, &mut c0s);
-        c0.normalize(cs);
 
         let mut c1 = self.c2.square(cs);
-        c1.normalize(cs);
         let mut c1 = c1.mul_by_nonresidue(cs);
-        c1.normalize(cs);
 
         let mut c01 = self.c0.mul(cs, &mut self.c1);
-        c01.normalize(cs);
         let mut c1 = c1.sub(cs, &mut c01);
 
         let mut c2 = self.c1.square(cs);
-        c2.normalize(cs);
         let mut c02 = self.c0.mul(cs, &mut self.c2);
-        c02.normalize(cs);
         let mut c2 = c2.sub(cs, &mut c02);
 
         let mut tmp1 = self.c2.mul(cs, &mut c1);
-        tmp1.normalize(cs);
         let mut tmp2 = self.c1.mul(cs, &mut c2);
-        tmp1.normalize(cs);
-        tmp2.normalize(cs);
         let mut tmp1 = tmp1.add(cs, &mut tmp2);
         let mut tmp1 = tmp1.mul_by_nonresidue(cs);
-        tmp1.normalize(cs);
         let mut tmp2 = self.c0.mul(cs, &mut c0);
-        tmp2.normalize(cs);
         let mut tmp1 = tmp1.add(cs, &mut tmp2);
 
-        tmp1.normalize(cs);
         let mut t = tmp1.inverse(cs);
-        t.normalize(cs);
-        let mut c0_new = t.mul(cs, &mut c0);
-        c0_new.normalize(cs);
-        let mut c1_new = t.mul(cs, &mut c1);
-        c1_new.normalize(cs);
-        let mut c2_new = t.mul(cs, &mut c2);
-        c2_new.normalize(cs);
+        let c0_new = t.mul(cs, &mut c0);
+        let c1_new = t.mul(cs, &mut c1);
+        let c2_new = t.mul(cs, &mut c2);
 
         Self::new(c0_new, c1_new, c2_new)
     }
@@ -402,7 +353,6 @@ where
         CS: ConstraintSystem<F>,
     {
         let mut inv = other.inverse(cs);
-        inv.normalize(cs);
         self.mul(cs, &mut inv)
     }
 
@@ -424,11 +374,8 @@ where
         let mut c1_frobenius_coeff = Fq2::constant(cs, c1_frobenius_constant, params);
         let mut c2_frobenius_coeff = Fq2::constant(cs, c2_frobenius_constant, params);
 
-        let mut c1 = c1.mul(cs, &mut c1_frobenius_coeff);
-        let mut c2 = c2.mul(cs, &mut c2_frobenius_coeff);
-
-        c1.normalize(cs);
-        c2.normalize(cs);
+        let c1 = c1.mul(cs, &mut c1_frobenius_coeff);
+        let c2 = c2.mul(cs, &mut c2_frobenius_coeff);
 
         Self::new(c0, c1, c2)
     }
