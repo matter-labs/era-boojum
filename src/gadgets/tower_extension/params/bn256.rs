@@ -69,11 +69,8 @@ const W_INVERSE_C6_C1: &str =
     "14681138511599513868579906292550611339979233093309515871315818100066920017952";
 
 impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
-    fn get_two_inverse_coeffs_c0() -> BN256Fq2 {
-        BN256Fq2 {
-            c0: BN256Fq::from_str(TWO_INVERSE_C0).unwrap(),
-            c1: BN256Fq::zero(),
-        }
+    fn get_two_inverse_coeffs_c0() -> BN256Fq {
+        BN256Fq::from_str(TWO_INVERSE_C0).unwrap()
     }
 
     fn get_w_inverse_coeffs_c6() -> BN256Fq2 {

@@ -346,10 +346,10 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         
         // Allocating 2^{-1}
         let two_inverse = P::get_two_inverse_coeffs_c0();
-        let mut two_inverse = Fq2::constant(cs, two_inverse, params);
+        let mut two_inverse = NN::allocated_constant(cs, two_inverse, params);
 
         // Calculating (1/2)(g + \gamma/g)
-        encoding = encoding.mul_by_c0(cs, &mut two_inverse);
+        encoding = encoding.mul_by_fq(cs, &mut two_inverse);
 
         Self::new(encoding)
     }

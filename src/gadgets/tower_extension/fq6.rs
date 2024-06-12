@@ -265,6 +265,19 @@ where
         Self::new(t1, t2, b_b)
     }
 
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element in `NonNativeField`
+    pub fn mul_by_fq<CS>(&mut self, cs: &mut CS, c0: &mut NN) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // Simply multiply element-wise
+        let t0 = self.c0.mul_c0(cs, c0);
+        let t1 = self.c1.mul_c0(cs, c0);
+        let t2 = self.c2.mul_c0(cs, c0);
+
+        Self::new(t0, t1, t2)
+    }
+
     /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `c=c0` in `Fq2`
     pub fn mul_by_c0<CS>(&mut self, cs: &mut CS, c0: &mut Fq2<F, T, NN, P::Ex2>) -> Self
     where
