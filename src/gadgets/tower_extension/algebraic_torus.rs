@@ -318,7 +318,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         CS: ConstraintSystem<F>,
     {
         let params = self.get_params();
-        let mut one = Fq6::one(cs, params);
         let mut g = self.encoding.clone();
 
         // Calculating \gamma/g safely
@@ -331,11 +330,11 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let exception = g.equals(cs, &mut zero);
             let mut flag = Fq6::from_boolean(cs, exception, params);
 
-            let mut flag_negated = one.sub(cs, &mut flag);
-            let mut numerator = flag_negated.mul_by_nonresidue(cs);
-            let mut denominator = g.add(cs, &mut flag);
-            let result = numerator.div(cs, &mut denominator);
-            result
+            let mut result = g.add(cs, &mut flag);
+            let mut result = result.inverse(cs);
+            let result = result.mul_by_nonresidue(cs);
+
+            <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, exception, &zero, &result)
         } else {
             // Here we do not check whether g = 0 since the function is unsafe
             let mut result = g.inverse(cs);
