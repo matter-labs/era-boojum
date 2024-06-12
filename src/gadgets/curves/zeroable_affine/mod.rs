@@ -79,7 +79,7 @@ where
         let params = self.x.get_params().clone();
         let mut result = Self::zero_point(cs, &params);
         let mut temp = self.clone();
-        let mut zero = Self::zero_point(cs, &params);
+        let zero = Self::zero_point(cs, &params);
 
         // Convert the scalar to bits
         let scalar_bits = scalar

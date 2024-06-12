@@ -66,6 +66,23 @@ where
         }
     }
 
+    pub fn one<CS: ConstraintSystem<F>>(cs: &mut CS, params: &std::sync::Arc<NN::Params>) -> Self {
+        use pairing::ff::Field;
+
+        let one = C::one();
+        let (x, y) = one.into_xy_unchecked();
+        let x = NN::from_curve_base(cs, &x, params);
+        let y = NN::from_curve_base(cs, &y, params);
+        let z = NN::from_curve_base(cs, &C::Base::one(), params);
+
+        Self {
+            x,
+            y,
+            z,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
     pub fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         use pairing::ff::Field;
         if C::a_coeff().is_zero() == false {
