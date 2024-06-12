@@ -277,8 +277,6 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
                 &result_times_self_inverse,
                 &result,
             );
-
-            result.normalize(cs);
         }
 
         result
