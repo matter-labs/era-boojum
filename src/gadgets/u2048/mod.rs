@@ -258,10 +258,10 @@ impl<F: SmallField> UInt2048<F> {
     #[must_use]
     pub fn must_mul_by_two_pow_32<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let boolean_true = Boolean::allocated_constant(cs, true);
-        let last_limb_zero = self.inner[65].is_zero(cs);
+        let last_limb_zero = self.inner[63].is_zero(cs);
         Boolean::enforce_equal(cs, &last_limb_zero, &boolean_true);
 
-        let mut new_inner = self.inner.clone();
+        let mut new_inner = self.inner;
         new_inner.copy_within(0..65, 1);
         new_inner[0] = UInt32::zero(cs);
 
@@ -299,7 +299,7 @@ impl<F: SmallField> UInt2048<F> {
         modulo: &UInt2048<F>,
     ) -> UInt2048<F> {
         // We take 8 limbs since scalar can be of any size
-        let product = self.widening_mul(cs, &other, 64, 64);
+        let product = self.widening_mul(cs, other, 64, 64);
         let (_, remainder) = product.long_division(cs, modulo);
         remainder
     }

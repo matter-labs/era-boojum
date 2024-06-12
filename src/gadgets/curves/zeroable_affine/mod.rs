@@ -92,7 +92,7 @@ where
 
         for bit in scalar_bits {
             let bit_is_one = Boolean::allocated_constant(cs, bit);
-            let mut point_to_add = Self::conditionally_select(cs, bit_is_one, &mut temp, &mut zero);
+            let mut point_to_add = Self::conditionally_select(cs, bit_is_one, &temp, &zero);
 
             result = result.add_unequal_x(cs, &mut point_to_add);
             temp.double(cs);

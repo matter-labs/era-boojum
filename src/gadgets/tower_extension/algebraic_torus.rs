@@ -102,7 +102,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut denominator = f.c1.add(cs, &mut is_exceptional);
             denominator.normalize(cs);
 
-            let mut encoding = numerator.div(cs, &mut denominator);
+            let encoding = numerator.div(cs, &mut denominator);
             encoding
         } else {
             // Verifying that c1 is non-zero
@@ -113,7 +113,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             // m <- (1 + c0) / c1
             let mut encoding = Fq6::one(cs, params);
             let mut encoding = encoding.add(cs, &mut f.c0);
-            let mut encoding = encoding.div(cs, &mut f.c1);
+            let encoding = encoding.div(cs, &mut f.c1);
 
             encoding
         };
@@ -139,7 +139,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         let mut denominator = Fq12::new(self.encoding.clone(), negative_one);
 
         // zeta^{-1} = (g + w)/(g - w)
-        let mut decompressed = numerator.div(cs, &mut denominator);
+        let decompressed = numerator.div(cs, &mut denominator);
 
         decompressed
     }
@@ -149,7 +149,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
     where
         CS: ConstraintSystem<F>,
     {
-        let mut encoding = self.encoding.negated(cs);
+        let encoding = self.encoding.negated(cs);
         Self::new(encoding)
     }
 
@@ -222,7 +222,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
         // y <- g + g'
         let mut y = g1.add(cs, &mut g2);
 
-        let mut encoding = if SAFE {
+        let encoding = if SAFE {
             // Exception occurs when g = -g'. To account for such case,
             // the following formula is used (where flag = (y == 0)? 1 : 0 --- exception case):
             // result <- (x - flag * x) / (g + g' + flag)
@@ -234,11 +234,11 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut numerator = flag.mul(cs, &mut x);
             let mut numerator = x.sub(cs, &mut numerator);
             let mut denominator = y.add(cs, &mut flag);
-            let mut result = numerator.div(cs, &mut denominator);
+            let result = numerator.div(cs, &mut denominator);
             result
         } else {
             // Here we do not check whether g = -g' since the function is unsafe
-            let mut result = x.div(cs, &mut y);
+            let result = x.div(cs, &mut y);
             result
         };
 
@@ -265,12 +265,12 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
 
             // If bit is 1, multiply by initial torus
             let bit_is_one = Boolean::allocated_constant(cs, *bit == 1);
-            let mut result_times_self = result.mul::<_, SAFE>(cs, &mut self_cloned);
+            let result_times_self = result.mul::<_, SAFE>(cs, &mut self_cloned);
             result = Self::conditionally_select(cs, bit_is_one, &result_times_self, &result);
 
             // If bit is -1, multiply by inverse initial torus
             let bit_is_minus_one = Boolean::allocated_constant(cs, *bit == -1);
-            let mut result_times_self_inverse = result.mul::<_, SAFE>(cs, &mut self_inverse);
+            let result_times_self_inverse = result.mul::<_, SAFE>(cs, &mut self_inverse);
             result = Self::conditionally_select(
                 cs,
                 bit_is_minus_one,
@@ -334,7 +334,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
             let mut flag_negated = one.sub(cs, &mut flag);
             let mut numerator = flag_negated.mul_by_nonresidue(cs);
             let mut denominator = g.add(cs, &mut flag);
-            let mut result = numerator.div(cs, &mut denominator);
+            let result = numerator.div(cs, &mut denominator);
             result
         } else {
             // Here we do not check whether g = 0 since the function is unsafe

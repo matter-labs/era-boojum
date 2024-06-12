@@ -62,7 +62,7 @@ where
     CS: ConstraintSystem<F>,
 {
     let mut u512 = UInt512::zero(cs);
-    u512.inner[0] = limb.clone();
+    u512.inner[0] = *limb;
     u512
 }
 
@@ -233,7 +233,7 @@ impl<F: SmallField> UInt512<F> {
         let last_limb_zero = self.inner[15].is_zero(cs);
         Boolean::enforce_equal(cs, &last_limb_zero, &boolean_true);
 
-        let mut new_inner = self.inner.clone();
+        let mut new_inner = self.inner;
         new_inner.copy_within(0..15, 1);
         new_inner[0] = UInt32::zero(cs);
 
@@ -295,7 +295,7 @@ impl<F: SmallField> UInt512<F> {
             // r can have any number of limbs up to 8.
             // base is 2 limbs wide since b=(2^{32}-1)+1
             // TODO: Mul by base might be optimized
-            let d = base.widening_mul(cs, &mut r, 2, 8);
+            let d = base.widening_mul(cs, &r, 2, 8);
             let (d_plus_alpha, overflow) = d.overflowing_add(cs, &alpha);
             // d_i cannot overflow UInt512
             Boolean::enforce_equal(cs, &overflow, &boolean_false);
@@ -305,7 +305,7 @@ impl<F: SmallField> UInt512<F> {
             // binary search to find suitable beta_i
             let mut beta = UInt256::zero(cs);
             let mut left = UInt256::zero(cs);
-            let mut right = base.clone();
+            let mut right = base;
 
             // Preparing new_r to further update r
             let mut new_r = UInt512::zero(cs);

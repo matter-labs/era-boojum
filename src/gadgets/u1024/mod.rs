@@ -219,7 +219,7 @@ impl<F: SmallField> UInt1024<F> {
         let last_limb_zero = self.inner[31].is_zero(cs);
         Boolean::enforce_equal(cs, &last_limb_zero, &boolean_true);
 
-        let mut new_inner = self.inner.clone();
+        let mut new_inner = self.inner;
         new_inner.copy_within(0..31, 1);
         new_inner[0] = UInt32::zero(cs);
 

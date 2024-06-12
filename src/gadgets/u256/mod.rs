@@ -367,7 +367,7 @@ impl<F: SmallField> UInt256<F> {
         modulo: &UInt256<F>,
     ) -> UInt256<F> {
         // We take 8 limbs since scalar can be of any size
-        let product = self.widening_mul(cs, &other, 8, 8);
+        let product = self.widening_mul(cs, other, 8, 8);
         let (_, remainder) = product.long_division(cs, modulo);
         remainder
     }
