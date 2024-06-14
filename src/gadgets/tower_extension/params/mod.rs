@@ -62,6 +62,7 @@ where
 {
     // NOTE: Here, we use selectors instead of constants as BN256Fq2 does not allow to allocate constant without accessing a private field.
     // TODO: Not sure whether w^{-1} is just c6*v^2*w in a general Fq12 extension, but this is the case for BN256.
-    fn get_w_inverse_coeffs_c6() -> <<Self::Ex6 as Extension6Params<T>>::Ex2 as Extension2Params<T>>::Witness;
+    fn get_w_inverse_coeffs_c6(
+    ) -> <<Self::Ex6 as Extension6Params<T>>::Ex2 as Extension2Params<T>>::Witness;
     fn get_two_inverse_coeffs_c0() -> T;
 }

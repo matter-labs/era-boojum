@@ -7,7 +7,7 @@ use crate::{
     gadgets::{
         boolean::Boolean,
         non_native_field::traits::NonNativeField,
-        traits::selectable::Selectable,
+        traits::{hardexp_compatible::HardexpCompatible, selectable::Selectable},
     },
 };
 
@@ -30,8 +30,12 @@ where
 }
 
 // TODO: Probably, this could be implemented generally for any two Fqk and Fq(k/2) elements.
-impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12Params<T>>
-    TorusWrapper<F, T, NN, P>
+impl<F, T, NN, P> TorusWrapper<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+    P: TorusExtension12Params<T>,
 {
     /// Creates a new instance of the [`TorusWrapper`] with the given encoding.
     pub fn new(encoding: Fq6<F, T, NN, P::Ex6>) -> Self {
@@ -343,7 +347,7 @@ impl<F: SmallField, T: PrimeField, NN: NonNativeField<F, T>, P: TorusExtension12
 
         // Calculating (1/2)(g + \gamma/g)
         let mut encoding = g.add(cs, &mut exception_term);
-        
+
         // Allocating 2^{-1}
         let two_inverse = P::get_two_inverse_coeffs_c0();
         let mut two_inverse = NN::allocated_constant(cs, two_inverse, params);
@@ -370,5 +374,61 @@ where
             <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, flag, &a.encoding, &b.encoding);
 
         Self::new(encoding)
+    }
+}
+
+impl<F, T, NN, P> HardexpCompatible<F> for TorusWrapper<F, T, NN, P>
+where
+    F: SmallField,
+    T: PrimeField,
+    NN: NonNativeField<F, T>,
+    P: TorusExtension12Params<T>,
+{
+    fn mul<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.mul::<CS, true>(cs, other)
+    }
+
+    fn square<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.square::<CS, true>(cs)
+    }
+
+    fn conjugate<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.conjugate(cs)
+    }
+
+    fn inverse<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.inverse(cs)
+    }
+
+    fn frobenius_map<CS>(&mut self, cs: &mut CS, power: usize) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.frobenius_map(cs, power)
+    }
+
+    fn pow_u32<CS, S: AsRef<[u64]>>(&mut self, cs: &mut CS, exponent: S) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        self.pow_u32(cs, exponent)
+    }
+
+    fn normalize<CS>(&mut self, cs: &mut CS)
+        where
+            CS: ConstraintSystem<F> {
+        self.normalize(cs);
     }
 }
