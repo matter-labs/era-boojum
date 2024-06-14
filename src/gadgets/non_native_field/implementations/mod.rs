@@ -6,6 +6,7 @@ use super::*;
 use crate::config::*;
 use crate::cs::gates::ConstantAllocatableCS;
 use crate::cs::traits::cs::ConstraintSystem;
+use crate::gadgets::traits::allocatable::CSPlaceholder;
 use crate::gadgets::u16::UInt16;
 use crate::{cs::Variable, gadgets::u8::get_8_by_8_range_check_table};
 use crypto_bigint::{CheckedMul, NonZero, Zero, U1024};
@@ -172,6 +173,24 @@ impl<T: pairing::ff::PrimeField, const N: usize> NonNativeFieldOverU16Params<T, 
             max_mods_to_fit,
             max_mods_in_allocation,
             max_mods_before_multiplication,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSPlaceholder<F>
+    for NonNativeFieldOverU16Params<T, N>
+{
+    fn placeholder<CS: ConstraintSystem<F>>(_cs: &mut CS) -> Self {
+        Self {
+            modulus: [0u16; N],
+            modulus_bits: 0,
+            modulus_limbs: 0,
+            modulus_u1024: NonZero::<U1024>::new(U1024::ONE).expect("ONE is non-zero"),
+            max_product_before_reduction: U1024::ZERO,
+            max_mods_to_fit: 0,
+            max_mods_in_allocation: 0,
+            max_mods_before_multiplication: 0,
             _marker: std::marker::PhantomData,
         }
     }

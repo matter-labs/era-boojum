@@ -7,75 +7,75 @@ use crate::gadgets::traits::allocatable::CSAllocatable;
 use crate::gadgets::traits::allocatable::CSAllocatableExt;
 use crate::gadgets::traits::witnessable::CSWitnessable;
 use crate::gadgets::traits::witnessable::WitnessHookable;
-use crate::gadgets::u256::UInt256;
 use crate::gadgets::u32::UInt32;
 use crate::gadgets::u8::UInt8;
-use ethereum_types::U256;
+use crypto_bigint::U1024;
+use crypto_bigint::U2048;
+use u2048::UInt2048;
 
 use crate::config::*;
 
 #[derive(Derivative)]
 #[derivative(Clone, Copy, Debug, Hash)]
-pub struct UInt512<F: SmallField> {
-    pub inner: [UInt32<F>; 16],
+pub struct UInt4096<F: SmallField> {
+    pub inner: [UInt32<F>; 128],
 }
 
-pub fn decompose_u512_as_u32x16(value: (U256, U256)) -> [u32; 16] {
-    [
-        value.0 .0[0] as u32,
-        (value.0 .0[0] >> 32) as u32,
-        value.0 .0[1] as u32,
-        (value.0 .0[1] >> 32) as u32,
-        value.0 .0[2] as u32,
-        (value.0 .0[2] >> 32) as u32,
-        value.0 .0[3] as u32,
-        (value.0 .0[3] >> 32) as u32,
-        value.1 .0[0] as u32,
-        (value.1 .0[0] >> 32) as u32,
-        value.1 .0[1] as u32,
-        (value.1 .0[1] >> 32) as u32,
-        value.1 .0[2] as u32,
-        (value.1 .0[2] >> 32) as u32,
-        value.1 .0[3] as u32,
-        (value.1 .0[3] >> 32) as u32,
-    ]
+pub fn decompose_u4096_as_u32x128(value: (U2048, U2048)) -> [u32; 128] {
+    let low_limbs = value.0.as_limbs();
+    let high_limbs = value.1.as_limbs();
+
+    let mut result = [0u32; 128];
+    // Filling the low limb
+    for i in 0..32 {
+        result[i * 2] = low_limbs[i].0 as u32;
+        result[i * 2 + 1] = (low_limbs[i].0 >> 32) as u32;
+    }
+    // Filling the high limb
+    for i in 0..32 {
+        result[i * 2 + 64] = high_limbs[i].0 as u32;
+        result[i * 2 + 1 + 64] = (high_limbs[i].0 >> 32) as u32;
+    }
+
+    result
 }
 
-pub fn recompose_u512_as_u32x16(value: [u32; 16]) -> (U256, U256) {
-    let mut result_1 = U256::zero();
-    result_1.0[0] = (value[0] as u64) | ((value[1] as u64) << 32);
-    result_1.0[1] = (value[2] as u64) | ((value[3] as u64) << 32);
-    result_1.0[2] = (value[4] as u64) | ((value[5] as u64) << 32);
-    result_1.0[3] = (value[6] as u64) | ((value[7] as u64) << 32);
-    let mut result_2 = U256::zero();
-    result_2.0[0] = (value[8] as u64) | ((value[9] as u64) << 32);
-    result_2.0[1] = (value[10] as u64) | ((value[11] as u64) << 32);
-    result_2.0[2] = (value[12] as u64) | ((value[13] as u64) << 32);
-    result_2.0[3] = (value[14] as u64) | ((value[15] as u64) << 32);
+pub fn recompose_u4096_as_u32x128(value: [u32; 128]) -> (U2048, U2048) {
+    // Filling the low limb
+    let mut low = [0u64; 32];
+    for i in 0..32 {
+        low[i] = (value[i * 2] as u64) | ((value[i * 2 + 1] as u64) << 32);
+    }
 
-    (result_1, result_2)
+    // Filling the high limb
+    let mut high = [0u64; 32];
+    for i in 0..32 {
+        high[i] = (value[i * 2 + 32] as u64) | ((value[i * 2 + 1 + 32] as u64) << 32);
+    }
+
+    (U2048::from_words(low), U2048::from_words(high))
 }
 
-pub fn convert_limb_to_u512<F, CS>(cs: &mut CS, limb: &UInt32<F>) -> UInt512<F>
+pub fn convert_limb_to_u4096<F, CS>(cs: &mut CS, limb: &UInt32<F>) -> UInt4096<F>
 where
     F: SmallField,
     CS: ConstraintSystem<F>,
 {
-    let mut u512 = UInt512::zero(cs);
-    u512.inner[0] = *limb;
-    u512
+    let mut u4096 = UInt4096::zero(cs);
+    u4096.inner[0] = *limb;
+    u4096
 }
 
-impl<F: SmallField> CSAllocatable<F> for UInt512<F> {
-    type Witness = (U256, U256);
+impl<F: SmallField> CSAllocatable<F> for UInt4096<F> {
+    type Witness = (U2048, U2048);
     fn placeholder_witness() -> Self::Witness {
-        (U256::zero(), U256::zero())
+        (U2048::ZERO, U2048::ZERO)
     }
 
     #[inline(always)]
     #[must_use]
     fn allocate_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
-        let vars = cs.alloc_multiple_variables_without_values::<16>();
+        let vars = cs.alloc_multiple_variables_without_values::<128>();
 
         let as_u32 = vars.map(|el| UInt32::from_variable_checked(cs, el));
 
@@ -84,18 +84,18 @@ impl<F: SmallField> CSAllocatable<F> for UInt512<F> {
 
     #[must_use]
     fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
-        let chunks = decompose_u512_as_u32x16(witness);
+        let chunks = decompose_u4096_as_u32x128(witness);
         let chunks = chunks.map(|el| UInt32::allocate_checked(cs, el));
         Self { inner: chunks }
     }
 }
 
-impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {
-    const INTERNAL_STRUCT_LEN: usize = 16;
+impl<F: SmallField> CSAllocatableExt<F> for UInt4096<F> {
+    const INTERNAL_STRUCT_LEN: usize = 128;
 
     fn witness_from_set_of_values(values: [F; Self::INTERNAL_STRUCT_LEN]) -> Self::Witness {
         // value
-        recompose_u512_as_u32x16(
+        recompose_u4096_as_u32x128(
             values.map(|el| <u32 as WitnessCastable<F, F>>::cast_from_source(el)),
         )
     }
@@ -113,13 +113,14 @@ impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {
     }
 
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
-        decompose_u512_as_u32x16(witness).map(|el| UInt32::set_internal_variables_values(el, dst));
+        decompose_u4096_as_u32x128(witness)
+            .map(|el| UInt32::set_internal_variables_values(el, dst));
     }
 }
 
 use crate::gadgets::traits::selectable::Selectable;
 
-impl<F: SmallField> Selectable<F> for UInt512<F> {
+impl<F: SmallField> Selectable<F> for UInt4096<F> {
     #[must_use]
     fn conditionally_select<CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -133,15 +134,15 @@ impl<F: SmallField> Selectable<F> for UInt512<F> {
     }
 }
 
-impl<F: SmallField> UInt512<F> {
+impl<F: SmallField> UInt4096<F> {
     #[must_use]
     pub fn allocated_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        constant: (U256, U256),
+        constant: (U2048, U2048),
     ) -> Self {
         debug_assert!(F::CAPACITY_BITS >= 32);
 
-        let chunks = decompose_u512_as_u32x16(constant);
+        let chunks = decompose_u4096_as_u32x128(constant);
         let chunks = chunks.map(|el| UInt32::allocated_constant(cs, el));
         Self { inner: chunks }
     }
@@ -149,19 +150,19 @@ impl<F: SmallField> UInt512<F> {
     #[must_use]
     pub fn allocate_from_closure_and_dependencies<
         CS: ConstraintSystem<F>,
-        FN: FnOnce(&[F]) -> (U256, U256) + 'static + Send + Sync,
+        FN: FnOnce(&[F]) -> (U2048, U2048) + 'static + Send + Sync,
     >(
         cs: &mut CS,
         witness_closure: FN,
         dependencies: &[Place],
     ) -> Self {
-        let outputs = cs.alloc_multiple_variables_without_values::<16>();
+        let outputs = cs.alloc_multiple_variables_without_values::<128>();
 
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
             let value_fn = move |inputs: &[F], output_buffer: &mut DstBuffer<'_, '_, F>| {
-                debug_assert!(F::CAPACITY_BITS >= 32);
+                debug_assert!(F::CAPACITY_BITS >= 64);
                 let witness = (witness_closure)(inputs);
-                let chunks = decompose_u512_as_u32x16(witness);
+                let chunks = decompose_u4096_as_u32x128(witness);
 
                 output_buffer.extend(chunks.map(|el| F::from_u64_unchecked(el as u64)));
             };
@@ -179,7 +180,23 @@ impl<F: SmallField> UInt512<F> {
 
     #[must_use]
     pub fn zero<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
-        Self::allocated_constant(cs, (U256::zero(), U256::zero()))
+        Self::allocated_constant(cs, (U2048::ZERO, U2048::ZERO))
+    }
+
+    /// Returns `true` if `self >= other`, and `false` otherwise.
+    /// Here, `self` and `other` are represented as [`UInt4096<F>`] and [`UInt2048<F>`] respectively.
+    #[must_use]
+    pub fn geq_than_u2048<CS>(&self, cs: &mut CS, other: &UInt2048<F>) -> Boolean<F>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let high = self.to_high();
+        let under_2048 = high.is_zero(cs);
+        let over_2048 = under_2048.negated(cs);
+        let low = self.to_low();
+        let (sub, overflow) = other.overflowing_sub(cs, &low);
+        let a_equal_b = sub.is_zero(cs);
+        Boolean::multi_or(cs, &[overflow, a_equal_b, over_2048])
     }
 
     #[must_use]
@@ -228,67 +245,50 @@ impl<F: SmallField> UInt512<F> {
 
     /// Multiplies a number by 2^{32}. Panics if the number overflows.
     #[must_use]
-    pub fn must_mul_by_2_pow_32<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
+    pub fn must_mul_by_two_pow_32<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Self {
         let boolean_true = Boolean::allocated_constant(cs, true);
-        let last_limb_zero = self.inner[15].is_zero(cs);
+        let last_limb_zero = self.inner[127].is_zero(cs);
         Boolean::enforce_equal(cs, &last_limb_zero, &boolean_true);
 
         let mut new_inner = self.inner;
-        new_inner.copy_within(0..15, 1);
+        new_inner.copy_within(0..127, 1);
         new_inner[0] = UInt32::zero(cs);
 
         Self { inner: new_inner }
     }
 
-    /// Returns `true` if `self >= other`, and `false` otherwise.
-    /// Here, `self` and `other` are represented as `UInt512<F>` and `UInt256<F>` respectively.
-    pub fn geq_than_u256<CS>(&self, cs: &mut CS, other: &UInt256<F>) -> Boolean<F>
-    where
-        CS: ConstraintSystem<F>,
-    {
-        let high = self.to_high();
-        let under_256 = high.is_zero(cs);
-        let over_256 = under_256.negated(cs);
-        let low = self.to_low();
-        let (sub, overflow) = other.overflowing_sub(cs, &low);
-        let a_equal_b = sub.is_zero(cs);
-        Boolean::multi_or(cs, &[overflow, a_equal_b, over_256])
-    }
-
-    /// Find quotient and remainder of division of `self` by `other` using the naive long division algorithm in base 2^{32}
-    /// since both [`UInt512<F>`] and [`UInt256<F>`] are represented as arrays of [`UInt32<F>`]. The implementation is based on
+    /// Find quotient and remainder of division of `self` by `other` using the naive long division algorithm in base `2^{32}`
+    /// since both [`UInt4096<F>`] and [`UInt2048<F>`] are represented as arrays of [`UInt32<F>`]. The implementation is based on
     /// algorithm https://en.wikipedia.org/wiki/Long_division#Algorithm_for_arbitrary_base,
-    /// where `k=16`, `l=8`, and base `b=2^{32}`.
-    ///
-    /// Currently, only the division by [`UInt256<F>`] is supported.
+    /// where `k=128`, `l=64`, and base `b=2^{32}`.
     #[must_use]
-    pub fn long_division<CS>(&self, cs: &mut CS, other: &UInt256<F>) -> (UInt512<F>, UInt256<F>)
+    pub fn long_division<CS>(&self, cs: &mut CS, other: &UInt2048<F>) -> (UInt4096<F>, UInt2048<F>)
     where
         CS: ConstraintSystem<F>,
     {
-        const U256_MAX_LIMBS: usize = 8;
-        const U512_MAX_LIMBS: usize = 16;
-        const MAX_BINARY_SEARCH_ITERATIONS: usize = 33;
+        const U2048_MAX_LIMBS: usize = 64;
+        const U4096_MAX_LIMBS: usize = 128;
+        const MAX_BINARY_SEARCH_ITERATIONS: usize = 1025;
 
         // Initializing constants
-        let base = U256::from_str_radix("0x100000000", 16).unwrap();
-        let base = UInt256::allocated_constant(cs, base);
+        let base = U1024::from_le_hex("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000");
+        let base = UInt2048::allocated_constant(cs, (base, U1024::ZERO));
         let boolean_false = Boolean::allocated_constant(cs, false);
-        let one = UInt256::allocated_constant(cs, U256::one());
+        let one = UInt2048::allocated_constant(cs, (U1024::ONE, U1024::ZERO));
 
         // q <- 0
-        let mut q = UInt512::zero(cs);
+        let mut q = UInt4096::zero(cs);
 
-        // r <- first 7 limbs of n, thus it fits in UInt256
+        // r <- first 63 limbs of self, thus it fits in UInt2048
         let mut r = self.to_high();
         r.inner[0] = UInt32::zero(cs);
-        r.inner.copy_within(1..U256_MAX_LIMBS, 0);
-        r.inner[U256_MAX_LIMBS - 1] = UInt32::zero(cs);
+        r.inner.copy_within(1..U2048_MAX_LIMBS, 0);
+        r.inner[U2048_MAX_LIMBS - 1] = UInt32::zero(cs);
 
-        for i in 0..U256_MAX_LIMBS + 1 {
+        for i in 0..U2048_MAX_LIMBS + 1 {
             // \alpha_{i+l-1} is (k-l-i)th limb of n
-            let alpha = self.inner[U256_MAX_LIMBS - i];
-            let alpha = convert_limb_to_u512(cs, &alpha);
+            let alpha = self.inner[U2048_MAX_LIMBS - i];
+            let alpha = convert_limb_to_u4096(cs, &alpha);
 
             // d_i <- b*r_{i-1} + \alpha_{i+l-1}
             // d_i can safely be UInt512 in size.
@@ -303,12 +303,12 @@ impl<F: SmallField> UInt512<F> {
 
             // beta_i <- next digit of quotient. We use
             // binary search to find suitable beta_i
-            let mut beta = UInt256::zero(cs);
-            let mut left = UInt256::zero(cs);
+            let mut beta = UInt2048::zero(cs);
+            let mut left = UInt2048::zero(cs);
             let mut right = base;
 
             // Preparing new_r to further update r
-            let mut new_r = UInt512::zero(cs);
+            let mut new_r = UInt4096::zero(cs);
 
             for _ in 0..MAX_BINARY_SEARCH_ITERATIONS {
                 // beta <- ceil((right + left) / 2)
@@ -322,7 +322,7 @@ impl<F: SmallField> UInt512<F> {
                 let (beta_div_2_plus_1, overflow) = beta_div_2.overflowing_add(cs, &one);
                 // Cannot overflow since beta_div_2+one is less than b=2^{32}
                 Boolean::enforce_equal(cs, &overflow, &boolean_false);
-                beta = UInt256::conditionally_select(cs, odd, &beta_div_2_plus_1, &beta_div_2);
+                beta = UInt2048::conditionally_select(cs, odd, &beta_div_2_plus_1, &beta_div_2);
 
                 // r <- d - m * beta
                 // beta can fit in 2 limbs since it is less or equal to b=2^{32}
@@ -332,17 +332,17 @@ impl<F: SmallField> UInt512<F> {
                 // if r < 0 (that is, overflow occurred), then right <- beta - 1
                 // beta - 1 might overflow at step 33, but we don't care about it
                 let (beta_minus_1, _) = beta.overflowing_sub(cs, &one);
-                right = UInt256::conditionally_select(cs, r_negative, &beta_minus_1, &right);
+                right = UInt2048::conditionally_select(cs, r_negative, &beta_minus_1, &right);
 
                 // if r >= m, then left <- beta + 1
-                let r_geq_m = r.geq_than_u256(cs, other);
+                let r_geq_m = r.geq_than_u2048(cs, other);
                 // We should handle the case when r overflowed
                 let r_positive = r_negative.negated(cs);
                 let r_greater_m = r_geq_m.and(cs, r_positive);
                 let (beta_plus_1, overflow) = beta.overflowing_add(cs, &one);
                 // Cannot overflow since beta < b=2^{32}
                 Boolean::enforce_equal(cs, &overflow, &boolean_false);
-                left = UInt256::conditionally_select(cs, r_greater_m, &beta_plus_1, &left);
+                left = UInt2048::conditionally_select(cs, r_greater_m, &beta_plus_1, &left);
 
                 // Updating r
                 new_r = r
@@ -362,8 +362,8 @@ impl<F: SmallField> UInt512<F> {
             Boolean::enforce_equal(cs, &overflow, &boolean_false);
 
             // q_i <- b*q_{i-1} + beta_i
-            let beta_u512 = beta.to_u512(cs);
-            q = q.must_mul_by_2_pow_32(cs);
+            let beta_u512 = beta.to_u4096(cs);
+            q = q.must_mul_by_two_pow_32(cs);
             let (new_q, overflow) = q.overflowing_add(cs, &beta_u512);
             // Cannot overflow since quotient cannot exceed 2^{512}
             Boolean::enforce_equal(cs, &overflow, &boolean_false);
@@ -393,15 +393,15 @@ impl<F: SmallField> UInt512<F> {
 
     #[must_use]
     pub fn equals<CS: ConstraintSystem<F>>(cs: &mut CS, a: &Self, b: &Self) -> Boolean<F> {
-        let equals: [_; 16] =
+        let equals: [_; 128] =
             std::array::from_fn(|idx| UInt32::equals(cs, &a.inner[idx], &b.inner[idx]));
 
         Boolean::multi_and(cs, &equals)
     }
 
     #[must_use]
-    pub fn from_le_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 64]) -> Self {
-        let mut inner = [std::mem::MaybeUninit::uninit(); 16];
+    pub fn from_le_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 512]) -> Self {
+        let mut inner = [std::mem::MaybeUninit::uninit(); 128];
         for (dst, src) in inner.iter_mut().zip(bytes.array_chunks::<4>()) {
             dst.write(UInt32::from_le_bytes(cs, *src));
         }
@@ -412,13 +412,13 @@ impl<F: SmallField> UInt512<F> {
     }
 
     #[must_use]
-    pub fn from_limbs(limbs: [UInt32<F>; 16]) -> Self {
+    pub fn from_limbs(limbs: [UInt32<F>; 128]) -> Self {
         Self { inner: limbs }
     }
 
     #[must_use]
-    pub fn from_be_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 64]) -> Self {
-        let mut inner = [std::mem::MaybeUninit::uninit(); 16];
+    pub fn from_be_bytes<CS: ConstraintSystem<F>>(cs: &mut CS, bytes: [UInt8<F>; 512]) -> Self {
+        let mut inner = [std::mem::MaybeUninit::uninit(); 128];
         for (dst, src) in inner.iter_mut().rev().zip(bytes.array_chunks::<4>()) {
             dst.write(UInt32::from_be_bytes(cs, *src));
         }
@@ -435,8 +435,8 @@ impl<F: SmallField> UInt512<F> {
     }
 
     #[must_use]
-    pub fn to_le_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 64] {
-        let mut encoding = [std::mem::MaybeUninit::uninit(); 64];
+    pub fn to_le_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 512] {
+        let mut encoding = [std::mem::MaybeUninit::uninit(); 512];
         for (dst, src) in encoding
             .iter_mut()
             .zip(self.inner.iter().flat_map(|el| el.to_le_bytes(cs)))
@@ -448,7 +448,7 @@ impl<F: SmallField> UInt512<F> {
     }
 
     #[must_use]
-    pub fn to_be_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 64] {
+    pub fn to_be_bytes<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> [UInt8<F>; 512] {
         let mut bytes = self.to_le_bytes(cs);
         bytes.reverse();
 
@@ -456,34 +456,16 @@ impl<F: SmallField> UInt512<F> {
     }
 
     #[must_use]
-    pub fn to_low(self) -> UInt256<F> {
-        UInt256 {
-            inner: [
-                self.inner[0],
-                self.inner[1],
-                self.inner[2],
-                self.inner[3],
-                self.inner[4],
-                self.inner[5],
-                self.inner[6],
-                self.inner[7],
-            ],
+    pub fn to_low(self) -> UInt2048<F> {
+        UInt2048 {
+            inner: self.inner[..64].try_into().expect("incorrect slice size"),
         }
     }
 
     #[must_use]
-    pub fn to_high(self) -> UInt256<F> {
-        UInt256 {
-            inner: [
-                self.inner[8],
-                self.inner[9],
-                self.inner[10],
-                self.inner[11],
-                self.inner[12],
-                self.inner[13],
-                self.inner[14],
-                self.inner[15],
-            ],
+    pub fn to_high(self) -> UInt2048<F> {
+        UInt2048 {
+            inner: self.inner[64..].try_into().expect("incorrect slice size"),
         }
     }
 }
@@ -492,9 +474,9 @@ use crate::cs::Variable;
 use crate::gadgets::traits::castable::Convertor;
 use crate::gadgets::traits::castable::WitnessCastable;
 
-impl<F: SmallField> WitnessCastable<F, [F; 16]> for (U256, U256) {
+impl<F: SmallField> WitnessCastable<F, [F; 128]> for (U2048, U2048) {
     #[inline]
-    fn cast_from_source(witness: [F; 16]) -> Self {
+    fn cast_from_source(witness: [F; 128]) -> Self {
         let reduced = witness.map(|el| {
             let el = el.as_u64_reduced();
             debug_assert!(el <= u32::MAX as u64);
@@ -502,28 +484,29 @@ impl<F: SmallField> WitnessCastable<F, [F; 16]> for (U256, U256) {
             el as u32
         });
 
-        recompose_u512_as_u32x16(reduced)
+        recompose_u4096_as_u32x128(reduced)
     }
+
     #[inline]
-    fn cast_into_source(self) -> [F; 16] {
-        let limbs = decompose_u512_as_u32x16(self);
+    fn cast_into_source(self) -> [F; 128] {
+        let limbs = decompose_u4096_as_u32x128(self);
         limbs.map(|el| WitnessCastable::cast_into_source(el))
     }
 }
 
-impl<F: SmallField> CSWitnessable<F, 16> for UInt512<F> {
-    type ConversionFunction = Convertor<F, [F; 16], (U256, U256)>;
+impl<F: SmallField> CSWitnessable<F, 128> for UInt4096<F> {
+    type ConversionFunction = Convertor<F, [F; 128], (U2048, U2048)>;
 
-    fn witness_from_set_of_values(values: [F; 16]) -> Self::Witness {
+    fn witness_from_set_of_values(values: [F; 128]) -> Self::Witness {
         WitnessCastable::cast_from_source(values)
     }
 
-    fn as_variables_set(&self) -> [Variable; 16] {
+    fn as_variables_set(&self) -> [Variable; 128] {
         self.inner.map(|el| el.get_variable())
     }
 }
 
-impl<F: SmallField> WitnessHookable<F> for UInt512<F> {
+impl<F: SmallField> WitnessHookable<F> for UInt4096<F> {
     fn witness_hook<CS: ConstraintSystem<F>>(
         &self,
         cs: &CS,
@@ -536,14 +519,14 @@ impl<F: SmallField> WitnessHookable<F> for UInt512<F> {
 use crate::gadgets::traits::selectable::MultiSelectable;
 // multiselect doesn't make much sense here because we can do parallel over chunks,
 // so we degrade to default impl via normal select
-impl<F: SmallField> MultiSelectable<F> for UInt512<F> {}
+impl<F: SmallField> MultiSelectable<F> for UInt4096<F> {}
 
 use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 
-impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt512<F> {
+impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt4096<F> {
     #[inline(always)]
     fn encoding_length(&self) -> usize {
-        16
+        64
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
         CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.inner, cs, dst);
@@ -552,7 +535,7 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt512<F> {
 
 use crate::gadgets::traits::allocatable::CSPlaceholder;
 
-impl<F: SmallField> CSPlaceholder<F> for UInt512<F> {
+impl<F: SmallField> CSPlaceholder<F> for UInt4096<F> {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         Self::zero(cs)
     }
