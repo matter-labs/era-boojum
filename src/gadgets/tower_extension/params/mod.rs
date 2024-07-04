@@ -65,4 +65,6 @@ where
     fn get_w_inverse_coeffs_c6(
     ) -> <<Self::Ex6 as Extension6Params<T>>::Ex2 as Extension2Params<T>>::Witness;
     fn get_two_inverse_coeffs_c0() -> T;
+
+    fn torus_square(g: <Self::Ex6 as Extension6Params<T>>::Witness) -> <Self::Ex6 as Extension6Params<T>>::Witness;
 }

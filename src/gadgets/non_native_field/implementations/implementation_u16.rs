@@ -129,6 +129,35 @@ where
         self.tracker.max_moduluses = 1;
     }
 
+    pub fn enforce_equal<CS: ConstraintSystem<F>>(cs: &mut CS, a: &Self, b: &Self) {
+        let mut a = a.clone();
+        let mut b = b.clone();
+
+        a.normalize(cs);
+        b.normalize(cs);
+
+        if <CS::Config as CSConfig>::DebugConfig::PERFORM_RUNTIME_ASSERTS {
+            assert_eq!(a.non_zero_limbs, b.non_zero_limbs, "enforce equal failed: non_zero_limbs divergence");
+        }
+        let mut i = 0;
+
+        for (a_el, b_el) in a.limbs.iter().zip(b.limbs.iter()) {
+            let a_el_num = &Num::from_variable(*a_el);
+            let b_el_num = Num::from_variable(*b_el);
+            if let (Some(a_el_wit), Some(b_el_wit)) = (a_el_num.witness_hook(cs)(), b_el_num.witness_hook(cs)()) {
+                print!("A_i {} = {} ", i, a_el_wit);
+                println!("B_i {} = {}", i, b_el_wit);
+            };
+            i = i + 1;
+        }
+
+        for (a_el, b_el) in a.limbs.iter().zip(b.limbs.iter()) {
+            println!("Limb #: {}", i);
+            Num::enforce_equal(cs, &Num::from_variable(*a_el), &Num::from_variable(*b_el));
+            i = i + 1;
+        }
+    }
+
     pub fn normalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS)
     where
         [(); N + 1]:,

@@ -416,6 +416,20 @@ where
 
         Self::new(c0, c1, c2)
     }
+
+    /// Allocate `Fq6` tower extension element from the Witness represented in three components
+    /// from the `Fq2` tower extension.
+    pub fn allocate_from_witness<CS>(cs: &mut CS, wit: P::Witness, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let components = P::convert_from_structured_witness(wit);
+        let c0 = Fq2::allocate_from_witness(cs, components[0], params);
+        let c1 = Fq2::allocate_from_witness(cs, components[1], params);
+        let c2 = Fq2::allocate_from_witness(cs, components[2], params);
+
+        Self::new(c0, c1, c2)
+    }
 }
 
 impl<F, T, NN, P> CSAllocatable<F> for Fq6<F, T, NN, P>
@@ -765,6 +779,18 @@ where
         self.c0.enforce_reduced(cs);
         self.c1.enforce_reduced(cs);
         self.c2.enforce_reduced(cs);
+    }
+
+    fn enforce_equal<CS>(cs: &mut CS, a: &Self, b: &Self)
+    where
+        CS: ConstraintSystem<F>,
+    {
+        println!("Enforce equal: c0");
+        Fq2::enforce_equal(cs, &a.c0, &b.c0);
+        println!("Enforce equal: c1");
+        Fq2::enforce_equal(cs, &a.c1, &b.c1);
+        println!("Enforce equal: c2");
+        Fq2::enforce_equal(cs, &a.c2, &b.c2);
     }
 }
 

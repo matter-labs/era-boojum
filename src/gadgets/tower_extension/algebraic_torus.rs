@@ -10,8 +10,11 @@ use crate::{
         traits::{hardexp_compatible::HardexpCompatible, selectable::Selectable},
     },
 };
-
+use crate::gadgets::non_native_field::implementations::NonNativeFieldOverU16;
+use crate::gadgets::traits::witnessable::WitnessHookable;
 use super::{fq12::Fq12, fq2::Fq2, fq6::Fq6, params::TorusExtension12Params};
+use crate::gadgets::tower_extension::params::{Extension2Params, Extension6Params};
+
 
 /// [`TorusWrapper`] is an algebraic compression of the `Fq12` element via underlying encoding of `Fq6`.
 /// In compressed form operations over Fq12 are less expensive.
@@ -30,19 +33,19 @@ where
 }
 
 // TODO: Probably, this could be implemented generally for any two Fqk and Fq(k/2) elements.
-impl<F, T, NN, P> TorusWrapper<F, T, NN, P>
+impl<F, T, P, const N: usize> TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
 where
     F: SmallField,
     T: PrimeField,
-    NN: NonNativeField<F, T>,
     P: TorusExtension12Params<T>,
+    [(); N + 1]:,
 {
     /// Creates a new instance of the [`TorusWrapper`] with the given encoding.
-    pub fn new(encoding: Fq6<F, T, NN, P::Ex6>) -> Self {
+    pub fn new(encoding: Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>) -> Self {
         Self { encoding }
     }
 
-    pub fn one<CS>(cs: &mut CS, params: &Arc<NN::Params>) -> Self
+    pub fn one<CS>(cs: &mut CS, params: &Arc<<NonNativeFieldOverU16<F, T, N> as NonNativeField<F, T>>::Params>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -51,7 +54,7 @@ where
     }
 
     /// Returns the underlying parameters of the encoded `Fq6` element.
-    pub fn get_params(&self) -> &Arc<NN::Params> {
+    pub fn get_params(&self) -> &Arc<<NonNativeFieldOverU16<F, T, N> as NonNativeField<F, T>>::Params> {
         self.encoding.get_params()
     }
 
@@ -70,7 +73,7 @@ where
     {
         let zero = Fq6::zero(cs, self.get_params());
         let new_encoding =
-            <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, flag, &self.encoding, &zero);
+            <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, flag, &self.encoding, &zero);
 
         Self::new(new_encoding)
     }
@@ -81,7 +84,7 @@ where
     /// check for the exceptional case when `c1` is zero.
     ///
     /// If `SAFE=false`, then the function will not check for the exceptional case when `c1` is zero.
-    pub fn compress<CS, const SAFE: bool>(cs: &mut CS, f: &mut Fq12<F, T, NN, P>) -> Self
+    pub fn compress<CS, const SAFE: bool>(cs: &mut CS, f: &mut Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P>) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -129,7 +132,7 @@ where
     /// Decompresses the Torus (`T2`) element `g` back to the `Fq12` element by using the formula
     ///
     /// `zeta^{-1} = (g + w)/(g - w)`
-    pub fn decompress<CS>(&self, cs: &mut CS) -> Fq12<F, T, NN, P>
+    pub fn decompress<CS>(&self, cs: &mut CS) -> Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P>
     where
         CS: ConstraintSystem<F>,
     {
@@ -186,7 +189,7 @@ where
         let w_inverse = P::get_w_inverse_coeffs_c6();
         let mut w_inverse = Fq2::constant(cs, w_inverse, params);
         // Then, computing frob_map(w, i)*w^{-1}
-        let mut w: Fq12<F, T, NN, P> = Fq12::one_imaginary(cs, params);
+        let mut w: Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P> = Fq12::one_imaginary(cs, params);
         let mut denominator = w.frobenius_map(cs, power);
         let mut denominator = denominator.mul_by_c6(cs, &mut w_inverse);
 
@@ -265,7 +268,7 @@ where
         let mut self_inverse = self.conjugate(cs);
 
         for bit in decomposition.as_ref().iter() {
-            result = result.square::<_, SAFE>(cs);
+            result = result.square(cs);
 
             // If bit is 1, multiply by initial torus
             let bit_is_one = Boolean::allocated_constant(cs, *bit == 1);
@@ -295,7 +298,7 @@ where
 
         for bit in BitIterator::new(exponent) {
             let apply_squaring = Boolean::allocated_constant(cs, found_one);
-            let result_squared = result.square::<_, true>(cs);
+            let result_squared = result.square(cs);
             result = Self::conditionally_select(cs, apply_squaring, &result_squared, &result);
             if !found_one {
                 found_one = bit;
@@ -312,77 +315,81 @@ where
         result
     }
 
-    /// Squares the Torus element using the formula
-    ///
-    /// `g -> (1/2)(g + \gamma/g)`
-    ///
-    /// The formula handles the exceptional case when `g` is zero.
-    pub fn square<CS, const SAFE: bool>(&mut self, cs: &mut CS) -> Self
+    pub fn square<CS>(&mut self, cs: &mut CS) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let params = self.get_params();
-        let mut g = self.encoding.clone();
+        // We compute squaring unconstrained:
+        let (c0, c1, c2) = self.encoding.witness_hook(cs)().unwrap();
 
-        // Calculating \gamma/g safely
-        let mut exception_term = if SAFE {
-            // Exception occurs when g = 0. To account for such case,
-            // the following formula is used (flag = (g == 0)? 1 : 0 --- exception case):
-            // result <- (1/2)(g + (\gamma*(1-flag)) / (g + flag))
+        let (c0_c0, c0_c1) = c0;
+        let (c1_c0, c1_c1) = c1;
+        let (c2_c0, c2_c1) = c2;
 
-            let mut zero = Fq6::zero(cs, params);
-            let exception = g.equals(cs, &mut zero);
-            let mut flag = Fq6::from_boolean(cs, exception, params);
+        let c0_c0 = c0_c0.get();
+        let c0_c1 = c0_c1.get();
+        let c1_c0 = c1_c0.get();
+        let c1_c1 = c1_c1.get();
+        let c2_c0 = c2_c0.get();
+        let c2_c1 = c2_c1.get();
 
-            let mut result = g.add(cs, &mut flag);
-            let mut result = result.inverse(cs);
-            let result = result.mul_by_nonresidue(cs);
+        let c0 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c0_c0, c0_c1);
+        let c1 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c1_c0, c1_c1);
+        let c2 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c2_c0, c2_c1);
 
-            <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, exception, &zero, &result)
-        } else {
-            // Here we do not check whether g = 0 since the function is unsafe
-            let mut result = g.inverse(cs);
-            result.mul_by_nonresidue(cs)
-        };
+        let witness = P::Ex6::convert_to_structured_witness(c0, c1, c2);
+        let squared_witness = P::torus_square(witness);
 
-        // Calculating (1/2)(g + \gamma/g)
-        let mut encoding = g.add(cs, &mut exception_term);
+        // Now we shall constraint squaring with cheaper version:
+        // g' = (1/2)(g + \gamma/g) is equivalent to
+        // (2g' - g)g = gamma
+        let params = self.encoding.get_params();
+        let encoding_new = Fq6::allocate_from_witness(cs, squared_witness, params);
 
-        // Allocating 2^{-1}
-        let two_inverse = P::get_two_inverse_coeffs_c0();
-        let mut two_inverse = NN::allocated_constant(cs, two_inverse, params);
+        // lhs = (2g' - g)g
+        let mut lhs = encoding_new.clone();
+        lhs = lhs.double(cs);
+        lhs = lhs.sub(cs, &mut self.encoding.clone());
+        // let lhs = lhs.mul(cs, &mut self.encoding.clone());
+        let mut lhs = self.encoding.clone().mul(cs, &mut lhs);
 
-        // Calculating (1/2)(g + \gamma/g)
-        encoding = encoding.mul_by_fq(cs, &mut two_inverse);
+        // rhs = g == 0 ? zero : gamma
+        let zero = Fq6::zero(cs, params);
+        let gamma = Fq6::gamma(cs, params);
+        let is_zero_g = self.encoding.is_zero(cs);
+        let mut rhs = <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, is_zero_g, &zero, &gamma);
 
-        Self::new(encoding)
+        let lhs = lhs.sub(cs, &mut rhs);
+        Fq6::enforce_equal(cs, &lhs, &zero);
+
+        Self::new(encoding_new)
     }
 }
 
-impl<F, T, NN, P> Selectable<F> for TorusWrapper<F, T, NN, P>
+impl<F, T, P, const N: usize> Selectable<F> for TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
 where
     F: SmallField,
     T: PrimeField,
-    NN: NonNativeField<F, T>,
     P: TorusExtension12Params<T>,
+    [(); N + 1]:,
 {
     fn conditionally_select<CS>(cs: &mut CS, flag: Boolean<F>, a: &Self, b: &Self) -> Self
     where
         CS: ConstraintSystem<F>,
     {
         let encoding =
-            <Fq6<F, T, NN, P::Ex6>>::conditionally_select(cs, flag, &a.encoding, &b.encoding);
+            <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, flag, &a.encoding, &b.encoding);
 
         Self::new(encoding)
     }
 }
 
-impl<F, T, NN, P> HardexpCompatible<F> for TorusWrapper<F, T, NN, P>
+impl<F, T, const N: usize, P> HardexpCompatible<F> for TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
 where
     F: SmallField,
     T: PrimeField,
-    NN: NonNativeField<F, T>,
     P: TorusExtension12Params<T>,
+    [(); N + 1]:,
 {
     fn mul<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
@@ -395,7 +402,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        self.square::<CS, true>(cs)
+        self.square(cs)
     }
 
     fn conjugate<CS>(&mut self, cs: &mut CS) -> Self

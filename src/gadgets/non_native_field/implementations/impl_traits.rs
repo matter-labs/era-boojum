@@ -42,6 +42,9 @@ where
     fn enforce_reduced<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) {
         NonNativeFieldOverU16::<F, T, N>::enforce_reduced(self, cs)
     }
+    fn enforce_equal<CS: ConstraintSystem<F>>(cs: &mut CS, a: &Self, b: &Self) {
+        NonNativeFieldOverU16::<F, T, N>::enforce_equal(cs, a, b)
+    }
     fn normalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) {
         NonNativeFieldOverU16::<F, T, N>::normalize(self, cs)
     }

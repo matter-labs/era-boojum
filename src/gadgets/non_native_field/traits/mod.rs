@@ -29,6 +29,7 @@ pub trait NonNativeField<F: SmallField, T: pairing::ff::PrimeField>:
     ) -> Self;
 
     fn enforce_reduced<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS);
+    fn enforce_equal<CS: ConstraintSystem<F>>(cs: &mut CS, a: &Self, b: &Self);
     fn normalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS);
 
     fn add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self;

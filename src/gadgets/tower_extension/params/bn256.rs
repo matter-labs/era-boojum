@@ -5,7 +5,7 @@ use pairing::bn256::fq::{
     FROBENIUS_COEFF_FQ6_C1 as BN256_FROBENIUS_COEFF_FQ6_C1,
     FROBENIUS_COEFF_FQ6_C2 as BN256_FROBENIUS_COEFF_FQ6_C2,
 };
-
+use crate::gadgets::tower_extension::fq6::Fq6;
 use super::*;
 
 #[derive(Clone, Debug, Copy)]
@@ -78,5 +78,52 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
             c0: BN256Fq::from_str(W_INVERSE_C6_C0).unwrap(),
             c1: BN256Fq::from_str(W_INVERSE_C6_C1).unwrap(),
         }
+    }
+
+    // Native computation of torus squaring on encoding in Fq6.
+    // g' = 1/2 (g + \gamma / g)
+    fn torus_square(g: BN256Fq6) -> BN256Fq6 {
+        let gamma = BN256Fq6{c0: BN256Fq2::zero(), c1: BN256Fq2::one(), c2: BN256Fq2::zero()};
+
+        // \gamma / g
+        let mut result = match g.inverse() {
+            Some(mut inv) => {
+                inv.mul_assign(&gamma);
+                inv
+            }
+            None => BN256Fq6::zero(),
+        };
+
+        // (g + \gamma/g)
+        result.add_assign(&g);
+
+        // (1/2)
+        let mut inverse_two = BN256Fq6::one();
+        inverse_two.double();
+        inverse_two.inverse();
+
+        // (1/2) * (g + \gamma/g)
+        result.mul_assign(&inverse_two);
+
+        // CONSTRAINT CHECK
+        // (2g' - g) * g = \gamma
+        let mut lhs = result.clone();
+
+        lhs.double();
+        lhs.sub_assign(&g);
+        lhs.mul_assign(&g);
+
+        let rhs = gamma.clone();
+
+        println!("LHS: {lhs}");
+        println!("RHS: {rhs}");
+
+        if !g.is_zero() {
+            assert_eq!(lhs, rhs, "Witness lhs == rhs");
+        }else{
+            assert_eq!(lhs, BN256Fq6::zero(), "g is zero, witness lhs == rhs");
+        }
+
+        result
     }
 }
