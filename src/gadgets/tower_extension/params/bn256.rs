@@ -85,6 +85,29 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
     fn torus_square(g: BN256Fq6) -> BN256Fq6 {
         let gamma = BN256Fq6{c0: BN256Fq2::zero(), c1: BN256Fq2::one(), c2: BN256Fq2::zero()};
 
+        let result = if g.is_zero() {
+            BN256Fq6::zero()
+        } else {
+            // decompress g
+            let mut one = BN256Fq6::one();
+            let mut n = BN256Fq12{c0: g, c1: one.clone()};
+            one.negate();
+            let d = BN256Fq12{c0: g, c1: one};
+            let d_inverse = d.inverse().unwrap();
+            n.mul_assign(&d_inverse);
+
+            // now that we are in fq12, square
+            n.square();
+
+            // now compress g back onto the torus so we can use it
+            let mut result = n.c0.clone();
+            result.add_assign(&BN256Fq6::one());
+            let inv = n.c1.inverse().unwrap();
+            result.mul_assign(&inv);
+            result
+        };
+
+        /*
         // \gamma / g
         let mut result = match g.inverse() {
             Some(mut inv) => {
@@ -104,6 +127,7 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
 
         // (1/2) * (g + \gamma/g)
         result.mul_assign(&inverse_two);
+        */
 
         // CONSTRAINT CHECK
         // (2g' - g) * g = \gamma

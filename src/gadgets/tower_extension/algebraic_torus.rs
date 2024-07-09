@@ -359,8 +359,9 @@ where
         let is_zero_g = self.encoding.is_zero(cs);
         let mut rhs = <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, is_zero_g, &zero, &gamma);
 
-        let lhs = lhs.sub(cs, &mut rhs);
-        Fq6::enforce_equal(cs, &lhs, &zero);
+        // let lhs = lhs.sub(cs, &mut rhs);
+        // we can just enforce equality without subbing
+        Fq6::enforce_equal(cs, &lhs, &rhs);
 
         Self::new(encoding_new)
     }
