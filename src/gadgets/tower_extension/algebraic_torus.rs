@@ -1,6 +1,10 @@
 use pairing::{ff::PrimeField, BitIterator};
 use std::sync::Arc;
 
+use super::{fq12::Fq12, fq2::Fq2, fq6::Fq6, params::TorusExtension12Params};
+use crate::gadgets::non_native_field::implementations::NonNativeFieldOverU16;
+use crate::gadgets::tower_extension::params::{Extension2Params, Extension6Params};
+use crate::gadgets::traits::witnessable::WitnessHookable;
 use crate::{
     cs::traits::cs::ConstraintSystem,
     field::SmallField,
@@ -10,11 +14,6 @@ use crate::{
         traits::{hardexp_compatible::HardexpCompatible, selectable::Selectable},
     },
 };
-use crate::gadgets::non_native_field::implementations::NonNativeFieldOverU16;
-use crate::gadgets::traits::witnessable::WitnessHookable;
-use super::{fq12::Fq12, fq2::Fq2, fq6::Fq6, params::TorusExtension12Params};
-use crate::gadgets::tower_extension::params::{Extension2Params, Extension6Params};
-
 
 /// [`TorusWrapper`] is an algebraic compression of the `Fq12` element via underlying encoding of `Fq6`.
 /// In compressed form operations over Fq12 are less expensive.
@@ -45,7 +44,10 @@ where
         Self { encoding }
     }
 
-    pub fn one<CS>(cs: &mut CS, params: &Arc<<NonNativeFieldOverU16<F, T, N> as NonNativeField<F, T>>::Params>) -> Self
+    pub fn one<CS>(
+        cs: &mut CS,
+        params: &Arc<<NonNativeFieldOverU16<F, T, N> as NonNativeField<F, T>>::Params>,
+    ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -54,7 +56,9 @@ where
     }
 
     /// Returns the underlying parameters of the encoded `Fq6` element.
-    pub fn get_params(&self) -> &Arc<<NonNativeFieldOverU16<F, T, N> as NonNativeField<F, T>>::Params> {
+    pub fn get_params(
+        &self,
+    ) -> &Arc<<NonNativeFieldOverU16<F, T, N> as NonNativeField<F, T>>::Params> {
         self.encoding.get_params()
     }
 
@@ -73,7 +77,12 @@ where
     {
         let zero = Fq6::zero(cs, self.get_params());
         let new_encoding =
-            <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, flag, &self.encoding, &zero);
+            <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(
+                cs,
+                flag,
+                &self.encoding,
+                &zero,
+            );
 
         Self::new(new_encoding)
     }
@@ -84,7 +93,10 @@ where
     /// check for the exceptional case when `c1` is zero.
     ///
     /// If `SAFE=false`, then the function will not check for the exceptional case when `c1` is zero.
-    pub fn compress<CS, const SAFE: bool>(cs: &mut CS, f: &mut Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P>) -> Self
+    pub fn compress<CS, const SAFE: bool>(
+        cs: &mut CS,
+        f: &mut Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P>,
+    ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
@@ -320,27 +332,10 @@ where
         CS: ConstraintSystem<F>,
     {
         // We compute squaring unconstrained:
-        let (c0, c1, c2) = self.encoding.witness_hook(cs)().unwrap();
-
-        let (c0_c0, c0_c1) = c0;
-        let (c1_c0, c1_c1) = c1;
-        let (c2_c0, c2_c1) = c2;
-
-        let c0_c0 = c0_c0.get();
-        let c0_c1 = c0_c1.get();
-        let c1_c0 = c1_c0.get();
-        let c1_c1 = c1_c1.get();
-        let c2_c0 = c2_c0.get();
-        let c2_c1 = c2_c1.get();
-
-        let c0 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c0_c0, c0_c1);
-        let c1 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c1_c0, c1_c1);
-        let c2 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c2_c0, c2_c1);
-
-        let witness = P::Ex6::convert_to_structured_witness(c0, c1, c2);
+        let witness = self.encoding_to_witness(cs);
         let squared_witness = P::torus_square(witness);
 
-        // Now we shall constraint squaring with cheaper version:
+        // Now we constraint squaring with a cheaper version:
         // g' = (1/2)(g + \gamma/g) is equivalent to
         // (2g' - g)g = gamma
         let params = self.encoding.get_params();
@@ -350,24 +345,51 @@ where
         let mut lhs = encoding_new.clone();
         lhs = lhs.double(cs);
         lhs = lhs.sub(cs, &mut self.encoding.clone());
-        // let lhs = lhs.mul(cs, &mut self.encoding.clone());
-        let mut lhs = self.encoding.clone().mul(cs, &mut lhs);
+        let lhs = self.encoding.clone().mul(cs, &mut lhs);
 
         // rhs = g == 0 ? zero : gamma
         let zero = Fq6::zero(cs, params);
         let gamma = Fq6::gamma(cs, params);
         let is_zero_g = self.encoding.is_zero(cs);
-        let mut rhs = <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, is_zero_g, &zero, &gamma);
+        let rhs = <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(
+            cs, is_zero_g, &zero, &gamma,
+        );
 
-        // let lhs = lhs.sub(cs, &mut rhs);
-        // we can just enforce equality without subbing
+        // We can just enforce equality without subbing
         Fq6::enforce_equal(cs, &lhs, &rhs);
 
         Self::new(encoding_new)
     }
+
+    // TODO: Probably, this can be done less weirdly.
+    /// Converts the encoding of the `Fq6` element to the structured witness.
+    pub(super) fn encoding_to_witness<CS>(
+        &self,
+        cs: &mut CS,
+    ) -> <P::Ex6 as Extension6Params<T>>::Witness
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1, c2) = self.encoding.witness_hook(cs)().unwrap();
+
+        let (c0_c0, c0_c1) = c0;
+        let (c1_c0, c1_c1) = c1;
+        let (c2_c0, c2_c1) = c2;
+
+        let (c0_c0, c0_c1) = (c0_c0.get(), c0_c1.get());
+        let (c1_c0, c1_c1) = (c1_c0.get(), c1_c1.get());
+        let (c2_c0, c2_c1) = (c2_c0.get(), c2_c1.get());
+
+        let c0 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c0_c0, c0_c1);
+        let c1 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c1_c0, c1_c1);
+        let c2 = <P::Ex6 as Extension6Params<T>>::Ex2::convert_to_structured_witness(c2_c0, c2_c1);
+
+        P::Ex6::convert_to_structured_witness(c0, c1, c2)
+    }
 }
 
-impl<F, T, P, const N: usize> Selectable<F> for TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
+impl<F, T, P, const N: usize> Selectable<F>
+    for TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
 where
     F: SmallField,
     T: PrimeField,
@@ -378,14 +400,19 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let encoding =
-            <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(cs, flag, &a.encoding, &b.encoding);
+        let encoding = <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(
+            cs,
+            flag,
+            &a.encoding,
+            &b.encoding,
+        );
 
         Self::new(encoding)
     }
 }
 
-impl<F, T, const N: usize, P> HardexpCompatible<F> for TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
+impl<F, T, const N: usize, P> HardexpCompatible<F>
+    for TorusWrapper<F, T, NonNativeFieldOverU16<F, T, N>, P>
 where
     F: SmallField,
     T: PrimeField,
@@ -435,8 +462,9 @@ where
     }
 
     fn normalize<CS>(&mut self, cs: &mut CS)
-        where
-            CS: ConstraintSystem<F> {
+    where
+        CS: ConstraintSystem<F>,
+    {
         self.normalize(cs);
     }
 }

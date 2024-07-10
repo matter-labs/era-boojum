@@ -47,6 +47,7 @@ pub trait Extension12Params<P: PrimeField>: 'static + Clone + Copy + Send + Sync
         c0: <Self::Ex6 as Extension6Params<P>>::Witness,
         c1: <Self::Ex6 as Extension6Params<P>>::Witness,
     ) -> Self::Witness;
+
     fn convert_from_structured_witness(
         wit: Self::Witness,
     ) -> (
@@ -61,10 +62,26 @@ where
     T: PrimeField,
 {
     // NOTE: Here, we use selectors instead of constants as BN256Fq2 does not allow to allocate constant without accessing a private field.
-    // TODO: Not sure whether w^{-1} is just c6*v^2*w in a general Fq12 extension, but this is the case for BN256.
+    // TODO: Not sure whether w^{-1} is just c6*v^2*w in a general Fq12 extension, but this is the case for BN254.
+    /// Assuming `w^{-1} = c6*v^2*w`, returns the coefficient `c6`.
     fn get_w_inverse_coeffs_c6(
     ) -> <<Self::Ex6 as Extension6Params<T>>::Ex2 as Extension2Params<T>>::Witness;
+
+    /// Returns the constant c0 = 1/2
     fn get_two_inverse_coeffs_c0() -> T;
 
-    fn torus_square(g: <Self::Ex6 as Extension6Params<T>>::Witness) -> <Self::Ex6 as Extension6Params<T>>::Witness;
+    /// Computes the square of a Torus element using the formula
+    ///
+    /// `g' -> 1/2 * (g - gamma/g)`
+    fn torus_square(
+        g: <Self::Ex6 as Extension6Params<T>>::Witness,
+    ) -> <Self::Ex6 as Extension6Params<T>>::Witness;
+
+    /// Computes the product of two Torus elements using the formula
+    ///
+    /// `(g, g') -> (g * g' + \gamma) / (g + g')`
+    fn torus_mul(
+        g1: <Self::Ex6 as Extension6Params<T>>::Witness,
+        g2: <Self::Ex6 as Extension6Params<T>>::Witness,
+    ) -> <Self::Ex6 as Extension6Params<T>>::Witness;
 }

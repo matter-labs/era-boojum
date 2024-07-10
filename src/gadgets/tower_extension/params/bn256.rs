@@ -1,12 +1,11 @@
 use pairing::bn256::{fq::Fq as BN256Fq, Fq12 as BN256Fq12, Fq2 as BN256Fq2, Fq6 as BN256Fq6};
 
+use super::*;
 use pairing::bn256::fq::{
     FROBENIUS_COEFF_FQ12_C1 as BN256_FROBENIUS_COEFF_FQ12_C1,
     FROBENIUS_COEFF_FQ6_C1 as BN256_FROBENIUS_COEFF_FQ6_C1,
     FROBENIUS_COEFF_FQ6_C2 as BN256_FROBENIUS_COEFF_FQ6_C2,
 };
-use crate::gadgets::tower_extension::fq6::Fq6;
-use super::*;
 
 #[derive(Clone, Debug, Copy)]
 pub struct BN256Extension2Params {}
@@ -68,6 +67,48 @@ const W_INVERSE_C6_C0: &str =
 const W_INVERSE_C6_C1: &str =
     "14681138511599513868579906292550611339979233093309515871315818100066920017952";
 
+impl BN256Extension12Params {
+    /// Returns the `gamma` element in Fq6,
+    /// being simply the element `0+1*v+0*v^2` in `Fq6`.
+    pub(super) fn gamma() -> BN256Fq6 {
+        BN256Fq6 {
+            c0: BN256Fq2::zero(),
+            c1: BN256Fq2::one(),
+            c2: BN256Fq2::zero(),
+        }
+    }
+
+    /// Decompresses a torus element from Fq6 to a field element Fq12.
+    ///
+    /// `g -> (g + w) / (g - w)`
+    pub(super) fn decompress_torus(g: BN256Fq6) -> BN256Fq12 {
+        let mut one = BN256Fq6::one();
+        let mut result = BN256Fq12 {
+            c0: g,
+            c1: one.clone(),
+        };
+        one.negate();
+        let denominator = BN256Fq12 { c0: g, c1: one };
+        let denominator_inverse = denominator.inverse().unwrap();
+        result.mul_assign(&denominator_inverse);
+
+        result
+    }
+
+    /// Compresses a field element from Fq12 to torus Fq6.
+    ///
+    /// `m -> (1 + m0) / m1, m = m0 + m1*w`
+    pub(super) fn compress_torus(m: BN256Fq12) -> BN256Fq6 {
+        let mut result = m.c0.clone();
+        result.add_assign(&BN256Fq6::one());
+
+        let inverse_denominator = m.c1.inverse().unwrap();
+        result.mul_assign(&inverse_denominator);
+
+        result
+    }
+}
+
 impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
     fn get_two_inverse_coeffs_c0() -> BN256Fq {
         BN256Fq::from_str(TWO_INVERSE_C0).unwrap()
@@ -80,56 +121,24 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
         }
     }
 
-    // Native computation of torus squaring on encoding in Fq6.
-    // g' = 1/2 (g + \gamma / g)
+    /// Native computation of torus squaring on encoding in Fq6.
+    ///
+    /// `g' = 1/2 (g + \gamma / g)`
     fn torus_square(g: BN256Fq6) -> BN256Fq6 {
-        let gamma = BN256Fq6{c0: BN256Fq2::zero(), c1: BN256Fq2::one(), c2: BN256Fq2::zero()};
+        let gamma = Self::gamma();
 
         let result = if g.is_zero() {
             BN256Fq6::zero()
         } else {
-            // decompress g
-            let mut one = BN256Fq6::one();
-            let mut n = BN256Fq12{c0: g, c1: one.clone()};
-            one.negate();
-            let d = BN256Fq12{c0: g, c1: one};
-            let d_inverse = d.inverse().unwrap();
-            n.mul_assign(&d_inverse);
-
-            // now that we are in fq12, square
-            n.square();
-
-            // now compress g back onto the torus so we can use it
-            let mut result = n.c0.clone();
-            result.add_assign(&BN256Fq6::one());
-            let inv = n.c1.inverse().unwrap();
-            result.mul_assign(&inv);
-            result
+            // Decompress g
+            let mut decompressed = Self::decompress_torus(g);
+            // Now that we are in fq12, square
+            decompressed.square();
+            // Now, compress g back onto the torus so we can use it
+            Self::compress_torus(decompressed)
         };
 
-        /*
-        // \gamma / g
-        let mut result = match g.inverse() {
-            Some(mut inv) => {
-                inv.mul_assign(&gamma);
-                inv
-            }
-            None => BN256Fq6::zero(),
-        };
-
-        // (g + \gamma/g)
-        result.add_assign(&g);
-
-        // (1/2)
-        let mut inverse_two = BN256Fq6::one();
-        inverse_two.double();
-        inverse_two.inverse();
-
-        // (1/2) * (g + \gamma/g)
-        result.mul_assign(&inverse_two);
-        */
-
-        // CONSTRAINT CHECK
+        // Constraint check
         // (2g' - g) * g = \gamma
         let mut lhs = result.clone();
 
@@ -139,13 +148,57 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
 
         let rhs = gamma.clone();
 
-        println!("LHS: {lhs}");
-        println!("RHS: {rhs}");
-
         if !g.is_zero() {
-            assert_eq!(lhs, rhs, "Witness lhs == rhs");
-        }else{
+            assert_eq!(lhs, rhs, "witness lhs == rhs");
+        } else {
             assert_eq!(lhs, BN256Fq6::zero(), "g is zero, witness lhs == rhs");
+        }
+
+        result
+    }
+
+    /// Native computation of torus multiplication on encoding in Fq6.
+    ///
+    /// `(g, g') -> (g * g' + \gamma) / (g + g')`
+    fn torus_mul(
+        g1: <Self::Ex6 as Extension6Params<BN256Fq>>::Witness,
+        g2: <Self::Ex6 as Extension6Params<BN256Fq>>::Witness,
+    ) -> <Self::Ex6 as Extension6Params<BN256Fq>>::Witness {
+        let gamma = Self::gamma();
+
+        let mut g1_add_g2 = g1.clone();
+        g1_add_g2.add_assign(&g2);
+
+        let result = if g1_add_g2.is_zero() {
+            BN256Fq6::zero()
+        } else {
+            // Decompress g1
+            let decompressed_g1 = Self::decompress_torus(g1);
+            // Decompress g2
+            let decompressed_g2 = Self::decompress_torus(g2);
+            // Multiply
+            let mut decompressed_g1_times_g2 = decompressed_g1.clone();
+            decompressed_g1_times_g2.mul_assign(&decompressed_g2);
+            // Compress the result
+            Self::compress_torus(decompressed_g1_times_g2)
+        };
+
+        // Since we have g12 = (g1*g2 + \gamma) / (g1+g2), we can
+        // constraint require:
+        // g12 * (g1 + g2) == g1 * g2 + \gamma
+
+        let mut lhs = result.clone();
+        lhs.mul_assign(&g1_add_g2);
+
+        let mut g1_times_g2 = g1.clone();
+        g1_times_g2.mul_assign(&g2);
+        let mut rhs = g1_times_g2.clone();
+        rhs.add_assign(&gamma);
+
+        if g1_add_g2.is_zero() {
+            assert_eq!(lhs, BN256Fq6::zero(), "g1 + g2 is zero, witness lhs == rhs");
+        } else {
+            assert_eq!(lhs, rhs, "witness lhs == rhs");
         }
 
         result

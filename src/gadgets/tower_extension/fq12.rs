@@ -804,8 +804,9 @@ where
     }
 
     fn normalize<CS>(&mut self, cs: &mut CS)
-        where
-            CS: ConstraintSystem<F> {
+    where
+        CS: ConstraintSystem<F>,
+    {
         self.c0.normalize(cs);
         self.c1.normalize(cs);
     }

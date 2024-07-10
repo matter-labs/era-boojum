@@ -785,11 +785,8 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        println!("Enforce equal: c0");
         Fq2::enforce_equal(cs, &a.c0, &b.c0);
-        println!("Enforce equal: c1");
         Fq2::enforce_equal(cs, &a.c1, &b.c1);
-        println!("Enforce equal: c2");
         Fq2::enforce_equal(cs, &a.c2, &b.c2);
     }
 }

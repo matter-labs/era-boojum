@@ -618,9 +618,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        println!("Enforce equal: c0");
         NN::enforce_equal(cs, &a.c0, &b.c0);
-        println!("Enforce equal: c1");
         NN::enforce_equal(cs, &a.c1, &b.c1);
     }
 }
