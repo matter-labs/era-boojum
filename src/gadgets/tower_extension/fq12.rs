@@ -317,22 +317,28 @@ where
         Self::new(new_c0, new_c1)
     }
 
-    /// Multiplies the `Fq12` element by a constant `c6*v^2` represented as `Fq2`.
-    pub fn mul_by_c6<CS>(
+    /// Multiplies the `Fq12` element by a constant `c5*v^2*w` represented as `Fq2`.
+    pub fn mul_by_c5<CS>(
         &mut self,
         cs: &mut CS,
-        c6: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
+        c5: &mut Fq2<F, T, NN, <<P as Extension12Params<T>>::Ex6 as Extension6Params<T>>::Ex2>,
     ) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let zero = Fq2::zero(cs, c6.c0.get_params());
-        let c0 = Fq6::new(zero.clone(), zero.clone(), zero.clone());
-        let c1 = Fq6::new(zero.clone(), zero.clone(), c6.clone());
-        let mut other = Fq12::new(c0, c1);
+        // Suppose our element is a0+a1*w. Then,
+        // (a0+a1*w)*c5*v^2*w = a1*c5*w^2*v^2 + a0*c5*v^2*w
+        // Notice that w^2*v^2 = v^3 = \xi and therefore our result
+        // is a1*c5*\xi + a0*c5*v^2*w
 
-        // TODO: make it hand optimized
-        self.mul(cs, &mut other)
+        // new_c0 <- a1*c5*\xi
+        let mut new_c0 = self.c1.mul_by_c0(cs, c5);
+        new_c0 = new_c0.mul_by_xi(cs);
+
+        // new_c1 <- a0*c5*v^2*w
+        let new_c1 = self.c0.mul_by_c2(cs, c5);
+
+        Self::new(new_c0, new_c1)
     }
 
     /// Compute the Frobenius map - raise this element to power.

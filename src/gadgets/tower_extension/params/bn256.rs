@@ -62,9 +62,9 @@ impl Extension12Params<BN256Fq> for BN256Extension12Params {
 // Constants for torus extension
 const TWO_INVERSE_C0: &str =
     "10944121435919637611123202872628637544348155578648911831344518947322613104292";
-const W_INVERSE_C6_C0: &str =
+const W_INVERSE_C5_C0: &str =
     "21087453498479301738505683583845423561061080261299122796980902361914303298513";
-const W_INVERSE_C6_C1: &str =
+const W_INVERSE_C5_C1: &str =
     "14681138511599513868579906292550611339979233093309515871315818100066920017952";
 
 impl BN256Extension12Params {
@@ -122,10 +122,10 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
         BN256Fq::from_str(TWO_INVERSE_C0).unwrap()
     }
 
-    fn get_w_inverse_coeffs_c6() -> BN256Fq2 {
+    fn get_w_inverse_coeffs_c5() -> BN256Fq2 {
         BN256Fq2 {
-            c0: BN256Fq::from_str(W_INVERSE_C6_C0).unwrap(),
-            c1: BN256Fq::from_str(W_INVERSE_C6_C1).unwrap(),
+            c0: BN256Fq::from_str(W_INVERSE_C5_C0).unwrap(),
+            c1: BN256Fq::from_str(W_INVERSE_C5_C1).unwrap(),
         }
     }
 

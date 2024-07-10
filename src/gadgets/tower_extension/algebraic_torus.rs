@@ -203,12 +203,12 @@ where
 
         // rhs = f(w, i) * (w^{-1}) * r
         // First, allocating the w^{-1}
-        let w_inverse = P::get_w_inverse_coeffs_c6();
+        let w_inverse = P::get_w_inverse_coeffs_c5();
         let mut w_inverse: Fq2<_, _, _, <P::Ex6 as Extension6Params<T>>::Ex2> = Fq2::constant(cs, w_inverse, params);
 
         let mut rhs: Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P> = Fq12::one_imaginary(cs, params);
         rhs = rhs.frobenius_map(cs, power);
-        rhs = rhs.mul_by_c6(cs, &mut w_inverse);
+        rhs = rhs.mul_by_c5(cs, &mut w_inverse);
 
         // Asserting that c1 is zero since rhs must be a pure Fq6 element at this point.
         let boolean_true = Boolean::allocated_constant(cs, true);

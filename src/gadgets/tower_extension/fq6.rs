@@ -164,7 +164,7 @@ where
         Self::new(c0, c1, c2)
     }
 
-    /// Multiplies the element in `Fq6` by a non-residue `xi=9+u`.
+    /// Multiplies the element in `Fq6` by a non-residue `v`.
     pub fn mul_by_nonresidue<CS>(&mut self, cs: &mut CS) -> Self
     where
         CS: ConstraintSystem<F>,
@@ -172,6 +172,18 @@ where
         // c0, c1, c2 -> c2, c0, c1
         let new_c2 = self.c2.mul_by_nonresidue(cs);
         Self::new(new_c2, self.c0.clone(), self.c1.clone())
+    }
+
+    /// Multiplies the element in `Fq6` by a non-residue `\xi=9+u`.
+    pub fn mul_by_xi<CS>(&mut self, cs: &mut CS) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let new_c0 = self.c0.mul_by_nonresidue(cs);
+        let new_c1 = self.c1.mul_by_nonresidue(cs);
+        let new_c2 = self.c2.mul_by_nonresidue(cs);
+
+        Self::new(new_c0, new_c1, new_c2)
     }
 
     /// Multiplies two elements `a=a0+a1*v+a2*v^2`
@@ -289,6 +301,36 @@ where
         let t2 = self.c2.mul(cs, c0);
 
         Self::new(t0, t1, t2)
+    }
+
+    /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `c2*v^2`
+    pub fn mul_by_c2<CS>(&mut self, cs: &mut CS, c2: &mut Fq2<F, T, NN, P::Ex2>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        // Suppose a = a0 + a1*v + a2*v^2. In this case,
+        // (a0 + a1*v + a2*v^2) * c2 * v^2 =
+        // a1*c2*\xi + a2*c2*\xi*v + a0*c2*v^2
+        // NOTE: There might be a better way to calculate three coefficients
+        // without using 3 multiplications and 2 mul_by_nonresidues, similarly to mul_by_c1
+
+        // Setting coefficients
+        let mut a0 = self.c0.clone();
+        let mut a1 = self.c1.clone();
+        let mut a2 = self.c2.clone();
+
+        // new_c0 <- a1*c2*\xi
+        let mut new_c0 = a1.mul(cs, c2);
+        new_c0 = new_c0.mul_by_nonresidue(cs);
+
+        // new_c1 <- a2*c2*\xi
+        let mut new_c1 = a2.mul(cs, c2);
+        new_c1 = new_c1.mul_by_nonresidue(cs);
+
+        // new_c2 <- a0*c2
+        let new_c2 = a0.mul(cs, c2);
+
+        Self::new(new_c0, new_c1, new_c2)
     }
 
     /// Multiplies the element `a=a0+a1*v+a2*v^2` in `Fq6` by the element `b = b0+b1*v`
