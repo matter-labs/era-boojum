@@ -68,13 +68,21 @@ const W_INVERSE_C6_C1: &str =
     "14681138511599513868579906292550611339979233093309515871315818100066920017952";
 
 impl BN256Extension12Params {
-    /// Returns the `gamma` element in Fq6,
+    /// Returns the `gamma` element in `Fq6`,
     /// being simply the element `0+1*v+0*v^2` in `Fq6`.
     pub(super) fn gamma() -> BN256Fq6 {
         BN256Fq6 {
             c0: BN256Fq2::zero(),
             c1: BN256Fq2::one(),
             c2: BN256Fq2::zero(),
+        }
+    }
+
+    /// Returns the `0+1*w` element in `Fq12`
+    pub(super) fn w() -> BN256Fq12 {
+        BN256Fq12 {
+            c0: BN256Fq6::zero(),
+            c1: BN256Fq6::one(),
         }
     }
 
@@ -200,6 +208,45 @@ impl TorusExtension12Params<BN256Fq> for BN256Extension12Params {
         } else {
             assert_eq!(lhs, rhs, "witness lhs == rhs");
         }
+
+        result
+    }
+
+    /// Native computation of frobenius map
+    /// 
+    /// `(g,i) -> f(g,i) / (f(w,i) * w^{-1})` where `f(g,i) = g^{q^{i}}`
+    fn torus_frobenius_map(
+            g: <Self::Ex6 as Extension6Params<BN256Fq>>::Witness,
+            power: usize,
+        ) -> <Self::Ex6 as Extension6Params<BN256Fq>>::Witness {
+        let mut result = Self::decompress_torus(g);
+        result.frobenius_map(power);
+        let result = Self::compress_torus(result);
+
+        // Now, we need to check the constraint. Namely, suppose
+        // r is our result. Then,
+        // w * f(g, i) = f(w, i) * r
+
+        // lhs = f(g, i) * w
+        let w = Self::w();
+        let mut lhs = g.clone();
+        lhs.frobenius_map(power);
+        let mut lhs = BN256Fq12{
+            c0: lhs,
+            c1: BN256Fq6::zero(),
+        };
+        lhs.mul_assign(&w);
+
+        // rhs = f(w, i) * r
+        let mut rhs = Self::w();
+        rhs.frobenius_map(power);
+        let r = BN256Fq12{
+            c0: result,
+            c1: BN256Fq6::zero(),
+        };
+        rhs.mul_assign(&r);
+
+        assert_eq!(lhs, rhs, "witness lhs == rhs");
 
         result
     }

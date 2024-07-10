@@ -84,4 +84,12 @@ where
         g1: <Self::Ex6 as Extension6Params<T>>::Witness,
         g2: <Self::Ex6 as Extension6Params<T>>::Witness,
     ) -> <Self::Ex6 as Extension6Params<T>>::Witness;
+
+    /// Computes the Frobenius map of a Torus element
+    /// 
+    /// `(g,i) -> w*f(g,i) / f(w,i)` where `f(g,i) = g^{q^{i}}`
+    fn torus_frobenius_map(
+        g: <Self::Ex6 as Extension6Params<T>>::Witness,
+        power: usize,
+    ) -> <Self::Ex6 as Extension6Params<T>>::Witness;
 }

@@ -188,34 +188,45 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        let params = self.get_params();
-        // Numerator is simply frob_map(g, i)
-        let mut g = self.encoding.clone();
-        let mut numerator = g.frobenius_map(cs, power);
+        // We compute frobenius map unconstrained:
+        let witness_self = self.encoding_to_witness(cs);
+        let witness_frob = P::torus_frobenius_map(witness_self, power);
 
-        // Since w^2 = \gamma, that means \gamma^{1/2} = w and therefore
-        // \gamma^{(p^i-1)/2} = w^{p^i-1} = frob_map(w, i)*w^{-1}. Thus,
-        // denominator is frob_map(w, i)*w^{-1}
+        // Now, we constraint the frobenius map with a cheaper version:
+        // Suppose r = f(g,i) / (f(w,i) * w^{-1}). Then, we require:
+        // f(g, i) = f(w, i) * (w^{-1}) * r
+        // Notice that `f(w,i)*w^{-1}` must yield an element
+        // from Fq6. Thus, we need one frobenius map + mul over Fq6, and
+        // one frobenius map + mul over Fq12.
+        let params = self.encoding.get_params();
+        let mut encoding_new = Fq6::allocate_from_witness(cs, witness_frob, params);
 
+        // rhs = f(w, i) * (w^{-1}) * r
         // First, allocating the w^{-1}
         let w_inverse = P::get_w_inverse_coeffs_c6();
-        let mut w_inverse = Fq2::constant(cs, w_inverse, params);
-        // Then, computing frob_map(w, i)*w^{-1}
-        let mut w: Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P> = Fq12::one_imaginary(cs, params);
-        let mut denominator = w.frobenius_map(cs, power);
-        let mut denominator = denominator.mul_by_c6(cs, &mut w_inverse);
+        let mut w_inverse: Fq2<_, _, _, <P::Ex6 as Extension6Params<T>>::Ex2> = Fq2::constant(cs, w_inverse, params);
 
-        // Asserting that c1 is zero since denominator must be a pure Fq6 element.
+        let mut rhs: Fq12<F, T, NonNativeFieldOverU16<F, T, N>, P> = Fq12::one_imaginary(cs, params);
+        rhs = rhs.frobenius_map(cs, power);
+        rhs = rhs.mul_by_c6(cs, &mut w_inverse);
+
+        // Asserting that c1 is zero since rhs must be a pure Fq6 element at this point.
         let boolean_true = Boolean::allocated_constant(cs, true);
-        let c1_is_zero = denominator.c1.is_zero(cs);
+        let c1_is_zero = rhs.c1.is_zero(cs);
         Boolean::enforce_equal(cs, &c1_is_zero, &boolean_true);
-        let mut denominator = denominator.c0.clone();
-        denominator.normalize(cs);
+        let mut rhs = rhs.c0.clone();
+        
+        // Finishing rhs by multiplying by result
+        rhs = rhs.mul(cs, &mut encoding_new);
 
-        // frob_map(g, i) / \gamma^{(p^i-1)/2}
-        let mut encoding = numerator.div(cs, &mut denominator);
-        encoding.normalize(cs);
-        Self::new(encoding)
+        // lhs = f(g, i)
+        let mut lhs = self.encoding.clone();
+        lhs = lhs.frobenius_map(cs, power);
+
+        // Asserting that lhs == rhs
+        Fq6::enforce_equal(cs, &lhs, &rhs);
+
+        Self::new(encoding_new)
     }
 
     /// Computes the product of two Torus elements using the formula
