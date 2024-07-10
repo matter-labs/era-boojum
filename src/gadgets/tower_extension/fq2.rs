@@ -281,6 +281,19 @@ where
 
         Self::new(c0, c1)
     }
+
+    /// Allocate `Fq2` tower extension element from the Witness represented in two PrimeField components `c0` and `c1`.
+    pub fn allocate_from_witness<CS>(cs: &mut CS, wit: P::Witness, params: &Arc<NN::Params>) -> Self
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let (c0, c1) = P::convert_from_structured_witness(wit);
+
+        let c0 = NN::allocate_checked(cs, c0, params);
+        let c1 = NN::allocate_checked(cs, c1, params);
+
+        Self::new(c0, c1)
+    }
 }
 
 impl<F, T, NN, P> CSAllocatable<F> for Fq2<F, T, NN, P>
@@ -599,6 +612,14 @@ where
     {
         self.c0.enforce_reduced(cs);
         self.c1.enforce_reduced(cs);
+    }
+
+    fn enforce_equal<CS>(cs: &mut CS, a: &Self, b: &Self)
+    where
+        CS: ConstraintSystem<F>,
+    {
+        NN::enforce_equal(cs, &a.c0, &b.c0);
+        NN::enforce_equal(cs, &a.c1, &b.c1);
     }
 }
 
