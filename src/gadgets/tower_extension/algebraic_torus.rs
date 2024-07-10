@@ -223,48 +223,48 @@ where
     /// `(g, g') -> (g * g' + \gamma) / (g + g')`
     ///
     /// The formula handles the exceptional case when `g + g'` is zero.
-    pub fn mul<CS, const SAFE: bool>(&mut self, cs: &mut CS, other: &mut Self) -> Self
+    pub fn mul<CS>(&mut self, cs: &mut CS, other: &mut Self) -> Self
     where
         CS: ConstraintSystem<F>,
     {
-        let params = self.get_params();
-        let mut one = Fq2::one(cs, params);
+        // We compute multiplication unconstrained:
+        let witness_self = self.encoding_to_witness(cs);
+        let witness_other = other.encoding_to_witness(cs);
+        let witness_mul = P::torus_mul(witness_self, witness_other);
 
-        // g1 <- g, g2 <- g'
-        let mut g1 = self.encoding.clone();
-        let mut g2 = other.encoding.clone();
+        // Now, we constraint the multiplication with a cheaper version:
+        // g'' = (g * g' + \gamma) / (g + g') is equivalent to
+        // g'' * (g + g') = (g * g' + \gamma)
+        // Here, g'' is the new encoding.
+        let params = self.encoding.get_params();
+        let encoding_new = Fq6::allocate_from_witness(cs, witness_mul, params);
 
-        // x <- g * g' + \gamma
-        let mut x = g1.mul(cs, &mut g2);
-        // Adding gamma to x
-        x.c1 = x.c1.add(cs, &mut one);
-        // y <- g + g'
-        let mut y = g1.add(cs, &mut g2);
+        // lhs = g'' * (g + g')
+        let mut sum = self.encoding.clone().add(cs, &mut other.encoding);
+        let lhs = encoding_new.clone().mul(cs, &mut sum);
 
-        let encoding = if SAFE {
-            // Exception occurs when g = -g'. To account for such case,
-            // the following formula is used (where flag = (y == 0)? 1 : 0 --- exception case):
-            // result <- (x - flag * x) / (g + g' + flag)
+        // rhs = {(g + g') == 0} ? zero : (g * g' + \gamma)
+        let mut gamma = Fq6::gamma(cs, params);
+        let mut rhs = self.encoding.clone().mul(cs, &mut other.encoding);
+        let rhs = rhs.add(cs, &mut gamma);
 
-            let mut zero = Fq6::zero(cs, params);
-            let exception = y.equals(cs, &mut zero);
-            let mut flag = Fq6::from_boolean(cs, exception, params);
+        let zero = Fq6::zero(cs, params);
+        let is_zero_sum = sum.is_zero(cs);
 
-            let mut numerator = flag.mul(cs, &mut x);
-            let mut numerator = x.sub(cs, &mut numerator);
-            let mut denominator = y.add(cs, &mut flag);
-            let result = numerator.div(cs, &mut denominator);
-            result
-        } else {
-            // Here we do not check whether g = -g' since the function is unsafe
-            let result = x.div(cs, &mut y);
-            result
-        };
+        let rhs = <Fq6<F, T, NonNativeFieldOverU16<F, T, N>, P::Ex6>>::conditionally_select(
+            cs,
+            is_zero_sum,
+            &zero,
+            &rhs,
+        );
 
-        Self::new(encoding)
+        // Enforce equality
+        Fq6::enforce_equal(cs, &lhs, &rhs);
+
+        Self::new(encoding_new)
     }
 
-    pub fn pow_naf_decomposition<CS, S: AsRef<[i8]>, const SAFE: bool>(
+    pub fn pow_naf_decomposition<CS, S: AsRef<[i8]>>(
         &mut self,
         cs: &mut CS,
         decomposition: S,
@@ -284,12 +284,12 @@ where
 
             // If bit is 1, multiply by initial torus
             let bit_is_one = Boolean::allocated_constant(cs, *bit == 1);
-            let result_times_self = result.mul::<_, SAFE>(cs, &mut self_cloned);
+            let result_times_self = result.mul(cs, &mut self_cloned);
             result = Self::conditionally_select(cs, bit_is_one, &result_times_self, &result);
 
             // If bit is -1, multiply by inverse initial torus
             let bit_is_minus_one = Boolean::allocated_constant(cs, *bit == -1);
-            let result_times_self_inverse = result.mul::<_, SAFE>(cs, &mut self_inverse);
+            let result_times_self_inverse = result.mul(cs, &mut self_inverse);
             result = Self::conditionally_select(
                 cs,
                 bit_is_minus_one,
@@ -316,7 +316,7 @@ where
                 found_one = bit;
             }
 
-            let result_multiplied = result.mul::<_, true>(cs, self);
+            let result_multiplied = result.mul(cs, self);
             let apply_multiplication = Boolean::allocated_constant(cs, bit);
             result =
                 Self::conditionally_select(cs, apply_multiplication, &result_multiplied, &result);
@@ -333,15 +333,15 @@ where
     {
         // We compute squaring unconstrained:
         let witness = self.encoding_to_witness(cs);
-        let squared_witness = P::torus_square(witness);
+        let witness_squared = P::torus_square(witness);
 
-        // Now we constraint squaring with a cheaper version:
+        // Now, we constraint squaring with a cheaper version:
         // g' = (1/2)(g + \gamma/g) is equivalent to
-        // (2g' - g)g = gamma
+        // (2g' - g)*g = gamma
         let params = self.encoding.get_params();
-        let encoding_new = Fq6::allocate_from_witness(cs, squared_witness, params);
+        let encoding_new = Fq6::allocate_from_witness(cs, witness_squared, params);
 
-        // lhs = (2g' - g)g
+        // lhs = (2g' - g)*g
         let mut lhs = encoding_new.clone();
         lhs = lhs.double(cs);
         lhs = lhs.sub(cs, &mut self.encoding.clone());
@@ -357,7 +357,6 @@ where
 
         // We can just enforce equality without subbing
         Fq6::enforce_equal(cs, &lhs, &rhs);
-
         Self::new(encoding_new)
     }
 
@@ -423,7 +422,7 @@ where
     where
         CS: ConstraintSystem<F>,
     {
-        self.mul::<CS, true>(cs, other)
+        self.mul(cs, other)
     }
 
     fn square<CS>(&mut self, cs: &mut CS) -> Self
