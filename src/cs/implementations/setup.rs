@@ -127,8 +127,11 @@ impl<
         let required_rows = num_used_rows + 1;
         assert!(required_rows <= self.max_trace_len);
 
-        dbg!(required_rows);
-        dbg!(self.lookups_tables_total_len());
+        log!("Required rows {:?}", required_rows);
+        log!(
+            "lookup_tables_total_len = {}",
+            self.lookups_tables_total_len()
+        );
 
         let required_rows = std::cmp::max(required_rows, self.lookups_tables_total_len());
 
@@ -185,12 +188,27 @@ impl<
             .max()
             .unwrap_or(0);
 
-        dbg!(required_size);
-        dbg!(max_copiable_in_specialized_columns);
-        dbg!(max_witnesses_in_general_purpose_columns);
-        dbg!(max_witnesses_in_specialized_columns);
-        dbg!(max_constants_for_general_purpose_gates);
-        dbg!(max_in_column_for_specialized_gates);
+        log!("required size = {}", required_size);
+        log!(
+            "max_copiable_in_specialized_columns = {}",
+            max_copiable_in_specialized_columns
+        );
+        log!(
+            "max_witnesses_in_general_purpose_columns = {}",
+            max_witnesses_in_general_purpose_columns
+        );
+        log!(
+            "max_witnesses_in_specialized_columns = {}",
+            max_witnesses_in_specialized_columns
+        );
+        log!(
+            "max_constants_for_general_purpose_gates = {}",
+            max_constants_for_general_purpose_gates
+        );
+        log!(
+            "max_in_column_for_specialized_gates = {}",
+            max_in_column_for_specialized_gates
+        );
 
         assert!(max_constants_for_general_purpose_gates <= required_size);
 
@@ -312,7 +330,7 @@ impl<
             dst.resize(precise_required_size, F::ZERO);
         }
 
-        dbg!(precise_required_size);
+        log!("precise_required_size = {}", precise_required_size);
 
         self.max_trace_len = precise_required_size;
         finalization_hints.final_trace_len = precise_required_size;
@@ -729,7 +747,7 @@ impl<
 
         let extra_polys_for_selectors = number_of_constant_polys_for_general_purpose_gates
             - self.parameters.num_constant_columns;
-        dbg!(extra_polys_for_selectors);
+        log!("extra_polys_for_selector = {}", extra_polys_for_selectors);
 
         let quotient_degree_from_constraits = if max_constraint_contribution_degree > 0 {
             max_constraint_contribution_degree - 1
@@ -1037,7 +1055,7 @@ impl<
         let (constant_columns, selectors_placement, min_degree) =
             self.create_constant_setup_polys(worker);
 
-        dbg!(min_degree);
+        log!("min_degree = {}", min_degree);
 
         let (_, total_num_constants_for_gates_over_general_purpose_columns) =
             selectors_placement.compute_stats();

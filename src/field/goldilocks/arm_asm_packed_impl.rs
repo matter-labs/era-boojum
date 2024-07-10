@@ -2,10 +2,8 @@ use crate::cs::implementations::utils::precompute_twiddles_for_fft;
 use crate::cs::traits::GoodAllocator;
 use crate::field::{Field, PrimeField};
 use crate::worker::Worker;
-use std::intrinsics::simd::simd_shuffle;
+use packed_simd::shuffle;
 use std::ops::{Add, BitOr, Sub};
-use std::simd::cmp::{SimdPartialEq, SimdPartialOrd};
-use std::simd::{u64x4, u64x8};
 use std::usize;
 
 use super::GoldilocksField;
@@ -19,7 +17,7 @@ pub struct MixedGL(pub [GoldilocksField; 16]);
 // we also need holder for SIMD targets, because u64x4 has smaller alignment than u64x8
 #[derive(Clone, Copy)]
 #[repr(C, align(64))]
-struct U64x4Holder([u64x4; 4]);
+struct U64x4Holder([packed_simd::u64x4; 4]);
 
 impl std::fmt::Debug for MixedGL {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,8 +38,8 @@ impl MixedGL {
     pub const T: u64 = (Self::ORDER - 1) >> Self::TWO_ADICITY;
     pub const BARRETT: u128 = 18446744078004518912; // 0x10000000100000000
     pub const EPSILON: u64 = (1 << 32) - 1;
-    pub const EPSILON_VECTOR: u64x4 = u64x4::from_array([Self::EPSILON; 4]);
-    pub const EPSILON_VECTOR_D: u64x8 = u64x8::from_array([Self::EPSILON; 8]);
+    pub const EPSILON_VECTOR: packed_simd::u64x4 = packed_simd::u64x4::splat(Self::EPSILON);
+    pub const EPSILON_VECTOR_D: packed_simd::u64x8 = packed_simd::u64x8::splat(Self::EPSILON);
 
     #[inline(always)]
     pub fn new() -> Self {
@@ -66,7 +64,7 @@ impl MixedGL {
         for i in 0..4 {
             let a = a_u64.0[i];
             let a_reduced = a.add(Self::EPSILON_VECTOR);
-            let cmp = a_reduced.simd_lt(Self::EPSILON_VECTOR);
+            let cmp = a_reduced.lt(Self::EPSILON_VECTOR);
             let res = cmp.select(a_reduced, a);
 
             a_u64.0[i] = res;
@@ -110,13 +108,13 @@ impl MixedGL {
             let b = b_u64.0[i];
             //additional reduction over b
             let b_reduced = b.add(Self::EPSILON_VECTOR);
-            let cmp = b_reduced.simd_lt(Self::EPSILON_VECTOR);
+            let cmp = b_reduced.lt(Self::EPSILON_VECTOR);
             let b = cmp.select(b_reduced, b);
             //a+b
             let sum = a.add(b);
             let sum_reduced = sum.add(Self::EPSILON_VECTOR);
-            let cmp0 = sum_reduced.simd_lt(sum);
-            let cmp1 = sum.simd_lt(a);
+            let cmp0 = sum_reduced.lt(sum);
+            let cmp1 = sum.lt(a);
             let reduce_flag = cmp0.bitor(cmp1);
             let res = reduce_flag.select(sum_reduced, sum);
 
@@ -141,12 +139,12 @@ impl MixedGL {
             let b = b_u64.0[i];
             //additional reduction over b
             let b_reduced = b.add(Self::EPSILON_VECTOR);
-            let cmp = b_reduced.simd_lt(Self::EPSILON_VECTOR);
+            let cmp = b_reduced.lt(Self::EPSILON_VECTOR);
             let b = cmp.select(b_reduced, b);
             //a-b
             let diff = a.sub(b);
             let diff_reduced = diff.sub(Self::EPSILON_VECTOR);
-            let cmp = a.simd_lt(b);
+            let cmp = a.lt(b);
             let res = cmp.select(diff_reduced, diff);
 
             a_u64.0[i] = res;
@@ -161,28 +159,27 @@ impl MixedGL {
 
     pub unsafe fn butterfly_1x1_impl(&mut self) -> &mut Self {
         let [part1, part2] = MixedGL::as_u64x8_arrays(&*self);
-
-        let u: u64x8 = simd_shuffle(part1, part2, const { [0u32, 2, 4, 6, 8, 10, 12, 14] });
-        let v: u64x8 = simd_shuffle(part1, part2, const { [1u32, 3, 5, 7, 9, 11, 13, 15] });
+        let u: packed_simd::u64x8 = shuffle!(part1, part2, [0, 2, 4, 6, 8, 10, 12, 14]);
+        let v: packed_simd::u64x8 = shuffle!(part1, part2, [1, 3, 5, 7, 9, 11, 13, 15]);
         //additional reduction over v
         let v_reduced = v.add(Self::EPSILON_VECTOR_D);
-        let cmp = v_reduced.simd_lt(Self::EPSILON_VECTOR_D);
+        let cmp = v_reduced.lt(Self::EPSILON_VECTOR_D);
         let v = cmp.select(v_reduced, v);
         // u + v
         let sum = u.add(v);
         let sum_reduced = sum.add(Self::EPSILON_VECTOR_D);
-        let cmp0 = sum_reduced.simd_lt(sum);
-        let cmp1 = sum.simd_lt(u);
+        let cmp0 = sum_reduced.lt(sum);
+        let cmp1 = sum.lt(u);
         let reduce_flag = cmp0.bitor(cmp1);
         let res1 = reduce_flag.select(sum_reduced, sum);
         // u - v
         let diff = u.sub(v);
         let diff_reduced = diff.sub(Self::EPSILON_VECTOR_D);
-        let cmp = u.simd_lt(v);
+        let cmp = u.lt(v);
         let res2 = cmp.select(diff_reduced, diff);
 
-        let part1: u64x8 = simd_shuffle(res1, res2, const { [0u32, 8, 1, 9, 2, 10, 3, 11] });
-        let part2: u64x8 = simd_shuffle(res1, res2, const { [4u32, 12, 5, 13, 6, 14, 7, 15] });
+        let part1: packed_simd::u64x8 = shuffle!(res1, res2, [0, 8, 1, 9, 2, 10, 3, 11]);
+        let part2: packed_simd::u64x8 = shuffle!(res1, res2, [4, 12, 5, 13, 6, 14, 7, 15]);
 
         *self = MixedGL::from_u64x8_arrays([part1, part2]);
 
@@ -191,27 +188,27 @@ impl MixedGL {
 
     pub unsafe fn butterfly_2x2_impl(&mut self) -> &mut Self {
         let [part1, part2] = MixedGL::as_u64x8_arrays(&*self);
-        let u: u64x8 = simd_shuffle(part1, part2, const { [0u32, 1, 4, 5, 8, 9, 12, 13] });
-        let v: u64x8 = simd_shuffle(part1, part2, const { [2u32, 3, 6, 7, 10, 11, 14, 15] });
+        let u: packed_simd::u64x8 = shuffle!(part1, part2, [0, 1, 4, 5, 8, 9, 12, 13]);
+        let v: packed_simd::u64x8 = shuffle!(part1, part2, [2, 3, 6, 7, 10, 11, 14, 15]);
         //additional reduction over v
         let v_reduced = v.add(Self::EPSILON_VECTOR_D);
-        let cmp = v_reduced.simd_lt(Self::EPSILON_VECTOR_D);
+        let cmp = v_reduced.lt(Self::EPSILON_VECTOR_D);
         let v = cmp.select(v_reduced, v);
         // u + v
         let sum = u.add(v);
         let sum_reduced = sum.add(Self::EPSILON_VECTOR_D);
-        let cmp0 = sum_reduced.simd_lt(sum);
-        let cmp1 = sum.simd_lt(u);
+        let cmp0 = sum_reduced.lt(sum);
+        let cmp1 = sum.lt(u);
         let reduce_flag = cmp0.bitor(cmp1);
         let res1 = reduce_flag.select(sum_reduced, sum);
         // u - v
         let diff = u.sub(v);
         let diff_reduced = diff.sub(Self::EPSILON_VECTOR_D);
-        let cmp = u.simd_lt(v);
+        let cmp = u.lt(v);
         let res2 = cmp.select(diff_reduced, diff);
 
-        let part1: u64x8 = simd_shuffle(res1, res2, const { [0u32, 1, 8, 9, 2, 3, 10, 11] });
-        let part2: u64x8 = simd_shuffle(res1, res2, const { [4u32, 5, 12, 13, 6, 7, 14, 15] });
+        let part1: packed_simd::u64x8 = shuffle!(res1, res2, [0, 1, 8, 9, 2, 3, 10, 11]);
+        let part2: packed_simd::u64x8 = shuffle!(res1, res2, [4, 5, 12, 13, 6, 7, 14, 15]);
 
         *self = MixedGL::from_u64x8_arrays([part1, part2]);
 
@@ -220,27 +217,27 @@ impl MixedGL {
 
     pub unsafe fn butterfly_4x4_impl(&mut self) -> &mut Self {
         let [part1, part2] = MixedGL::as_u64x8_arrays(&*self);
-        let u: u64x8 = simd_shuffle(part1, part2, const { [0u32, 1, 2, 3, 8, 9, 10, 11] });
-        let v: u64x8 = simd_shuffle(part1, part2, const { [4u32, 5, 6, 7, 12, 13, 14, 15] });
+        let u: packed_simd::u64x8 = shuffle!(part1, part2, [0, 1, 2, 3, 8, 9, 10, 11]);
+        let v: packed_simd::u64x8 = shuffle!(part1, part2, [4, 5, 6, 7, 12, 13, 14, 15]);
         //additional reduction over v
         let v_reduced = v.add(Self::EPSILON_VECTOR_D);
-        let cmp = v_reduced.simd_lt(Self::EPSILON_VECTOR_D);
+        let cmp = v_reduced.lt(Self::EPSILON_VECTOR_D);
         let v = cmp.select(v_reduced, v);
         // u + v
         let sum = u.add(v);
         let sum_reduced = sum.add(Self::EPSILON_VECTOR_D);
-        let cmp0 = sum_reduced.simd_lt(sum);
-        let cmp1 = sum.simd_lt(u);
+        let cmp0 = sum_reduced.lt(sum);
+        let cmp1 = sum.lt(u);
         let reduce_flag = cmp0.bitor(cmp1);
         let res1 = reduce_flag.select(sum_reduced, sum);
         // u - v
         let diff = u.sub(v);
         let diff_reduced = diff.sub(Self::EPSILON_VECTOR_D);
-        let cmp = u.simd_lt(v);
+        let cmp = u.lt(v);
         let res2 = cmp.select(diff_reduced, diff);
 
-        let part1: u64x8 = simd_shuffle(res1, res2, const { [0u32, 1, 2, 3, 8, 9, 10, 11] });
-        let part2: u64x8 = simd_shuffle(res1, res2, const { [4u32, 5, 6, 7, 12, 13, 14, 15] });
+        let part1: packed_simd::u64x8 = shuffle!(res1, res2, [0, 1, 2, 3, 8, 9, 10, 11]);
+        let part2: packed_simd::u64x8 = shuffle!(res1, res2, [4, 5, 6, 7, 12, 13, 14, 15]);
 
         *self = MixedGL::from_u64x8_arrays([part1, part2]);
 
@@ -259,27 +256,27 @@ impl MixedGL {
 
         let u = std::slice::from_raw_parts_mut(this as *mut u64, 8);
         let v = std::slice::from_raw_parts_mut(other as *mut u64, 8);
-        let a = u64x8::from_slice(u);
-        let b = u64x8::from_slice(v);
+        let a = packed_simd::u64x8::from_slice_aligned(u);
+        let b = packed_simd::u64x8::from_slice_aligned(v);
         //additional reduction over b
         let b_reduced = b.add(Self::EPSILON_VECTOR_D);
-        let cmp = b_reduced.simd_lt(Self::EPSILON_VECTOR_D);
+        let cmp = b_reduced.lt(Self::EPSILON_VECTOR_D);
         let b = cmp.select(b_reduced, b);
         // u + v
         let sum = a.add(b);
         let sum_reduced = sum.add(Self::EPSILON_VECTOR_D);
-        let cmp0 = sum_reduced.simd_lt(sum);
-        let cmp1 = sum.simd_lt(a);
+        let cmp0 = sum_reduced.lt(sum);
+        let cmp1 = sum.lt(a);
         let reduce_flag = cmp0.bitor(cmp1);
         let res1 = reduce_flag.select(sum_reduced, sum);
         // u - v
         let diff = a.sub(b);
         let diff_reduced = diff.sub(Self::EPSILON_VECTOR_D);
-        let cmp = a.simd_lt(b);
+        let cmp = a.lt(b);
         let res2 = cmp.select(diff_reduced, diff);
 
-        res1.copy_to_slice(u);
-        res2.copy_to_slice(v);
+        res1.write_to_slice_aligned(u);
+        res2.write_to_slice_aligned(v);
     }
 
     /// # Safety
@@ -326,7 +323,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    pub(crate) fn as_u64x8_arrays(input: &Self) -> [u64x8; 2] {
+    pub(crate) fn as_u64x8_arrays(input: &Self) -> [packed_simd::u64x8; 2] {
         // this preserves an alignment
         unsafe { std::mem::transmute(*input) }
     }
@@ -338,7 +335,7 @@ impl MixedGL {
     }
 
     #[inline(always)]
-    pub(crate) unsafe fn from_u64x8_arrays(input: [u64x8; 2]) -> Self {
+    pub(crate) unsafe fn from_u64x8_arrays(input: [packed_simd::u64x8; 2]) -> Self {
         // this preserves an alignment
         std::mem::transmute(input)
     }
@@ -415,8 +412,8 @@ impl crate::field::traits::field_like::PrimeFieldLike for MixedGL {
         for i in 0..4 {
             let a = a_u64.0[i];
 
-            let is_zero = a.simd_eq(u64x4::splat(0));
-            let neg = u64x4::splat(Self::ORDER).sub(a);
+            let is_zero = a.eq(packed_simd::u64x4::splat(0));
+            let neg = packed_simd::u64x4::splat(Self::ORDER).sub(a);
             let res = is_zero.select(a, neg);
 
             a_u64.0[i] = res;
