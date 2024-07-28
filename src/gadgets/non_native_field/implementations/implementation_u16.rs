@@ -1030,10 +1030,6 @@ impl<F: SmallField, T: pairing::ff::PrimeField, const N: usize> CSAllocatable<F>
     fn allocate<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {
         unimplemented!("we need parameters to do it")
     }
-
-    fn allocate_to_buffer(_witness: Self::Witness, _dst: &mut Vec<F>) {
-        unimplemented!("we need parameters to do it")
-    }
 }
 
 // We need this to ensure no conflicting implementations without negative impls

@@ -47,10 +47,6 @@ impl<F: SmallField> CSAllocatable<F> for UInt16<F> {
     fn allocate_constant<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         Self::allocated_constant(cs, witness)
     }
-
-    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
-        dst.push(F::from_u64_with_reduction(witness as u64));
-    }
 }
 
 impl<F: SmallField> CSAllocatableExt<F> for UInt16<F> {
@@ -572,5 +568,8 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt16<F> {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.push(self.variable);
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        dst.push(F::from_u64_with_reduction(*witness as u64));
     }
 }

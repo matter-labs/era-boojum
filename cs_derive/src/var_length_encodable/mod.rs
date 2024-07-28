@@ -24,6 +24,7 @@ pub(crate) fn derive_var_length_encodable(
 
     let mut length_impls = TokenStream::new();
     let mut field_impls = TokenStream::new();
+    let mut witness_to_buffer_impls = TokenStream::new();
 
     let extra_bound = if let Some(bound) = fetch_attr_from_list(BOUND_ATTR_NAME, &attrs) {
         let bound = syn::parse_str::<WhereClause>(&bound).expect("must parse bound as WhereClause");
@@ -41,7 +42,7 @@ pub(crate) fn derive_var_length_encodable(
                 for field in named_fields.named.iter() {
                     let field_ident = field.ident.clone().expect("should have a field elem ident");
                     match field.ty {
-                        Type::Array(ref _array_ty) => {
+                        Type::Array(ref array_ty) => {
                             let field_impl = quote! {
                                 total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.#field_ident);
                             };
@@ -51,8 +52,12 @@ pub(crate) fn derive_var_length_encodable(
                                 CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.#field_ident, cs, dst);
                             };
                             field_impls.extend(field_impl);
+                            let wit_to_buf_impl = quote! {
+                                <#array_ty as CircuitVarLengthEncodable<F>>::encode_witness_to_buffer(&witness.#field_ident, dst);
+                            };
+                            witness_to_buffer_impls.extend(wit_to_buf_impl);
                         }
-                        Type::Path(_) => {
+                        Type::Path(ref path_ty) => {
                             let field_impl = quote! {
                                 total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.#field_ident);
                             };
@@ -61,6 +66,10 @@ pub(crate) fn derive_var_length_encodable(
                                 CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.#field_ident, cs, dst);
                             };
                             field_impls.extend(field_impl);
+                            let wit_to_buf_impl = quote! {
+                                <#path_ty as CircuitVarLengthEncodable<F>>::encode_witness_to_buffer(&witness.#field_ident, dst);
+                            };
+                            witness_to_buffer_impls.extend(wit_to_buf_impl);
                         }
                         _ => abort_call_site!("only array and path types are allowed"),
                     };
@@ -105,6 +114,9 @@ pub(crate) fn derive_var_length_encodable(
             }
             fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
                 #field_impls
+            }
+            fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+                #witness_to_buffer_impls
             }
         }
     };

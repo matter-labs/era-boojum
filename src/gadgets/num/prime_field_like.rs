@@ -46,11 +46,6 @@ impl<F: SmallField, CSO: ConstraintSystem<F>> CSAllocatable<F> for NumAsFieldWra
     fn placeholder_witness() -> Self::Witness {
         F::ZERO
     }
-
-    #[inline(always)]
-    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
-        dst.push(witness);
-    }
 }
 
 impl<F: SmallField, CSO: ConstraintSystem<F>> WitnessHookable<F> for NumAsFieldWrapper<F, CSO> {
@@ -224,13 +219,6 @@ impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CSO: ConstraintSystem
 
     fn placeholder_witness() -> Self::Witness {
         <ExtensionField<F, 2, EXT> as crate::field::traits::field::Field>::ZERO
-    }
-
-    #[inline(always)]
-    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
-        let [c0, c1] = witness.into_coeffs_in_base();
-        Num::allocate_to_buffer(c0, dst);
-        Num::allocate_to_buffer(c1, dst);
     }
 }
 impl<F: SmallField, EXT: FieldExtension<2, BaseField = F>, CSO: ConstraintSystem<F> + 'static>

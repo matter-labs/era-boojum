@@ -78,11 +78,6 @@ impl<F: SmallField> CSAllocatable<F> for UInt512<F> {
         let chunks = chunks.map(|el| UInt32::allocate_checked(cs, el));
         Self { inner: chunks }
     }
-
-    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
-        let chunks = decompose_u512_as_u32x16(witness);
-        chunks.map(|el| UInt32::allocate_to_buffer(el, dst));
-    }
 }
 
 impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {
@@ -390,6 +385,10 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt512<F> {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
         CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.inner, cs, dst);
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        let chunks = decompose_u512_as_u32x16(*witness);
+        chunks.map(|el| UInt32::encode_witness_to_buffer(&el, dst));
     }
 }
 

@@ -7,6 +7,7 @@ pub trait CircuitEncodable<F: SmallField, const N: usize>:
     'static + Send + Sync + CSAllocatable<F>
 {
     fn encode<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> [Variable; N];
+    fn encode_witness(witness: &Self::Witness, dst: &mut Vec<F>);
 }
 
 pub trait CircuitEncodableExt<F: SmallField, const N: usize>:
@@ -19,6 +20,7 @@ pub trait CircuitVarLengthEncodable<F: SmallField>:
 {
     fn encoding_length(&self) -> usize;
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>);
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>);
 }
 
 // unfortunately default implementation is impossible as compiler can not have constraint "for all N"
@@ -48,6 +50,12 @@ impl<F: SmallField, const N: usize, T: CircuitVarLengthEncodable<F>> CircuitVarL
             el.encode_to_buffer(cs, dst);
         }
     }
+
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        for el in witness.iter() {
+            T::encode_witness_to_buffer(el, dst);
+        }
+    }
 }
 
 impl<F: SmallField> CircuitVarLengthEncodable<F> for () {
@@ -56,6 +64,9 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for () {
         0
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, _dst: &mut Vec<Variable>) {
+        // do nothing
+    }
+    fn encode_witness_to_buffer(_witness: &Self::Witness, _dst: &mut Vec<F>) {
         // do nothing
     }
 }

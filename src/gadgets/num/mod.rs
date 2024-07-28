@@ -69,11 +69,6 @@ impl<F: SmallField> CSAllocatable<F> for Num<F> {
             _marker: std::marker::PhantomData,
         }
     }
-
-    #[inline(always)]
-    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
-        dst.push(witness);
-    }
 }
 
 use crate::gadgets::traits::witnessable::CSWitnessable;
@@ -1228,6 +1223,9 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for Num<F> {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.push(self.get_variable());
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        dst.push(*witness);
     }
 }
 

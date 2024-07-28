@@ -46,7 +46,6 @@ pub(crate) fn derive_allocatable(input: proc_macro::TokenStream) -> proc_macro::
     let mut allocations = TokenStream::new();
     let mut allocations_without_value = TokenStream::new();
     let mut allocations_as_constant = TokenStream::new();
-    let mut allocations_to_buffer = TokenStream::new();
     let mut initializations = TokenStream::new();
     let mut placeholder_initializations = TokenStream::new();
 
@@ -90,17 +89,6 @@ pub(crate) fn derive_allocatable(input: proc_macro::TokenStream) -> proc_macro::
                         _ => abort_call_site!("only array and path types are allowed"),
                     };
                     allocations_as_constant.extend(allocations_as_constant_line);
-
-                    let allocations_to_buffer_line = match field.ty {
-                        Type::Path(ref _path_ty) => {
-                            derive_allocate_to_buffer_by_type_path(&field_ident, _path_ty)
-                        }
-                        Type::Array(ref _arr_ty) => {
-                            derive_allocate_to_buffer_by_array_type(&field_ident, _arr_ty)
-                        }
-                        _ => abort_call_site!("only array and path types are allowed"),
-                    };
-                    allocations_to_buffer.extend(allocations_to_buffer_line);
 
                     let placeholder_init_line = match field.ty {
                         Type::Path(ref _path_ty) => {
@@ -233,10 +221,6 @@ pub(crate) fn derive_allocatable(input: proc_macro::TokenStream) -> proc_macro::
                     #initializations
                 }
             }
-
-            fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
-                #allocations_to_buffer
-            }
         }
     };
 
@@ -294,20 +278,6 @@ fn derive_allocate_as_constant_by_array_type(ident: &Ident, ty: &TypeArray) -> T
     quote! {
         let wit = witness.#ident.clone();
         let #ident = <#ty as CSAllocatable<F>>::allocate_constant(cs, wit);
-    }
-}
-
-fn derive_allocate_to_buffer_by_type_path(ident: &Ident, ty: &TypePath) -> TokenStream {
-    quote! {
-        let wit = witness.#ident.clone();
-        let #ident = <#ty as CSAllocatable<F>>::allocate_to_buffer(wit, dst);
-    }
-}
-
-fn derive_allocate_to_buffer_by_array_type(ident: &Ident, ty: &TypeArray) -> TokenStream {
-    quote! {
-        let wit = witness.#ident.clone();
-        let #ident = <#ty as CSAllocatable<F>>::allocate_to_buffer(wit, dst);
     }
 }
 
