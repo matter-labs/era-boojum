@@ -14,6 +14,7 @@ pub trait CSAllocatable<F: SmallField>: Sized {
     fn allocate_constant<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {
         unimplemented!("not implemented by default");
     }
+    fn allocate_to_buffer(_witness: Self::Witness, dst: &mut Vec<F>);
 }
 
 pub trait CSPlaceholder<F: SmallField>: Sized {
@@ -61,6 +62,8 @@ impl<F: SmallField> CSAllocatable<F> for () {
 
     #[inline(always)]
     fn allocate_constant<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {}
+
+    fn allocate_to_buffer(_witness: Self::Witness, _dst: &mut Vec<F>) {}
 }
 
 // Marker that we can use
@@ -88,6 +91,8 @@ impl<F: SmallField, T: 'static + Send + Sync + Clone> CSAllocatable<F>
     fn allocate_constant<CS: ConstraintSystem<F>>(_cs: &mut CS, _witness: Self::Witness) -> Self {
         std::marker::PhantomData
     }
+
+    fn allocate_to_buffer(_witness: Self::Witness, _dst: &mut Vec<F>) {}
 }
 
 // Array
@@ -112,6 +117,12 @@ impl<F: SmallField, T: CSAllocatable<F>, const N: usize> CSAllocatable<F> for [T
     #[inline(always)]
     fn allocate_constant<CS: ConstraintSystem<F>>(cs: &mut CS, witness: Self::Witness) -> Self {
         witness.map(|el| T::allocate_constant(cs, el))
+    }
+
+    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
+        for el in witness {
+            T::allocate_to_buffer(el, dst);
+        }
     }
 }
 

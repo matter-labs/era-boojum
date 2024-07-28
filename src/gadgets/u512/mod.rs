@@ -78,6 +78,11 @@ impl<F: SmallField> CSAllocatable<F> for UInt512<F> {
         let chunks = chunks.map(|el| UInt32::allocate_checked(cs, el));
         Self { inner: chunks }
     }
+
+    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
+        let chunks = decompose_u512_as_u32x16(witness);
+        chunks.map(|el| UInt32::allocate_to_buffer(el, dst));
+    }
 }
 
 impl<F: SmallField> CSAllocatableExt<F> for UInt512<F> {

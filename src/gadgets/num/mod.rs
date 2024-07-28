@@ -69,6 +69,11 @@ impl<F: SmallField> CSAllocatable<F> for Num<F> {
             _marker: std::marker::PhantomData,
         }
     }
+
+    #[inline(always)]
+    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
+        dst.push(witness);
+    }
 }
 
 use crate::gadgets::traits::witnessable::CSWitnessable;

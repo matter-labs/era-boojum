@@ -45,6 +45,12 @@ impl<F: SmallField> CSAllocatable<F> for Boolean<F> {
 
         Self::from_variable_checked(cs, var)
     }
+
+    #[inline(always)]
+    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
+        let val = F::from_raw_u64_unchecked(witness as u64);
+        dst.push(val);
+    }
 }
 
 impl<F: SmallField> CSAllocatableExt<F> for Boolean<F> {

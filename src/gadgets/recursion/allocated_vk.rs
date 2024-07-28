@@ -65,6 +65,12 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> CSAllocatable<F>
             setup_merkle_tree_cap: cap,
         }
     }
+
+    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
+        for el in witness.setup_merkle_tree_cap.into_iter() {
+            H::CircuitOutput::allocate_to_buffer(el, dst)
+        }
+    }
 }
 
 impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> WitnessHookable<F>

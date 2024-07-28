@@ -70,6 +70,11 @@ impl<F: SmallField> CSAllocatable<F> for UInt160<F> {
         let chunks = chunks.map(|el| UInt32::allocate_constant(cs, el));
         Self { inner: chunks }
     }
+
+    fn allocate_to_buffer(witness: Self::Witness, dst: &mut Vec<F>) {
+        let chunks = decompose_address_as_u32x5(witness);
+        chunks.map(|el| UInt32::allocate_to_buffer(el, dst));
+    }
 }
 
 impl<F: SmallField> CSAllocatableExt<F> for UInt160<F> {
