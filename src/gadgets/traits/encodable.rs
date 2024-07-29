@@ -20,6 +20,8 @@ pub trait CircuitVarLengthEncodable<F: SmallField>:
 {
     fn encoding_length(&self) -> usize;
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>);
+
+    fn witness_encoding_length(witness: &Self::Witness) -> usize;
     fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>);
 }
 
@@ -50,6 +52,12 @@ impl<F: SmallField, const N: usize, T: CircuitVarLengthEncodable<F>> CircuitVarL
             el.encode_to_buffer(cs, dst);
         }
     }
+    
+    fn witness_encoding_length(witness: &Self::Witness) -> usize {
+        debug_assert!(N > 0);
+
+        N * T::witness_encoding_length(&witness[0])
+    }
 
     fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
         for el in witness.iter() {
@@ -65,6 +73,10 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for () {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, _dst: &mut Vec<Variable>) {
         // do nothing
+    }
+    #[inline(always)]
+    fn witness_encoding_length(_witness: &Self::Witness) -> usize {
+        0
     }
     fn encode_witness_to_buffer(_witness: &Self::Witness, _dst: &mut Vec<F>) {
         // do nothing

@@ -124,6 +124,14 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> CircuitVarLengthEncodable
         }
     }
 
+    fn witness_encoding_length(witness: &Self::Witness) -> usize {
+        let cap_size = witness.setup_merkle_tree_cap.len();
+        assert!(cap_size > 0);
+        let el_size = H::CircuitOutput::witness_encoding_length(&witness.setup_merkle_tree_cap[0]);
+
+        el_size * cap_size
+    }
+
     fn encode_witness_to_buffer(
         witness: &Self::Witness,
         dst: &mut Vec<F>,
