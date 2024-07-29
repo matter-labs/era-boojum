@@ -52,7 +52,7 @@ impl<F: SmallField, const N: usize, T: CircuitVarLengthEncodable<F>> CircuitVarL
             el.encode_to_buffer(cs, dst);
         }
     }
-    
+
     fn witness_encoding_length(witness: &Self::Witness) -> usize {
         debug_assert!(N > 0);
 

@@ -132,10 +132,7 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> CircuitVarLengthEncodable
         el_size * cap_size
     }
 
-    fn encode_witness_to_buffer(
-        witness: &Self::Witness,
-        dst: &mut Vec<F>,
-    ) {
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
         for el in witness.setup_merkle_tree_cap.iter() {
             H::CircuitOutput::encode_witness_to_buffer(el, dst)
         }
