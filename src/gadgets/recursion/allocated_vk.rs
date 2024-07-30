@@ -142,4 +142,3 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> WitnessVarLengthEncodable
         }
     }
 }
-
