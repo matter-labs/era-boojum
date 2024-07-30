@@ -582,14 +582,14 @@ pub fn simulate_new_tail<
 use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::serde_utils::BigArraySerde;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitVarLengthEncodable, WitnessHookable)]
 #[derivative(Clone, Copy, Debug)]
 pub struct QueueState<F: SmallField, const N: usize> {
     pub head: [Num<F>; N],
     pub tail: QueueTailState<F, N>,
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitVarLengthEncodable, WitnessHookable)]
 #[derivative(Clone, Copy, Debug)]
 pub struct QueueTailState<F: SmallField, const N: usize> {
     pub tail: [Num<F>; N],

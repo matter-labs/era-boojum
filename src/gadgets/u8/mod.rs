@@ -1,3 +1,5 @@
+use traits::encodable::WitnessVarLengthEncodable;
+
 use super::tables::ch4::Ch4Table;
 use super::tables::trixor4::TriXor4Table;
 use super::tables::xor8::Xor8Table;
@@ -577,6 +579,9 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt8<F> {
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.push(self.variable);
     }
+}
+
+impl<F: SmallField> WitnessVarLengthEncodable<F> for UInt8<F> {
     #[inline(always)]
     fn witness_encoding_length(_witness: &Self::Witness) -> usize {
         1

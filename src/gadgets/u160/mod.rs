@@ -245,7 +245,7 @@ use crate::gadgets::traits::selectable::MultiSelectable;
 // so we degrade to default impl via normal select
 impl<F: SmallField> MultiSelectable<F> for UInt160<F> {}
 
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
+use crate::gadgets::traits::encodable::{CircuitVarLengthEncodable, WitnessVarLengthEncodable};
 
 impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt160<F> {
     #[inline(always)]
@@ -255,6 +255,9 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt160<F> {
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
         CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.inner, cs, dst);
     }
+}
+
+impl<F: SmallField> WitnessVarLengthEncodable<F> for UInt160<F> {
     #[inline(always)]
     fn witness_encoding_length(_witness: &Self::Witness) -> usize {
         5
