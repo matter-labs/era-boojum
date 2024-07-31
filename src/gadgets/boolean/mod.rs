@@ -702,7 +702,7 @@ impl<F: SmallField> Boolean<F> {
     }
 }
 
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
+use crate::gadgets::traits::encodable::{CircuitVarLengthEncodable, WitnessVarLengthEncodable};
 
 impl<F: SmallField> CircuitVarLengthEncodable<F> for Boolean<F> {
     #[inline(always)]
@@ -711,5 +711,15 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for Boolean<F> {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.push(self.variable);
+    }
+}
+
+impl<F: SmallField> WitnessVarLengthEncodable<F> for Boolean<F> {
+    fn witness_encoding_length(_witness: &Self::Witness) -> usize {
+        1
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        let val = F::from_raw_u64_unchecked(*witness as u64);
+        dst.push(val);
     }
 }

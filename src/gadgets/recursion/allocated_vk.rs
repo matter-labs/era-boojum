@@ -101,7 +101,7 @@ where
     }
 }
 
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
+use crate::gadgets::traits::encodable::{CircuitVarLengthEncodable, WitnessVarLengthEncodable};
 
 impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> CircuitVarLengthEncodable<F>
     for AllocatedVerificationKey<F, H>
@@ -121,6 +121,24 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> CircuitVarLengthEncodable
     ) {
         for el in self.setup_merkle_tree_cap.iter() {
             el.encode_to_buffer(cs, dst);
+        }
+    }
+}
+
+impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>> WitnessVarLengthEncodable<F>
+    for AllocatedVerificationKey<F, H>
+{
+    fn witness_encoding_length(witness: &Self::Witness) -> usize {
+        let cap_size = witness.setup_merkle_tree_cap.len();
+        assert!(cap_size > 0);
+        let el_size = H::CircuitOutput::witness_encoding_length(&witness.setup_merkle_tree_cap[0]);
+
+        el_size * cap_size
+    }
+
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        for el in witness.setup_merkle_tree_cap.iter() {
+            H::CircuitOutput::encode_witness_to_buffer(el, dst)
         }
     }
 }

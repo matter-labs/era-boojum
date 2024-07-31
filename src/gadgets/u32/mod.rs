@@ -876,7 +876,7 @@ impl<F: SmallField> UInt32<F> {
     }
 }
 
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
+use crate::gadgets::traits::encodable::{CircuitVarLengthEncodable, WitnessVarLengthEncodable};
 
 impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt32<F> {
     #[inline(always)]
@@ -885,6 +885,16 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for UInt32<F> {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.push(self.variable);
+    }
+}
+
+impl<F: SmallField> WitnessVarLengthEncodable<F> for UInt32<F> {
+    #[inline(always)]
+    fn witness_encoding_length(_witness: &Self::Witness) -> usize {
+        1
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        dst.push(F::from_u64_with_reduction(*witness as u64));
     }
 }
 

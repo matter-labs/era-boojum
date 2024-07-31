@@ -1214,7 +1214,7 @@ pub fn dot_product_using_dot_product_gate<F: SmallField, CS: ConstraintSystem<F>
     result
 }
 
-use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
+use crate::gadgets::traits::encodable::{CircuitVarLengthEncodable, WitnessVarLengthEncodable};
 
 impl<F: SmallField> CircuitVarLengthEncodable<F> for Num<F> {
     #[inline(always)]
@@ -1223,6 +1223,16 @@ impl<F: SmallField> CircuitVarLengthEncodable<F> for Num<F> {
     }
     fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, _cs: &mut CS, dst: &mut Vec<Variable>) {
         dst.push(self.get_variable());
+    }
+}
+
+impl<F: SmallField> WitnessVarLengthEncodable<F> for Num<F> {
+    #[inline(always)]
+    fn witness_encoding_length(_witness: &Self::Witness) -> usize {
+        1
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        dst.push(*witness);
     }
 }
 
