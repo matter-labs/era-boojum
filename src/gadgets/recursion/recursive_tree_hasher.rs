@@ -25,7 +25,8 @@ pub trait CircuitTreeHasher<F: SmallField, B: Sized + CSAllocatable<F>>:
         + Eq
         + std::fmt::Debug
         + CSAllocatable<F>
-        + CircuitVarLengthEncodable<F>;
+        + CircuitVarLengthEncodable<F>
+        + WitnessVarLengthEncodable<F>;
 
     fn new<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self;
     fn placeholder_output<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self::CircuitOutput;
@@ -86,6 +87,8 @@ pub trait RecursiveTreeHasher<F: SmallField, B: Sized + CSAllocatable<F>>:
 }
 
 use crate::gadgets::round_function::CircuitSimpleAlgebraicSponge;
+
+use super::traits::encodable::WitnessVarLengthEncodable;
 
 impl<
         F: SmallField,

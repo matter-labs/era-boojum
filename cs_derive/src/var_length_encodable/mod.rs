@@ -52,7 +52,7 @@ pub(crate) fn derive_var_length_encodable(
                             };
                             field_impls.extend(field_impl);
                         }
-                        Type::Path(_) => {
+                        Type::Path(ref _path_ty) => {
                             let field_impl = quote! {
                                 total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.#field_ident);
                             };

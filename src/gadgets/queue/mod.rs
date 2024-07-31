@@ -6,7 +6,7 @@ use super::boolean::Boolean;
 use super::num::Num;
 use super::traits::allocatable::*;
 use super::u32::UInt32;
-use super::{traits::encodable::CircuitEncodable, *};
+use super::{traits::encodable::CircuitEncodable, traits::encodable::WitnessVarLengthEncodable, *};
 use crate::algebraic_props::round_function::AbsorptionModeOverwrite;
 use crate::algebraic_props::round_function::AlgebraicRoundFunction;
 use crate::config::CSConfig;
@@ -582,14 +582,28 @@ pub fn simulate_new_tail<
 use crate::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::serde_utils::BigArraySerde;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitVarLengthEncodable,
+    WitnessHookable,
+)]
 #[derivative(Clone, Copy, Debug)]
 pub struct QueueState<F: SmallField, const N: usize> {
     pub head: [Num<F>; N],
     pub tail: QueueTailState<F, N>,
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitVarLengthEncodable,
+    WitnessHookable,
+)]
 #[derivative(Clone, Copy, Debug)]
 pub struct QueueTailState<F: SmallField, const N: usize> {
     pub tail: [Num<F>; N],

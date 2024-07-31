@@ -1,6 +1,13 @@
 use super::*;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitVarLengthEncodable,
+    WitnessHookable,
+)]
 #[derivative(Clone, Debug, Copy)]
 pub struct SpongeRoundRequest<F: SmallField, const SWIDTH: usize> {
     pub initial_state: [Num<F>; SWIDTH],
