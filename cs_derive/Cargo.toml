@@ -1,11 +1,18 @@
 [package]
 name = "cs_derive"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+repository = "https://github.com/matter-labs/era-boojum"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync"]
+categories = ["cryptography"]
+description = "Derive macro for boojum crate"
 
 [dependencies]
-syn = { version = "1.0.*", features = ["extra-traits", "printing"]}
-quote = { version = "1.0.*" }
+syn = { version = "1.0", features = ["extra-traits", "printing"]}
+quote = { version = "1.0" }
 proc-macro2 = "1"
 proc-macro-error = "1"
 

@@ -2,6 +2,13 @@
 name = "boojum"
 version = "0.2.0"
 edition = "2021"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+repository = "https://github.com/matter-labs/era-boojum"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync"]
+categories = ["cryptography"]
+description = "Boojum cryptographic library"
 
 [dependencies]
 derivative = "2"
@@ -10,30 +17,30 @@ rand = "0.8"
 unroll = "0.1"
 num_cpus = "1"
 rayon = "1"
-smallvec = { version = "*", features = ["const_generics", "const_new", "serde"] }
-crossbeam = "*"
-sha3 = { git = "https://github.com/RustCrypto/hashes.git", rev = "7a187e934c1f6c68e4b4e5cf37541b7a0d64d303" }
-lazy_static = "*"
+smallvec = { version = "1.13", features = ["const_generics", "const_new", "serde"] }
+crossbeam = "0.8.4"
+sha3 = { package = "sha3_ce", version = "=0.10.6" }
+lazy_static = "1.5"
 arrayvec = "0.7"
 const_format = "0.2"
-bincode = "*"
+bincode = "1.3"
 ethereum-types = "=0.14.1"
-cs_derive = { path = "./cs_derive" }
+cs_derive = { version = "=0.2.0", path = "./cs_derive" }
 itertools = "0.10"
 blake2 = "0.10"
 sha2 = "0.10"
 num-modular = "0.5.1"
 packed_simd = { version = "0.3.9" , optional = true}
-pairing = { package = "pairing_ce", git = "https://github.com/matter-labs/pairing.git" }
+pairing = { package = "pairing_ce", version = "=0.28.6" }
 crypto-bigint = "0.5"
-convert_case = "*"
-firestorm = "*"
+convert_case = "0.6"
+firestorm = "0.5"
 tracing = { version = "0.1.37", optional = true }
 
 [dev-dependencies]
 criterion = "0.4"
-serde_json = "*"
-hex = "*"
+serde_json = "1"
+hex = "0.4"
 
 [[bench]]
 name = "benchmarks"
