@@ -1,10 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::abort_call_site;
 use quote::quote;
-use syn::{
-    parse_macro_input, token::Comma, DeriveInput, GenericParam, Type,
-    WhereClause,
-};
+use syn::{parse_macro_input, token::Comma, DeriveInput, GenericParam, Type, WhereClause};
 
 use crate::utils::*;
 

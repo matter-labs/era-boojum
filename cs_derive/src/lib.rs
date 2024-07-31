@@ -6,8 +6,8 @@ mod allocatable;
 mod selectable;
 pub(crate) mod utils;
 mod var_length_encodable;
-mod witness_var_length_encodable;
 mod witness_hook;
+mod witness_var_length_encodable;
 
 #[proc_macro_derive(CSSelectable, attributes(CSSelectableBound))]
 #[proc_macro_error::proc_macro_error]
