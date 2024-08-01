@@ -4,16 +4,17 @@ use crate::field::goldilocks::GoldilocksField;
 pub mod params;
 
 pub mod state_generic_impl;
-#[cfg(not(all(
-    feature = "include_packed_simd",
-    any(
-        target_feature = "neon",
-        target_feature = "avx2",
+#[cfg(not(any(
+    all(
         target_feature = "avx512bw",
         target_feature = "avx512cd",
         target_feature = "avx512dq",
         target_feature = "avx512f",
         target_feature = "avx512vl",
+    ),
+    all(
+        feature = "include_packed_simd",
+        any(target_feature = "neon", target_feature = "avx2")
     )
 )))]
 pub use state_generic_impl::*;
@@ -48,7 +49,6 @@ pub mod state_vectorized_double;
 pub use state_vectorized_double::*;
 
 #[cfg(all(
-    feature = "include_packed_simd",
     target_feature = "avx512bw",
     target_feature = "avx512cd",
     target_feature = "avx512dq",
@@ -58,7 +58,6 @@ pub use state_vectorized_double::*;
 pub mod state_avx512;
 
 #[cfg(all(
-    feature = "include_packed_simd",
     target_feature = "avx512bw",
     target_feature = "avx512cd",
     target_feature = "avx512dq",

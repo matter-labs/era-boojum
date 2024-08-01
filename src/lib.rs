@@ -47,6 +47,7 @@
 #![feature(iter_array_chunks)]
 // #![recursion_limit = "1024"]
 #![feature(avx512_target_feature)]
+#![cfg_attr(target_feature = "avx512bw", feature(stdarch_x86_avx512))]
 #![feature(associated_type_defaults)]
 #![feature(trait_alias)]
 #![feature(vec_push_within_capacity)]
