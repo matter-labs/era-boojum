@@ -24,11 +24,6 @@ impl Aligned {
     }
 }
 
-// we also need holder for SIMD targets, because u64x4 has smaller alignment than u64x8
-#[derive(Clone, Copy)]
-#[repr(C, align(64))]
-struct U128x4Holder([packed_simd::u128x4; 3]);
-
 impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
