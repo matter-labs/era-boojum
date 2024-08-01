@@ -5,13 +5,16 @@ pub mod params;
 
 pub mod state_generic_impl;
 #[cfg(not(any(
-    feature = "include_packed_simd",
     all(
         target_feature = "avx512bw",
         target_feature = "avx512cd",
         target_feature = "avx512dq",
         target_feature = "avx512f",
         target_feature = "avx512vl",
+    ),
+    all(
+        feature = "include_packed_simd",
+        any(target_feature = "neon", target_feature = "avx2")
     )
 )))]
 pub use state_generic_impl::*;
