@@ -272,7 +272,7 @@ where
 {
     fn write_into_buffer<W: Write>(&self, mut dst: W) -> Result<(), Box<dyn Error>> {
         // we avoid transmute here
-        let flattened_self = self[..].flatten();
+        let flattened_self = self[..].as_flattened();
 
         let len_as_base = flattened_self.len();
         let len_le_bytes = (len_as_base as u64).to_le_bytes();
@@ -346,7 +346,7 @@ where
 {
     fn write_into_buffer<W: Write>(&self, mut dst: W) -> Result<(), Box<dyn Error>> {
         // we avoid transmute here
-        let flattened_self = self[..].flatten();
+        let flattened_self = self[..].as_flattened();
 
         let len_as_base = flattened_self.len();
         let len_le_bytes = (len_as_base as u64).to_le_bytes();

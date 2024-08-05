@@ -53,7 +53,6 @@
 #![feature(vec_push_within_capacity)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_changing_struct_update)]
-#![feature(slice_flatten)]
 #![cfg_attr(feature = "include_packed_simd", feature(stdsimd))]
 
 pub mod algebraic_props;
