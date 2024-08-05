@@ -17,6 +17,7 @@
     clippy::needless_pass_by_ref_mut, // Mutable references are often used indirectly (e.g. via unsafe code).
     clippy::int_plus_one, // Suggests less expressive code.
     clippy::bool_assert_comparison, // This crate prefers explicitness.
+    clippy::derived_hash_with_manual_eq,
 )]
 #![allow(dead_code)]
 #![allow(dropping_references)] // Required to explicitly show that mutable references are dropped.
@@ -53,7 +54,6 @@
 #![feature(vec_push_within_capacity)]
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(type_changing_struct_update)]
-#![cfg_attr(feature = "include_packed_simd", feature(stdsimd))]
 
 pub mod algebraic_props;
 pub mod config;
