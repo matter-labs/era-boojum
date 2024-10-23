@@ -258,6 +258,7 @@ where
             }
         }
 
+        assert!(self.tracker.max_moduluses <= self.params.max_mods_to_fit);
         new
     }
 
@@ -334,6 +335,7 @@ where
             }
         }
 
+        assert!(self.tracker.max_moduluses <= self.params.max_mods_to_fit);
         new
     }
 
@@ -713,6 +715,7 @@ where
         // enforce that r is canonical
         new.enforce_reduced(cs);
 
+        assert!(self.tracker.max_moduluses <= self.params.max_mods_to_fit);
         new
     }
 
@@ -764,7 +767,9 @@ where
             let new = Self {
                 limbs,
                 non_zero_limbs: used_words,
-                tracker: OverflowTracker { max_moduluses: 2 }, // NOTE: if self == 0, then limbs will be == modulus, so use 2
+                tracker: OverflowTracker {
+                    max_moduluses: std::cmp::max(2, self.tracker.max_moduluses),
+                }, // NOTE: if self == 0, then limbs will be == modulus, so use 2
                 form: RepresentationForm::Normalized,
                 params: self.params.clone(),
                 _marker: std::marker::PhantomData,
@@ -858,6 +863,7 @@ where
             }
         }
 
+        assert!(self.tracker.max_moduluses <= self.params.max_mods_to_fit);
         new
     }
 
