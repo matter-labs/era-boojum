@@ -210,7 +210,7 @@ impl<
                             if var.is_placeholder() == false {
                                 *dst = witness_ref[var.0 as usize];
                             } else {
-                                // we can use 0 as a substitue for all undefined variables,
+                                // we can use 0 as a substitute for all undefined variables,
                                 // or add ZK into them
                             }
                         }

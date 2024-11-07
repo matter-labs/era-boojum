@@ -60,7 +60,7 @@ impl<
 
     pub fn absorb(&mut self, values: &[F]) {
         let mut rest = values;
-        // quickly fill the unfilled, then do full absorbtion rounds, then save the rest
+        // quickly fill the unfilled, then do full absorption rounds, then save the rest
         if rest.len() > AW - self.filled {
             self.filled = 0;
             let (to_use, other) = rest.split_at(AW - self.filled);
